@@ -1,0 +1,8 @@
+{
+  "appId": "com.lldca.app",
+  "appName": "定投",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,17 @@
+# 依赖
+node_modules/
+
+# Android 构建产物
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+
+# 本地工具（Gradle / gh 便携版）
+.tools/
+
+# 临时文件
+*.log
+.DS_Store
+.tmp-*.js

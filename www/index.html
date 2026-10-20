@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f3f5f9">
+<meta name="description" content="美股七巨头（苹果/微软/谷歌/亚马逊/英伟达/Meta/特斯拉）月度定投记录与收益统计">
+<title>定投</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="定投">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div class="tb-title" id="tbTitle">七巨头定投</div>
+    <div class="tb-actions" id="tbActions"></div>
+  </header>
+
+  <main id="main">
+    <section class="view active" id="view-home"></section>
+    <section class="view" id="view-holdings"></section>
+    <section class="view" id="view-plan"></section>
+    <section class="view" id="view-records"></section>
+    <section class="view" id="view-me"></section>
+  </main>
+
+  <button class="fab" data-act="add" aria-label="记一笔">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>
+  </button>
+
+  <nav id="tabbar">
+    <button class="tab active" data-tab="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2"/><path d="M6.4 9.6V20h11.2V9.6"/><path d="M10.4 20v-5.4h3.2V20"/></svg>
+      <span>首页</span>
+    </button>
+    <button class="tab" data-tab="holdings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6V12l7.2 4.2"/></svg>
+      <span>持仓</span>
+    </button>
+    <button class="tab" data-tab="plan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.4" width="16" height="14.6" rx="2.2"/><path d="M8 3.4v4M16 3.4v4M4 10.2h16"/><path d="M8.6 14h2M13.4 14h2M8.6 17.2h2M13.4 17.2h2"/></svg>
+      <span>计划</span>
+    </button>
+    <button class="tab" data-tab="records">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h6"/><circle cx="4.6" cy="6.5" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="17.5" r="1.15" fill="currentColor" stroke="none"/></svg>
+      <span>记录</span>
+    </button>
+    <button class="tab" data-tab="me">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8.2" r="3.6"/><path d="M4.8 20.2c1.5-3.7 4.1-5.4 7.2-5.4s5.7 1.7 7.2 5.4"/></svg>
+      <span>我的</span>
+    </button>
+  </nav>
+</div>
+
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="sheet"></div>
+<div id="dialogRoot"></div>
+<div id="toastRoot"></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+
+<script src="app.js" defer></script>
+</body>
+</html>
