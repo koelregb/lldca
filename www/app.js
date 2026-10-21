@@ -563,6 +563,25 @@
     document.addEventListener('backbutton', () => {
       if ($('sheet').classList.contains('show')) closeSheet();
     });
+    // 软键盘优化①：输入框聚焦时自动滚到可视区中央（弹层/页面通用）
+    document.addEventListener('focusin', (e) => {
+      const el = e.target;
+      if (!el || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      setTimeout(() => {
+        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        catch (_) { try { el.scrollIntoView(); } catch (e2) { /* ignore */ } }
+      }, 260);
+    });
+    // 软键盘优化②：部分 WebView 未 adjustResize 时，把底部弹层抬到键盘上方
+    if (window.visualViewport) {
+      const vv = window.visualViewport;
+      vv.addEventListener('resize', () => {
+        const sh = $('sheet');
+        if (!sh || !sh.classList.contains('show')) return;
+        const kh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+        sh.style.transform = kh > 120 ? 'translate(-50%, ' + kh + 'px)' : '';
+      });
+    }
     switchTab('home');
   }
 
@@ -972,7 +991,7 @@
       </div>
       <div class="card">
         <div class="card-title">关于</div>
-        <div class="hint" style="margin:0">定投 v1.1.0（lldca）· 数据仅存储在本机（浏览器/应用内），不会上传。更换设备请使用「导出/导入备份」。<br><br>本应用可打包为安卓 App：通过 Capacitor 生成 Android 工程，用 Android Studio 构建 APK，详见项目 README.md。<br><br>注意：本应用仅用于个人投资记录与统计，不构成任何投资建议。股市有风险，投资需谨慎。</div>
+        <div class="hint" style="margin:0">定投 v1.2.0（lldca）· 数据仅存储在本机（浏览器/应用内），不会上传。更换设备请使用「导出/导入备份」。<br><br>自定义股票：在「计划」页点右上角 <b>+</b> 打开股票选择器，最上方「自定义代码」输入框可添加任意美股代码（1-5 位字母，如 NFLX / UBER / CRM，BRK.B 形式亦可）。<br><br>本应用可打包为安卓 App：通过 Capacitor 生成 Android 工程，用 Android Studio 构建 APK，详见项目 README.md。<br><br>注意：本应用仅用于个人投资记录与统计，不构成任何投资建议。股市有风险，投资需谨慎。</div>
       </div>`;
   }
 
@@ -1050,6 +1069,7 @@
   function openSheet(html, onMount) {
     const sh = $('sheet');
     sh.innerHTML = html;
+    sh.style.transform = '';
     sh.classList.add('show');
     $('backdrop').classList.add('show');
     document.body.style.overflow = 'hidden';
@@ -1059,6 +1079,7 @@
   function closeSheet() {
     const sh = $('sheet');
     sh.classList.remove('show');
+    sh.style.transform = '';
     $('backdrop').classList.remove('show');
     document.body.style.overflow = '';
     setTimeout(() => { if (!sh.classList.contains('show')) sh.innerHTML = ''; }, 350);
@@ -1173,15 +1194,18 @@
       <div class="sheet-grip"></div>
       <div class="sheet-title">选择定投股票<span class="sheet-sub" id="stock-count"></span></div>
       <div class="sheet-body">
-        <div class="custom-add">
-          <input class="input" id="custom-sym" type="text" maxlength="8" autocomplete="off" placeholder="自定义代码，如 NFLX / UBER / CRM">
-          <button class="btn btn-primary btn-sm" data-act="addCustom" type="button">添加</button>
-        </div>
         <div class="search-wrap">
           <span class="search-ic">${IC.search}</span>
           <input class="input" id="stock-q" type="text" data-bind="stockq" placeholder="搜索代码或名称，如 NVDA / 英伟达">
         </div>
         <div id="stock-list"></div>
+      </div>
+      <div class="custom-bar">
+        <div class="custom-bar-t">不在列表里？输入代码自定义添加<span class="custom-bar-h">1-5 个字母，如 NFLX / UBER / CRM</span></div>
+        <div class="custom-add">
+          <input class="input" id="custom-sym" type="text" maxlength="8" autocomplete="off" placeholder="美股代码，如 NFLX">
+          <button class="btn btn-primary btn-sm" data-act="addCustom" type="button">添加</button>
+        </div>
       </div>
       <div class="sheet-foot" style="display:flex;gap:10px">
         <button class="btn btn-ghost" style="flex:1" data-act="selectSeven">恢复七巨头</button>
@@ -1208,7 +1232,7 @@
     const items = all.filter((s) => !q || s.symbol.toUpperCase().indexOf(q) >= 0 || String(s.name).toUpperCase().indexOf(q) >= 0);
     if (cntEl) cntEl.textContent = `已选 ${selected.length}`;
     if (!items.length) {
-      listEl.innerHTML = '<div class="hint" style="margin:12px 0">没有匹配的预设股票。<br>可直接在上方输入美股代码（1-5 个字母，如 <b>NFLX</b>）点「添加」，加入任意想定投的股票。</div>';
+      listEl.innerHTML = '<div class="hint" style="margin:12px 0">没有匹配的预设股票。<br>可在下方「自定义代码」输入框输入美股代码（1-5 个字母，如 <b>NFLX</b>）点「添加」，加入任意想定投的股票。</div>';
       return;
     }
     listEl.innerHTML = '<div class="stock-grid">' + items.map((s) => {

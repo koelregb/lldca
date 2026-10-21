@@ -494,6 +494,10 @@ input { font-family: inherit; }
 }
 .custom-add { display: flex; gap: 10px; margin-bottom: 12px; }
 .custom-add .input { flex: 1; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+.custom-bar { flex: none; padding: 10px 16px 12px; border-top: 1px solid var(--line); background: var(--bg2); }
+.custom-bar-t { font-size: 12px; font-weight: 800; color: var(--ink1); margin-bottom: 8px; }
+.custom-bar-h { display: block; font-size: 11px; font-weight: 400; color: var(--ink3, var(--ink2)); margin-top: 2px; }
+.custom-bar .custom-add { margin-bottom: 0; }
 
 /* chips 可滚动（股票较多时） */
 .chips.scrollable { max-height: 108px; overflow-y: auto; flex-wrap: nowrap; }
