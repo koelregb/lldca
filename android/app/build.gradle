@@ -16,10 +16,22 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            def props = new Properties()
+            def pf = rootProject.file('keystore.properties')
+            if (pf.exists()) props.load(new FileInputStream(pf))
+            storeFile rootProject.file(props.getProperty('storeFile', 'keystore/lldca.keystore'))
+            storePassword props.getProperty('storePassword', '')
+            keyAlias props.getProperty('keyAlias', 'lldca')
+            keyPassword props.getProperty('keyPassword', '')
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }
