@@ -991,7 +991,7 @@
       </div>
       <div class="card">
         <div class="card-title">关于</div>
-        <div class="hint" style="margin:0">定投 v1.2.0（lldca）· 数据仅存储在本机（浏览器/应用内），不会上传。更换设备请使用「导出/导入备份」。<br><br>自定义股票：在「计划」页点右上角 <b>+</b> 打开股票选择器，最上方「自定义代码」输入框可添加任意美股代码（1-5 位字母，如 NFLX / UBER / CRM，BRK.B 形式亦可）。<br><br>本应用可打包为安卓 App：通过 Capacitor 生成 Android 工程，用 Android Studio 构建 APK，详见项目 README.md。<br><br>注意：本应用仅用于个人投资记录与统计，不构成任何投资建议。股市有风险，投资需谨慎。</div>
+        <div class="hint" style="margin:0">定投 v1.2.2（lldca）· 数据仅存储在本机（浏览器/应用内），不会上传。更换设备请使用「导出/导入备份」。<br><br>自定义股票：在「计划」页点右上角 <b>+</b> 打开股票选择器，下方「自定义代码」输入框可添加任意美股代码（1-5 位字母，如 NFLX / UBER / CRM，BRK.B 形式亦可）。<br><br>本应用可打包为安卓 App：通过 Capacitor 生成 Android 工程，用 Android Studio 构建 APK，详见项目 README.md。<br><br>注意：本应用仅用于个人投资记录与统计，不构成任何投资建议。股市有风险，投资需谨慎。</div>
       </div>`;
   }
 
