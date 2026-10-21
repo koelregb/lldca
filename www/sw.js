@@ -1,5 +1,5 @@
-/* 七巨头定投 — Service Worker（离线可用） */
-const CACHE = 'mag7-dca-v1';
+/* 定投 (lldca) — Service Worker（离线可用） */
+const CACHE = 'lldca-v2';
 const ASSETS = [
   './',
   './index.html',

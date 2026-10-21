@@ -1,9 +1,10 @@
 /* =============================================================
-   七巨头定投 (Mag7 DCA)
-   美股七巨头月度定投记录与收益统计
+   定投 (lldca)
+   美股定投记录与收益统计（默认七巨头，股票可自选）
    - 纯前端实现，数据仅存 localStorage，可打包为 Android App
    - 红涨绿跌（中文金融惯例）；默认人民币显示，可切换美元
    - 现价支持腾讯财经行情自动获取（国内可直连）或手动输入
+   - License 授权：激活门 + 离线授权码校验（HMAC-SHA256）
    ============================================================= */
 (function (root, factory) {
   const api = factory();
@@ -13,16 +14,63 @@
   'use strict';
 
   /* ---------------- 常量与元数据 ---------------- */
-  const STOCKS = [
-    { symbol: 'AAPL',  name: '苹果',   color: '#5b8def', base: 342.94 },
-    { symbol: 'MSFT',  name: '微软',   color: '#2f9e6e', base: 533.52 },
-    { symbol: 'GOOGL', name: '谷歌',   color: '#e8a33d', base: 344.18 },
-    { symbol: 'AMZN',  name: '亚马逊', color: '#e07b39', base: 262.45 },
-    { symbol: 'NVDA',  name: '英伟达', color: '#6fbf73', base: 217.09 },
-    { symbol: 'META',  name: 'Meta',   color: '#4a7fd4', base: 705.44 },
-    { symbol: 'TSLA',  name: '特斯拉', color: '#d05b5b', base: 368.06 }
+  // 预设股票池：美股七巨头 + 热门蓝筹/科技/中概，用户可自选
+  const STOCK_POOL = [
+    { symbol: 'AAPL',  name: '苹果',       color: '#5b8def', base: 342.94 },
+    { symbol: 'MSFT',  name: '微软',       color: '#2f9e6e', base: 533.52 },
+    { symbol: 'GOOGL', name: '谷歌',       color: '#e8a33d', base: 344.18 },
+    { symbol: 'AMZN',  name: '亚马逊',     color: '#e07b39', base: 262.45 },
+    { symbol: 'NVDA',  name: '英伟达',     color: '#6fbf73', base: 217.09 },
+    { symbol: 'META',  name: 'Meta',       color: '#4a7fd4', base: 705.44 },
+    { symbol: 'TSLA',  name: '特斯拉',     color: '#d05b5b', base: 368.06 },
+    { symbol: 'AVGO',  name: '博通',       color: '#c2503f', base: 368.92 },
+    { symbol: 'AMD',   name: 'AMD',        color: '#a8547d', base: 227.31 },
+    { symbol: 'TSM',   name: '台积电',     color: '#8a6fc9', base: 300.44 },
+    { symbol: 'INTC',  name: '英特尔',     color: '#4f8fc0', base: 38.94 },
+    { symbol: 'QCOM',  name: '高通',       color: '#d4884a', base: 172.16 },
+    { symbol: 'MU',    name: '美光',       color: '#5aa6a0', base: 181.05 },
+    { symbol: 'MRVL',  name: '迈威尔',     color: '#3f9e8c', base: 126.38 },
+    { symbol: 'ORCL',  name: '甲骨文',     color: '#b0523d', base: 285.63 },
+    { symbol: 'CRM',   name: 'Salesforce', color: '#4d9fd6', base: 340.72 },
+    { symbol: 'ADBE',  name: 'Adobe',      color: '#c0523f', base: 365.19 },
+    { symbol: 'NOW',   name: 'ServiceNow', color: '#6f8fd4', base: 985.40 },
+    { symbol: 'PLTR',  name: 'Palantir',   color: '#5b7fc0', base: 175.86 },
+    { symbol: 'SNOW',  name: 'Snowflake',  color: '#57b8d9', base: 226.41 },
+    { symbol: 'SHOP',  name: 'Shopify',    color: '#5aa84f', base: 76.35 },
+    { symbol: 'NFLX',  name: '奈飞',       color: '#c0392b', base: 1265.70 },
+    { symbol: 'BABA',  name: '阿里巴巴',   color: '#e8842a', base: 172.35 },
+    { symbol: 'PDD',   name: '拼多多',     color: '#d0453f', base: 135.62 },
+    { symbol: 'JD',    name: '京东',       color: '#b03a48', base: 34.96 },
+    { symbol: 'BIDU',  name: '百度',       color: '#3f6fb5', base: 118.42 },
+    { symbol: 'JPM',   name: '摩根大通',   color: '#4a6fa5', base: 319.66 },
+    { symbol: 'V',     name: 'Visa',       color: '#2f5fa8', base: 348.90 },
+    { symbol: 'MA',    name: 'Mastercard', color: '#e07b1f', base: 562.13 },
+    { symbol: 'BAC',   name: '美国银行',   color: '#a05a7a', base: 51.24 },
+    { symbol: 'GS',    name: '高盛',       color: '#5f7f9f', base: 768.55 },
+    { symbol: 'WMT',   name: '沃尔玛',     color: '#3f7fb5', base: 102.48 },
+    { symbol: 'COST',  name: '好市多',     color: '#b0523d', base: 985.62 },
+    { symbol: 'KO',    name: '可口可乐',   color: '#c0392b', base: 73.85 },
+    { symbol: 'PEP',   name: '百事',       color: '#2f5f9e', base: 152.44 },
+    { symbol: 'MCD',   name: '麦当劳',     color: '#d4a017', base: 262.31 },
+    { symbol: 'NKE',   name: '耐克',       color: '#c0553f', base: 69.47 },
+    { symbol: 'DIS',   name: '迪士尼',     color: '#7a5fc0', base: 106.53 },
+    { symbol: 'XOM',   name: '埃克森美孚', color: '#b0523d', base: 114.36 },
+    { symbol: 'LLY',   name: '礼来',       color: '#c0392b', base: 812.47 },
+    { symbol: 'UBER',  name: 'Uber',       color: '#4a7a9f', base: 93.58 }
   ];
-  const SYM = (s) => STOCKS.find((x) => x.symbol === s);
+  const DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
+  const POOL_MAP = {};
+  for (const s of STOCK_POOL) POOL_MAP[s.symbol] = s;
+  const SYM = (s) => POOL_MAP[s] || null;
+
+  // 用户选中的股票（默认七巨头）
+  function activeStocks(st) {
+    const list = (st && Array.isArray(st.stocks) && st.stocks.length) ? st.stocks : DEFAULT_SYMBOLS;
+    const out = [];
+    for (const sym of list) { const s = SYM(sym); if (s && out.indexOf(s) < 0) out.push(s); }
+    return out;
+  }
+
   const LS_KEY = 'mag7dca.v1';
   const PRICE_API = (s) => 'https://qt.gtimg.cn/q=us' + s;
 
@@ -41,11 +89,122 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const trimNum = (v) => String(Math.round(v * 100) / 100);
 
+  /* =============================================================
+     License 授权（离线校验）
+     - deviceId：首次启动随机生成，存本机
+     - 授权码：HMAC-SHA256(内置密钥, deviceId) 前 16 位十六进制
+     - 注意：纯前端方案可被逆向，仅防止随手分享；如需强校验需服务端
+     ============================================================= */
+  const LICENSE_SECRET = 'lldca-license-v1.9f3A';
+  const LICENSE_PREFIX = 'LLDCA';
+  const LICENSE_DEV_KEY = 'lldca.deviceId';
+  const LICENSE_DATA_KEY = 'lldca.license';
+
+  const SHA_K = new Uint32Array([
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+  ]);
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+
+  function sha256Bytes(message) {
+    const l = message.length;
+    const total = ((l + 9 + 63) & ~63);
+    const buf = new Uint8Array(total);
+    buf.set(message);
+    buf[l] = 0x80;
+    const dv = new DataView(buf.buffer);
+    dv.setUint32(total - 8, Math.floor(l / 0x20000000));
+    dv.setUint32(total - 4, (l * 8) >>> 0);
+    let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
+    let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
+    const w = new Uint32Array(64);
+    for (let i = 0; i < total; i += 64) {
+      for (let t = 0; t < 16; t++) w[t] = dv.getUint32(i + t * 4);
+      for (let t = 16; t < 64; t++) {
+        const s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
+        const s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
+        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) >>> 0;
+      }
+      let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+      for (let t = 0; t < 64; t++) {
+        const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+        const ch = (e & f) ^ (~e & g);
+        const t1 = (h + S1 + ch + SHA_K[t] + w[t]) >>> 0;
+        const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const t2 = (S0 + maj) >>> 0;
+        h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
+      h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
+    }
+    const out = new Uint8Array(32);
+    const odv = new DataView(out.buffer);
+    odv.setUint32(0, h0); odv.setUint32(4, h1); odv.setUint32(8, h2); odv.setUint32(12, h3);
+    odv.setUint32(16, h4); odv.setUint32(20, h5); odv.setUint32(24, h6); odv.setUint32(28, h7);
+    return out;
+  }
+
+  function hmacSha256Bytes(key, msg) {
+    let k = key;
+    if (k.length > 64) k = sha256Bytes(k);
+    const block = new Uint8Array(64);
+    block.set(k);
+    const ipad = new Uint8Array(64), opad = new Uint8Array(64);
+    for (let i = 0; i < 64; i++) { ipad[i] = block[i] ^ 0x36; opad[i] = block[i] ^ 0x5c; }
+    const innerInput = new Uint8Array(64 + msg.length);
+    innerInput.set(ipad, 0);
+    innerInput.set(msg, 64);
+    const innerHash = sha256Bytes(innerInput);
+    const outerInput = new Uint8Array(64 + 32);
+    outerInput.set(opad, 0);
+    outerInput.set(innerHash, 64);
+    return sha256Bytes(outerInput);
+  }
+
+  const strBytes = (s) => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 0xff; return u; };
+  const toHex = (u8) => { let s = ''; for (let i = 0; i < u8.length; i++) s += ((u8[i] >> 4).toString(16)) + ((u8[i] & 15).toString(16)); return s; };
+
+  function genDeviceId() {
+    const bytes = new Uint8Array(6);
+    const c = (typeof globalThis !== 'undefined' && globalThis.crypto) ? globalThis.crypto : null;
+    if (c && c.getRandomValues) c.getRandomValues(bytes);
+    else for (let i = 0; i < 6; i++) bytes[i] = Math.floor(Math.random() * 256);
+    return toHex(bytes).toUpperCase();
+  }
+
+  // 由设备识别码计算授权码（作者与 App 使用同一算法）
+  function licenseCodeFor(deviceId) {
+    const mac = hmacSha256Bytes(strBytes(LICENSE_SECRET), strBytes(String(deviceId || '').toUpperCase()));
+    const raw = toHex(mac).toUpperCase().slice(0, 16);
+    return [raw.slice(0, 4), raw.slice(4, 8), raw.slice(8, 12), raw.slice(12, 16)].join('-');
+  }
+
+  // 归一化用户输入：去横线/小写、去 LLDCA 前缀
+  function normalizeCode(s) {
+    let t = String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+    if (t.indexOf(LICENSE_PREFIX) === 0) t = t.slice(LICENSE_PREFIX.length);
+    return t;
+  }
+
+  function verifyCode(code, deviceId) {
+    const d = String(deviceId || '').toUpperCase();
+    if (!d) return false;
+    return normalizeCode(code) === normalizeCode(licenseCodeFor(d));
+  }
+
   /* ---------------- 状态管理 ---------------- */
   function defaultState() {
     return {
-      v: 1,
+      v: 2,
       settings: { currency: 'CNY', rate: 7.2, theme: 'light', payDay: 5 },
+      stocks: DEFAULT_SYMBOLS.slice(),
       plan: { AAPL: 600, MSFT: 600, GOOGL: 400, AMZN: 400, NVDA: 800, META: 400, TSLA: 400 },
       records: [],
       prices: {},
@@ -58,14 +217,19 @@
     const o = over || {};
     for (const k of Object.keys(o)) {
       if (k === 'settings' || k === 'plan') Object.assign(out[k], o[k] || {});
+      else if (k === 'stocks') {
+        if (Array.isArray(o.stocks)) out.stocks = o.stocks.map((x) => String(x).toUpperCase()).filter((x) => SYM(x));
+      }
       else out[k] = o[k];
     }
+    if (!out.stocks || !out.stocks.length) out.stocks = DEFAULT_SYMBOLS.slice();
     return out;
   }
 
   const memStore = {};
   function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return memStore[k] != null ? memStore[k] : null; } }
   function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { memStore[k] = v; } }
+  function lsDel(k) { try { window.localStorage.removeItem(k); } catch (e) { delete memStore[k]; } }
 
   function loadState() {
     const raw = lsGet(LS_KEY);
@@ -75,20 +239,52 @@
     return defaultState();
   }
 
+  /* ---------------- License 存储 ---------------- */
+  function getDeviceId() {
+    let id = lsGet(LICENSE_DEV_KEY);
+    if (!id || !/^[0-9A-F]{12}$/.test(String(id).toUpperCase())) {
+      id = genDeviceId();
+      lsSet(LICENSE_DEV_KEY, id);
+    }
+    return String(id).toUpperCase();
+  }
+
+  function licenseState() {
+    const deviceId = getDeviceId();
+    const raw = lsGet(LICENSE_DATA_KEY);
+    if (!raw) return { activated: false, deviceId, code: '' };
+    try {
+      const d = JSON.parse(raw);
+      if (d && d.deviceId === deviceId && verifyCode(d.code, deviceId)) {
+        return { activated: true, deviceId, code: normalizeCode(d.code) };
+      }
+    } catch (e) { /* 忽略 */ }
+    return { activated: false, deviceId, code: '' };
+  }
+
+  function activateLicense(code) {
+    const deviceId = getDeviceId();
+    if (!verifyCode(code, deviceId)) return false;
+    lsSet(LICENSE_DATA_KEY, JSON.stringify({ code: normalizeCode(licenseCodeFor(deviceId)), deviceId, at: Date.now() }));
+    return true;
+  }
+
+  function deactivateLicense() { lsDel(LICENSE_DATA_KEY); }
+
   /* ---------------- 计算逻辑 ---------------- */
   function calcHoldings(st) {
     const h = {};
-    for (const s of STOCKS) h[s.symbol] = { symbol: s.symbol, name: s.name, color: s.color, shares: 0, cost: 0 };
+    for (const s of activeStocks(st)) h[s.symbol] = { symbol: s.symbol, name: s.name, color: s.color, shares: 0, cost: 0 };
     for (const r of st.records || []) {
       const x = h[r.symbol];
       if (!x) continue;
       x.shares += (+r.shares || 0);
       x.cost += (+r.usd || 0);
     }
-    for (const s of STOCKS) {
-      const x = h[s.symbol];
+    for (const k in h) {
+      const x = h[k];
       x.avg = x.shares > 0 ? x.cost / x.shares : 0;
-      const p = (st.prices && st.prices[s.symbol]) ? (+st.prices[s.symbol].usd || 0) : 0;
+      const p = (st.prices && st.prices[k]) ? (+st.prices[k].usd || 0) : 0;
       x.price = p;
       x.value = x.shares * p;
       x.pnl = x.value - x.cost;
@@ -109,7 +305,7 @@
 
   function monthRecorded(st, ym) {
     const m = {};
-    for (const s of STOCKS) m[s.symbol] = 0;
+    for (const s of activeStocks(st)) m[s.symbol] = 0;
     for (const r of st.records || []) {
       if (ymOf(r.date) === ym) m[r.symbol] = (m[r.symbol] || 0) + (+r.usd || 0);
     }
@@ -118,7 +314,7 @@
 
   function planTotal(st) {
     let t = 0;
-    for (const s of STOCKS) {
+    for (const s of activeStocks(st)) {
       const v = +(st.plan && st.plan[s.symbol]) || 0;
       if (v > 0) t += v;
     }
@@ -202,20 +398,19 @@
     const months = 14;
     const now = new Date();
     const walk = {};
-    for (const s of STOCKS) walk[s.symbol] = s.base * (0.6 + Math.random() * 0.42);
+    for (const s of activeStocks(st)) walk[s.symbol] = s.base * (0.6 + Math.random() * 0.42);
     for (let i = months - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, clamp(st.settings.payDay, 1, 28), 10, 30, 0);
       const ds = dateStr(d);
-      for (const s of STOCKS) {
+      for (const s of activeStocks(st)) {
         const drift = 1 + (Math.random() - 0.44) * 0.13;
         walk[s.symbol] = Math.max(1, walk[s.symbol] * drift);
         const px = round2(walk[s.symbol]);
-        const usd = +(st.plan[s.symbol]) || 0;
-        if (usd <= 0) continue;
+        const usd = (+st.plan[s.symbol]) || 300;
         st.records.push({ id: genId(), symbol: s.symbol, date: ds, usd, price: px, shares: round4(usd / px), note: '', ts: d.getTime() });
       }
     }
-    for (const s of STOCKS) {
+    for (const s of activeStocks(st)) {
       st.prices[s.symbol] = { usd: round2(s.base * (0.995 + Math.random() * 0.012)), at: Date.now() };
     }
     st.records.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0)));
@@ -230,6 +425,7 @@
       if (!(+r.usd > 0)) throw new Error('包含无效的金额');
       if (typeof r.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) throw new Error('包含无效的日期');
     }
+    if (p.stocks != null && !Array.isArray(p.stocks)) throw new Error('stocks 字段格式不正确');
     return mergeState(defaultState(), p);
   }
 
@@ -273,8 +469,9 @@
     return 0;
   }
 
-  async function fetchAllPrices() {
-    const rs = await Promise.all(STOCKS.map(async (s) => [s.symbol, await fetchPrice(s.symbol)]));
+  async function fetchAllPrices(st) {
+    const stocks = activeStocks(st || (typeof state !== 'undefined' ? state : null) || defaultState());
+    const rs = await Promise.all(stocks.map(async (s) => [s.symbol, await fetchPrice(s.symbol)]));
     const out = {};
     for (const kv of rs) if (kv[1] > 0) out[kv[0]] = kv[1];
     return out;
@@ -288,6 +485,7 @@
   let filterSym = 'ALL';
   let fCur = 'CNY';
   let sheetSym = null;
+  let stockQuery = '';
 
   const $ = (id) => document.getElementById(id);
 
@@ -297,13 +495,17 @@
     upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5V4.5"/><path d="M8 8 12 4l4 4"/><path d="M4.5 19.5h15"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V5h5v2"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v5M14 11v5"/></svg>',
     pie: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6V12l7.2 4.2"/></svg>',
-    list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h6"/><circle cx="4.6" cy="6.5" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="17.5" r="1.15" fill="currentColor" stroke="none"/></svg>'
+    list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h6"/><circle cx="4.6" cy="6.5" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="17.5" r="1.15" fill="currentColor" stroke="none"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15.5" r="4.2"/><path d="M11 12.5 20 3.5"/><path d="M17.5 6l2.5 2.5"/><path d="M15 8.5 17.5 11"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg>'
   };
 
   const VIEW_META = {
     home: { title: '定投', actions: '' },
     holdings: { title: '我的持仓', actions: '<button class="icon-btn" data-act="prices" title="更新现价">' + IC.refresh + '</button>' },
-    plan: { title: '定投计划', actions: '' },
+    plan: { title: '定投计划', actions: '<button class="icon-btn" data-act="manageStocks" title="管理定投股票">' + IC.plus + '</button>' },
     records: { title: '投资记录', actions: '<button class="icon-btn" data-act="export" title="导出备份">' + IC.download + '</button>' },
     me: { title: '我的', actions: '' }
   };
@@ -323,6 +525,7 @@
     document.addEventListener('backbutton', () => {
       if ($('sheet').classList.contains('show')) closeSheet();
     });
+    initLicenseGate();
     switchTab('home');
   }
 
@@ -348,6 +551,56 @@
     });
   }
 
+  /* ---------------- 授权门 ---------------- */
+  function initLicenseGate() {
+    const gate = $('licenseGate');
+    if (!gate) return;
+    const lic = licenseState();
+    if (lic.activated) { gate.classList.add('hidden'); return; }
+    gate.classList.remove('hidden');
+    $('gateDevId').textContent = lic.deviceId;
+    $('gateCode').value = '';
+    $('gateErr').textContent = '';
+    $('gateActivate').addEventListener('click', doActivate);
+    $('gateCopy').addEventListener('click', copyDeviceId);
+    $('gateCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') doActivate(); });
+  }
+
+  function doActivate() {
+    const code = $('gateCode').value.trim();
+    if (!code) { $('gateErr').textContent = '请输入授权码'; return; }
+    if (activateLicense(code)) {
+      $('licenseGate').classList.add('hidden');
+      toast('激活成功，欢迎使用定投');
+      buzz(15);
+      render();
+    } else {
+      $('gateErr').textContent = '授权码无效，请检查后重试';
+      buzz(30);
+    }
+  }
+
+  function copyDeviceId() {
+    const id = licenseState().deviceId;
+    const done = () => toast('设备识别码已复制');
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(done, () => fallbackCopy(id, done));
+      else fallbackCopy(id, done);
+    } catch (e) { fallbackCopy(id, done); }
+  }
+
+  function fallbackCopy(text, cb) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* ignore */ }
+    ta.remove();
+    if (cb) cb();
+  }
+
   /* ---------------- 事件 ---------------- */
   function onClick(e) {
     const tabBtn = e.target.closest('[data-tab]');
@@ -359,7 +612,7 @@
   }
 
   const actions = {
-    add: (sym) => openAddSheet(sym || 'AAPL'),
+    add: (sym) => openAddSheet(sym || (activeStocks(state)[0] || {}).symbol || 'AAPL'),
     prices: () => openPriceSheet(),
     export: () => exportJSON(),
     import: () => $('importFile').click(),
@@ -388,7 +641,13 @@
       else toast('尚未获取该股现价，请手动输入');
     },
     closeSheet: () => closeSheet(),
-    goto: (t) => { closeSheet(); switchTab(t); }
+    goto: (t) => { closeSheet(); switchTab(t); },
+    manageStocks: () => openStockSheet(),
+    toggleStock: (sym) => toggleStock(sym),
+    selectSeven: () => { state.stocks = DEFAULT_SYMBOLS.slice(); saveState(); refreshStockSheet(); toast('已恢复七巨头'); },
+    clearStocks: () => { state.stocks = []; saveState(); refreshStockSheet(); },
+    stockDone: () => { closeSheet(); render(); },
+    deactivate: () => deactivateFlow()
   };
 
   function onImportFile(e) {
@@ -443,6 +702,9 @@
       if (el2) {
         el2.textContent = '每月 ' + v + ' 日定投 · 下次 ' + (np.days === 0 ? '就是今天' : np.days + ' 天后（' + (np.date.getMonth() + 1) + '月' + np.date.getDate() + '日）');
       }
+    } else if (kind === 'stockq') {
+      stockQuery = el.value.trim();
+      renderStockList();
     }
   }
 
@@ -484,7 +746,7 @@
     const ym = ymNow();
     const rec = monthRecorded(state, ym);
     const pt = planTotal(state);
-    const done = STOCKS.reduce((a, s) => a + rec[s.symbol], 0);
+    const done = activeStocks(state).reduce((a, s) => a + (rec[s.symbol] || 0), 0);
     const np = nextPayday(st.payDay);
     let html = '';
 
@@ -513,9 +775,9 @@
         </div>
       </div>`;
 
-    const planRows = STOCKS.filter((s) => ((+state.plan[s.symbol]) || 0) > 0).map((s) => {
+    const planRows = activeStocks(state).filter((s) => ((+state.plan[s.symbol]) || 0) > 0).map((s) => {
       const planned = +state.plan[s.symbol];
-      const d = rec[s.symbol];
+      const d = rec[s.symbol] || 0;
       const pct = Math.min(100, d / planned * 100);
       return `<div class="mini-row"><span class="dot" style="background:${s.color}"></span><span class="mini-nm">${s.symbol}</span><div class="progress"><i class="${d >= planned ? 'done' : ''}" style="width:${pct}%"></i></div><span class="mini-vl">${fmtMoney(d)}/${fmtMoney(planned)}</span></div>`;
     }).join('');
@@ -527,17 +789,17 @@
     const recent = state.records.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0))).slice(0, 3);
     if (recent.length) {
       const rows = recent.map((r) => {
-        const s = SYM(r.symbol);
+        const s = SYM(r.symbol) || { symbol: r.symbol, name: '', color: '#888' };
         return `<div class="row" data-act="delRec" data-arg="${r.id}">
-          <span class="dot" style="background:${s.color}">${s.symbol.slice(0, 2)}</span>
+          <span class="dot" style="background:${s.color}">${r.symbol.slice(0, 2)}</span>
           <div class="row-main"><div class="row-title" style="font-size:13.5px">${s.symbol} · ${s.name}</div><div class="row-sub">${r.date}</div></div>
           <div class="row-right"><div class="row-value" style="font-size:13.5px">${fmtMoney(r.usd)}</div></div>
         </div>`;
       }).join('');
       html += `<div class="card"><div class="card-title">最近记录<span class="sub" data-act="goto" data-arg="records" style="cursor:pointer;color:var(--primary)">查看全部</span></div>${rows}</div>`;
     } else {
-      html += `<div class="card"><div class="card-title">开始你的七巨头定投</div>
-        <div class="hint" style="margin:0">1. 到「计划」页设置每只股票的每月定投金额<br>2. 每次扣款后点「记一笔」记录成交金额与价格<br>3. 在「我的」页更新现价，自动计算收益</div>
+      html += `<div class="card"><div class="card-title">开始你的定投</div>
+        <div class="hint" style="margin:0">1. 到「计划」页选择股票并设置每月定投金额<br>2. 每次扣款后点「记一笔」记录成交金额与价格<br>3. 在「我的」页更新现价，自动计算收益</div>
         <div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-primary" style="flex:1" data-act="add">记一笔</button><button class="btn btn-ghost" style="flex:1" data-act="demo">载入演示数据</button></div></div>`;
     }
 
@@ -548,7 +810,7 @@
   function renderHoldings() {
     const h = calcHoldings(state);
     const t = totals(h);
-    const arr = STOCKS.map((s) => h[s.symbol]).sort((a, b) => (b.value - a.value) || (b.shares - a.shares));
+    const arr = activeStocks(state).map((s) => h[s.symbol]).sort((a, b) => (b.value - a.value) || (b.shares - a.shares));
     const anyShares = arr.some((x) => x.shares > 0);
     const rows = arr.map((x) => {
       const pxTxt = x.price > 0 ? fmtUsd(x.price) : '未更新';
@@ -573,7 +835,7 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-title">七巨头持仓<span class="sub">点击查看详情 / 改现价</span></div>
+        <div class="card-title">持仓明细<span class="sub">${activeStocks(state).length} 只 · 点击查看详情 / 改现价</span></div>
         ${anyShares ? rows : `<div class="empty">${IC.pie}<div class="t">暂无持仓</div><div class="d">记录第一笔定投后，这里会显示每只股票的盈亏</div><div class="btns"><button class="btn btn-primary" data-act="add">记一笔</button><button class="btn btn-ghost" data-act="demo">演示数据</button></div></div>`}
       </div>`;
   }
@@ -585,9 +847,9 @@
     const rec = monthRecorded(state, ym);
     const pt = planTotal(state);
     const np = nextPayday(st.payDay);
-    const rows = STOCKS.map((s) => {
+    const rows = activeStocks(state).map((s) => {
       const planned = (+state.plan[s.symbol]) || 0;
-      const d = rec[s.symbol];
+      const d = rec[s.symbol] || 0;
       const pct = planned > 0 ? Math.min(100, d / planned * 100) : 0;
       return `<div class="plan-row">
         <div class="plan-top">
@@ -596,7 +858,7 @@
             <div class="row-title">${s.symbol} · ${s.name}</div>
             <div class="row-sub" id="ps-${s.symbol}">${planned > 0 ? '本月 ' + fmtMoney(d) + ' / ' + fmtMoney(planned) : '未设置月投金额'}</div>
           </div>
-          <button class="icon-btn" data-act="planplus" data-arg="${s.symbol}" title="记一笔"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg></button>
+          <button class="icon-btn" data-act="planplus" data-arg="${s.symbol}" title="记一笔">${IC.plus}</button>
         </div>
         <div class="plan-amt">
           <input class="input" type="text" inputmode="decimal" data-bind="plan:${s.symbol}" data-hint="ph-${s.symbol}" value="${planned > 0 ? trimNum(toDisp(planned, st)) : ''}" placeholder="月投金额">
@@ -605,6 +867,7 @@
         <div class="progress" id="pg-${s.symbol}" style="margin-top:8px;${planned > 0 ? '' : 'display:none'}"><i id="pgi-${s.symbol}" class="${planned > 0 && d >= planned ? 'done' : ''}" style="width:${pct}%"></i></div>
       </div>`;
     }).join('');
+    const nStocks = activeStocks(state).length;
     $('view-plan').innerHTML = `
       <div class="card" style="margin-top:12px">
         <div class="card-title">月度定投预算</div>
@@ -617,7 +880,10 @@
           </div>
         </div>
       </div>
-      <div class="card"><div class="card-title">各股票月投金额<span class="sub">${st.currency === 'CNY' ? '人民币计价' : '美元计价'}</span></div>${rows}</div>
+      <div class="card"><div class="card-title">各股票月投金额<span class="sub">${st.currency === 'CNY' ? '人民币计价' : '美元计价'}</span></div>
+        <div class="hint" style="margin:0 0 12px">当前选中 <b>${nStocks}</b> 只股票。点右上角 <b>+</b> 可添加或移除股票（共 ${STOCK_POOL.length} 只可选）。</div>
+        ${rows || '<div class="empty">' + IC.pie + '<div class="t">还没有选择股票</div><div class="d">点右上角 + 从股票池中选择要定投的股票</div><div class="btns"><button class="btn btn-primary" data-act="manageStocks">选择股票</button></div></div>'}
+      </div>
       <div class="card"><div class="hint" style="margin:0">提示：输入的金额按当前汇率折算为美元入账；之后修改「显示货币」或汇率，不会影响已记录的成本。坚持按计划执行，忽略短期波动。</div></div>`;
   }
 
@@ -626,7 +892,7 @@
     const recs = state.records.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0)));
     const list = filterSym === 'ALL' ? recs : recs.filter((r) => r.symbol === filterSym);
     const totalUsd = list.reduce((a, r) => a + r.usd, 0);
-    const chips = ['ALL'].concat(STOCKS.map((s) => s.symbol)).map((s) =>
+    const chips = ['ALL'].concat(activeStocks(state).map((s) => s.symbol)).map((s) =>
       `<button class="chip ${filterSym === s ? 'active' : ''}" data-act="filter" data-arg="${s}">${s === 'ALL' ? '全部' : s}</button>`).join('');
     let body = '';
     if (!list.length) {
@@ -640,11 +906,11 @@
       body = Object.keys(groups).sort().reverse().map((ym) => {
         const mt = groups[ym].reduce((a, r) => a + r.usd, 0);
         const rows = groups[ym].map((r) => {
-          const s = SYM(r.symbol);
+          const s = SYM(r.symbol) || { symbol: r.symbol, name: '', color: '#888' };
           const px = state.prices[r.symbol] ? state.prices[r.symbol].usd : 0;
           const pnl = px > 0 && r.price > 0 ? ((px - r.price) / r.price) * 100 : null;
           return `<div class="row" data-act="delRec" data-arg="${r.id}">
-            <span class="dot" style="background:${s.color}">${s.symbol.slice(0, 2)}</span>
+            <span class="dot" style="background:${s.color}">${r.symbol.slice(0, 2)}</span>
             <div class="row-main">
               <div class="row-title">${s.symbol} · ${s.name}${r.note ? '<span class="row-sub" style="font-weight:500">· ' + esc(r.note) + '</span>' : ''}</div>
               <div class="row-sub">${r.date.slice(5).replace('-', '/')} · @${fmtUsd(r.price)} × ${fmtShares(r.shares)}</div>
@@ -670,9 +936,10 @@
   function renderMe() {
     const st = state.settings;
     const h = calcHoldings(state);
-    const held = STOCKS.filter((s) => h[s.symbol].shares > 0).length;
+    const stocks = activeStocks(state);
+    const held = stocks.filter((s) => h[s.symbol].shares > 0).length;
     const first = state.records.length ? state.records.map((r) => r.date).sort()[0] : '—';
-    const priceRows = STOCKS.map((s) => {
+    const priceRows = stocks.map((s) => {
       const p = state.prices[s.symbol];
       return `<div class="plan-row">
         <div class="plan-top">
@@ -683,12 +950,21 @@
         <div class="hint" id="pmh-${s.symbol}">${p ? '≈ ' + fmtMoney(p.usd) + ' / 股' : '输入美元股价'}</div>
       </div>`;
     }).join('');
+    const lic = licenseState();
     $('view-me').innerHTML = `
       <div class="card" style="margin-top:12px">
         <div class="stat-grid">
           <div class="stat"><div class="stat-l">投资笔数</div><div class="stat-v">${state.records.length}</div></div>
-          <div class="stat"><div class="stat-l">持有股票</div><div class="stat-v">${held} / 7</div></div>
+          <div class="stat"><div class="stat-l">持有股票</div><div class="stat-v">${held} / ${stocks.length}</div></div>
           <div class="stat"><div class="stat-l">首次定投</div><div class="stat-v" style="font-size:13px">${first}</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">软件授权<span class="sub">${lic.activated ? '已激活' : '未激活'}</span></div>
+        <div class="me-list">
+          <div class="me-item" style="cursor:default"><div class="mi-ic" style="color:${lic.activated ? 'var(--up)' : 'var(--ink3)'}">${IC.key}</div><div class="mi-t">授权状态<div class="mi-d">${lic.activated ? '本设备已激活' : '未激活，重启应用后将要求输入授权码'}</div></div></div>
+          <div class="me-item" style="cursor:default"><div class="mi-ic">${IC.list}</div><div class="mi-t">设备识别码<div class="mi-d" style="font-family:ui-monospace,monospace;letter-spacing:.5px">${lic.deviceId}</div></div></div>
+          <div class="me-item danger" data-act="deactivate"><div class="mi-ic">${IC.trash}</div><div class="mi-t">重新激活<div class="mi-d">清除本机授权，重新输入授权码</div></div></div>
         </div>
       </div>
       <div class="card">
@@ -718,13 +994,13 @@
       </div>
       <div class="card">
         <div class="card-title">关于</div>
-        <div class="hint" style="margin:0">定投 v1.0.0（lldca）· 数据仅存储在本机（浏览器/应用内），不会上传。更换设备请使用「导出/导入备份」。<br><br>本应用可打包为安卓 App：通过 Capacitor 生成 Android 工程，用 Android Studio 构建 APK，详见项目 README.md。<br><br>注意：本应用仅用于个人投资记录与统计，不构成任何投资建议。股市有风险，投资需谨慎。</div>
+        <div class="hint" style="margin:0">定投 v1.1.0（lldca）· 数据仅存储在本机（浏览器/应用内），不会上传。更换设备请使用「导出/导入备份」。<br><br>本应用可打包为安卓 App：通过 Capacitor 生成 Android 工程，用 Android Studio 构建 APK，详见项目 README.md。<br><br>注意：本应用仅用于个人投资记录与统计，不构成任何投资建议。股市有风险，投资需谨慎。</div>
       </div>`;
   }
 
   /* ---------------- 图表 ---------------- */
   function donutHtml(h) {
-    const items = STOCKS.map((s) => h[s.symbol]).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
+    const items = activeStocks(state).map((s) => h[s.symbol]).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
     const total = items.reduce((a, x) => a + x.value, 0);
     if (!items.length) return '<div class="hint" style="margin:0">暂无持仓数据，记录定投并更新现价后显示分布</div>';
     const size = 132, r = 52, cx = 66, cy = 66, C = 2 * Math.PI * r;
@@ -815,11 +1091,12 @@
     sheetSym = sym || 'AAPL';
     fCur = state.settings.currency;
     const p = state.prices[sheetSym];
+    const chips = activeStocks(state).map((s) => `<button class="chip ${s.symbol === sheetSym ? 'active' : ''}" data-act="fsym" data-arg="${s.symbol}">${s.symbol} ${s.name}</button>`).join('');
     openSheet(`
       <div class="sheet-grip"></div>
       <div class="sheet-title">记一笔</div>
       <div class="sheet-body">
-        <div class="field" style="margin-top:4px"><label>股票</label><div class="chips" id="f-syms">${STOCKS.map((s) => `<button class="chip ${s.symbol === sheetSym ? 'active' : ''}" data-act="fsym" data-arg="${s.symbol}">${s.symbol} ${s.name}</button>`).join('')}</div></div>
+        <div class="field" style="margin-top:4px"><label>股票</label><div class="chips scrollable" id="f-syms">${chips}</div></div>
         <div class="field"><label>日期</label><input class="input" id="f-date" type="date" value="${todayStr()}"></div>
         <div class="field">
           <label>投入金额</label>
@@ -875,6 +1152,10 @@
     const usd = fCur === 'CNY' ? amt / state.settings.rate : amt;
     state.records.push({ id: genId(), symbol: sym, date, usd: round2(usd), price: round2(px), shares: round4(usd / px), note, ts: Date.now() });
     if (!state.prices[sym]) state.prices[sym] = { usd: round2(px), at: Date.now() };
+    // 若记录了未选中的股票，自动加入选中列表
+    if (activeStocks(state).every((s) => s.symbol !== sym)) {
+      state.stocks = activeStocks(state).map((s) => s.symbol).concat(sym);
+    }
     saveState();
     closeSheet();
     buzz(15);
@@ -883,7 +1164,7 @@
   }
 
   function openPriceSheet() {
-    const rows = STOCKS.map((s) => {
+    const rows = activeStocks(state).map((s) => {
       const p = state.prices[s.symbol];
       return `<div class="plan-row">
         <div class="plan-top">
@@ -907,36 +1188,67 @@
       </div>`);
   }
 
-  function openHoldingSheet(sym) {
-    const x = calcHoldings(state)[sym];
-    const s = SYM(sym);
-    const planned = (+state.plan[sym]) || 0;
-    const cnt = state.records.filter((r) => r.symbol === sym).length;
+  /* ---------------- 股票选择弹层 ---------------- */
+  function openStockSheet() {
+    stockQuery = '';
     openSheet(`
       <div class="sheet-grip"></div>
-      <div class="sheet-title">${sym} · ${s.name}</div>
+      <div class="sheet-title">选择定投股票<span class="sheet-sub" id="stock-count"></span></div>
       <div class="sheet-body">
-        <div class="stat-grid">
-          <div class="stat"><div class="stat-l">持股</div><div class="stat-v">${fmtShares(x.shares)}</div></div>
-          <div class="stat"><div class="stat-l">摊薄成本</div><div class="stat-v">${x.avg > 0 ? fmtUsd(x.avg) : '—'}</div></div>
-          <div class="stat"><div class="stat-l">现价</div><div class="stat-v">${x.price > 0 ? fmtUsd(x.price) : '—'}</div></div>
+        <div class="search-wrap">
+          <span class="search-ic">${IC.search}</span>
+          <input class="input" id="stock-q" type="text" data-bind="stockq" placeholder="搜索代码或名称，如 NVDA / 英伟达">
         </div>
-        <div class="stat-grid" style="margin-top:10px">
-          <div class="stat"><div class="stat-l">市值</div><div class="stat-v">${x.value > 0 ? fmtMoney(x.value) : '—'}</div></div>
-          <div class="stat"><div class="stat-l">累计投入</div><div class="stat-v">${fmtMoney(x.cost)}</div></div>
-          <div class="stat"><div class="stat-l">盈亏</div><div class="stat-v ${pnlClass(x.pnlPct)}">${x.price > 0 && x.cost > 0 ? fmtPct(x.pnlPct, true) : '—'}</div></div>
-        </div>
-        <div class="field">
-          <label>更新现价（美元/股）</label>
-          <input class="input" id="hp-${sym}" data-bind="price:${sym}" data-hint="hph-${sym}" type="text" inputmode="decimal" placeholder="0.00" value="${x.price > 0 ? x.price : ''}">
-          <div class="hint" id="hph-${sym}">${x.price > 0 ? '≈ ' + fmtMoney(x.price) + ' / 股' : '输入后自动保存'}</div>
-        </div>
-        <div class="hint">月投金额 ${planned > 0 ? fmtMoney(planned) : '未设置'} · 已记录 ${cnt} 笔</div>
+        <div id="stock-list"></div>
       </div>
       <div class="sheet-foot" style="display:flex;gap:10px">
-        <button class="btn btn-ghost" style="flex:1" data-act="goto" data-arg="plan">改计划</button>
-        <button class="btn btn-primary" style="flex:1" data-act="add" data-arg="${sym}">记一笔</button>
+        <button class="btn btn-ghost" style="flex:1" data-act="selectSeven">恢复七巨头</button>
+        <button class="btn btn-primary" style="flex:1" data-act="stockDone">完成</button>
       </div>`);
+    renderStockList();
+  }
+
+  function refreshStockSheet() {
+    renderStockList();
+    render();
+  }
+
+  function renderStockList() {
+    const listEl = $('stock-list');
+    const cntEl = $('stock-count');
+    if (!listEl) return;
+    const q = (stockQuery || '').toUpperCase();
+    const selected = activeStocks(state).map((s) => s.symbol);
+    const items = STOCK_POOL.filter((s) => !q || s.symbol.toUpperCase().indexOf(q) >= 0 || s.name.toUpperCase().indexOf(q) >= 0);
+    if (cntEl) cntEl.textContent = `已选 ${selected.length} / ${STOCK_POOL.length}`;
+    if (!items.length) {
+      listEl.innerHTML = '<div class="hint" style="margin:12px 0">没有匹配的股票</div>';
+      return;
+    }
+    listEl.innerHTML = '<div class="stock-grid">' + items.map((s) => {
+      const on = selected.indexOf(s.symbol) >= 0;
+      const planned = (+state.plan[s.symbol]) || 0;
+      return `<button class="stock-item ${on ? 'on' : ''}" data-act="toggleStock" data-arg="${s.symbol}">
+        <span class="stock-ck">${on ? IC.check : ''}</span>
+        <span class="stock-nm"><b>${s.symbol}</b> ${esc(s.name)}${planned > 0 ? '<span class="stock-pl">月投 ' + fmtMoney(planned) + '</span>' : ''}</span>
+      </button>`;
+    }).join('') + '</div>';
+  }
+
+  function toggleStock(sym) {
+    const s = SYM(sym);
+    if (!s) return;
+    const cur = activeStocks(state).map((x) => x.symbol);
+    const idx = cur.indexOf(sym);
+    if (idx >= 0) {
+      if (cur.length <= 1) { toast('至少保留一只股票'); return; }
+      cur.splice(idx, 1);
+    } else {
+      cur.push(sym);
+    }
+    state.stocks = cur;
+    saveState();
+    refreshStockSheet();
   }
 
   /* ---------------- 对话框 / Toast ---------------- */
@@ -971,7 +1283,7 @@
   /* ---------------- 数据动作 ---------------- */
   async function autoPrice() {
     toast('正在从腾讯财经获取实时价…');
-    const res = await fetchAllPrices();
+    const res = await fetchAllPrices(state);
     const n = Object.keys(res).length;
     if (n === 0) { toast('自动获取失败（网络或跨域限制），请手动输入'); return; }
     for (const k in res) state.prices[k] = { usd: res[k], at: Date.now() };
@@ -979,14 +1291,14 @@
     closeSheet();
     render();
     buzz(15);
-    toast(`已更新 ${n}/7 只股票的现价`);
+    toast(`已更新 ${n}/${activeStocks(state).length} 只股票的现价`);
   }
 
   function exportJSON() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'mag7-dca-backup-' + todayStr() + '.json';
+    a.download = 'lldca-backup-' + todayStr() + '.json';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1011,7 +1323,7 @@
   }
 
   async function loadDemo() {
-    const ok = await confirmDialog({ title: '载入演示数据', msg: '将生成近 14 个月的模拟定投记录（基于 2026-10 真实价格回溯生成），并覆盖当前记录与现价。', ok: '载入' });
+    const ok = await confirmDialog({ title: '载入演示数据', msg: '将生成近 14 个月的模拟定投记录（基于当前选中股票回溯生成），并覆盖当前记录与现价。', ok: '载入' });
     if (!ok) return;
     seedDemo(state);
     saveState();
@@ -1042,6 +1354,23 @@
     toast('已删除');
   }
 
+  function deactivateFlow() {
+    const dlg = confirmDialog({ title: '重新激活', msg: '将清除本机授权记录，下次启动需要重新输入授权码。确定继续？', ok: '清除授权', danger: true });
+    dlg.then((ok) => {
+      if (!ok) return;
+      deactivateLicense();
+      const gate = $('licenseGate');
+      if (gate) {
+        gate.classList.remove('hidden');
+        $('gateDevId').textContent = licenseState().deviceId;
+        $('gateCode').value = '';
+        $('gateErr').textContent = '';
+      }
+      render();
+      toast('已清除授权');
+    });
+  }
+
   /* ---------------- 浏览器启动 ---------------- */
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
@@ -1050,11 +1379,12 @@
 
   /* ---------------- 导出（供 Node 测试） ---------------- */
   return {
-    STOCKS, SYM,
+    STOCK_POOL, DEFAULT_SYMBOLS, SYM, activeStocks,
     defaultState, mergeState, loadState, saveState,
     calcHoldings, totals, monthRecorded, planTotal, nextPayday, cumByMonth, niceCeil,
     fmtMoney, fmtUsd, fmtPct, fmtShares, fmtShort, toDisp, pnlClass,
     seedDemo, parseImport, parseGtimg,
+    sha256Bytes, hmacSha256Bytes, genDeviceId, licenseCodeFor, normalizeCode, verifyCode,
     dateStr, todayStr, ymOf, monthLabel, monthShort, clamp, round2, round4, esc, trimNum
   };
 });

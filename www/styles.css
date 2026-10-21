@@ -448,6 +448,99 @@ input { font-family: inherit; }
 .me-item .mi-d { font-size: 12px; color: var(--ink2); font-weight: 500; margin-top: 1px; }
 .me-item.danger .mi-t, .me-item.danger .mi-ic { color: var(--up); }
 
+/* ---------- License 授权门 ---------- */
+.gate {
+  position: fixed; inset: 0; z-index: 300;
+  display: grid; place-items: center;
+  background: var(--bg);
+  padding: 24px;
+  overflow-y: auto;
+}
+.gate.hidden { display: none; }
+.gate-card {
+  width: 100%; max-width: 360px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 30px 24px 24px;
+  text-align: center;
+  box-shadow: 0 18px 50px rgba(20, 30, 50, 0.12);
+}
+.gate-logo {
+  width: 60px; height: 60px;
+  margin: 0 auto 14px;
+  border-radius: 17px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+  display: grid; place-items: center;
+  color: #fff;
+}
+.gate-logo svg { width: 30px; height: 30px; }
+.gate-title { font-size: 24px; font-weight: 800; margin: 0; }
+.gate-sub { font-size: 12.5px; color: var(--ink2); margin: 4px 0 20px; }
+.gate-dev {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg2);
+  border: 1px dashed var(--line2, var(--line));
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  text-align: left;
+}
+.gate-dev-l { font-size: 11px; color: var(--ink2); font-weight: 700; flex: none; }
+.gate-dev-v {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14.5px; font-weight: 800; letter-spacing: 1.2px;
+  color: var(--ink);
+  min-width: 0; overflow: hidden; text-overflow: ellipsis;
+}
+.gate-field { text-align: left; margin-bottom: 14px; }
+.gate-field label { display: block; font-size: 12px; font-weight: 700; color: var(--ink2); margin-bottom: 6px; }
+.gate-field .input { text-align: center; letter-spacing: 1px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.gate-err { min-height: 18px; font-size: 12px; color: var(--up); font-weight: 700; margin-top: 6px; text-align: center; }
+.gate-hint { font-size: 11.5px; color: var(--ink3, var(--ink2)); line-height: 1.7; margin-top: 16px; }
+.btn-sm { padding: 6px 12px; font-size: 12px; border-radius: 9px; flex: none; }
+
+/* ---------- 股票选择 ---------- */
+.sheet-sub { font-size: 12px; color: var(--ink2); font-weight: 700; margin-left: 8px; }
+.search-wrap { position: relative; margin-bottom: 12px; }
+.search-wrap .search-ic {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--ink3, var(--ink2)); display: grid; place-items: center;
+  pointer-events: none;
+}
+.search-wrap .search-ic svg { width: 16px; height: 16px; }
+.search-wrap .input { padding-left: 38px; }
+.stock-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stock-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 10px;
+  background: var(--bg2);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.stock-item.on { border-color: var(--primary); background: var(--card); }
+.stock-ck {
+  width: 18px; height: 18px; flex: none;
+  border-radius: 6px;
+  border: 1.5px solid var(--line2, var(--line));
+  display: grid; place-items: center;
+  color: #fff;
+}
+.stock-item.on .stock-ck { background: var(--primary); border-color: var(--primary); }
+.stock-ck svg { width: 12px; height: 12px; }
+.stock-nm { font-size: 12.5px; font-weight: 600; color: var(--ink2); min-width: 0; line-height: 1.35; }
+.stock-nm b { color: var(--ink); font-weight: 800; margin-right: 2px; }
+.stock-pl { display: block; font-size: 10.5px; color: var(--primary); font-weight: 700; margin-top: 1px; }
+
+/* chips 可滚动（股票较多时） */
+.chips.scrollable { max-height: 108px; overflow-y: auto; flex-wrap: nowrap; }
+.chips.scrollable .chip { flex: none; }
+
 /* 桌面预览时手机框居中 */
 @media (min-width: 520px) {
   body { padding: 24px 0; }

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>定投 (lldca) 授权码生成器</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f3f5f9; color: #171b26;
+    min-height: 100vh; display: grid; place-items: center; padding: 24px;
+  }
+  .card {
+    width: 100%; max-width: 440px; background: #fff;
+    border: 1px solid #e7eaf2; border-radius: 20px; padding: 28px 26px;
+    box-shadow: 0 18px 50px rgba(20, 30, 50, 0.10);
+  }
+  h1 { font-size: 19px; font-weight: 800; }
+  .sub { font-size: 12.5px; color: #67708a; margin: 5px 0 22px; line-height: 1.6; }
+  label { display: block; font-size: 12px; font-weight: 700; color: #67708a; margin: 14px 0 6px; }
+  input {
+    width: 100%; padding: 11px 13px; font-size: 15px;
+    border: 1.5px solid #e7eaf2; border-radius: 11px; background: #f6f8fc;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 1px; outline: none;
+  }
+  input:focus { border-color: #2b5cff; background: #fff; }
+  .row { display: flex; gap: 10px; margin-top: 18px; }
+  button {
+    flex: 1; padding: 12px; font-size: 14px; font-weight: 700;
+    border: 0; border-radius: 11px; cursor: pointer; font-family: inherit;
+  }
+  .btn-primary { background: #2b5cff; color: #fff; }
+  .btn-ghost { background: #eef1f8; color: #2b5cff; }
+  button:active { transform: scale(0.98); }
+  .out {
+    margin-top: 18px; padding: 16px; border-radius: 13px;
+    background: #f6f8fc; border: 1px dashed #d5dbe8;
+  }
+  .out .l { font-size: 11px; color: #67708a; font-weight: 700; margin-bottom: 5px; }
+  .out .v {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 18px; font-weight: 800; letter-spacing: 1.5px; word-break: break-all;
+  }
+  .out .v.code { color: #2b5cff; }
+  .out .v.dev { color: #171b26; }
+  .msg { margin-top: 12px; font-size: 12.5px; font-weight: 700; min-height: 18px; }
+  .msg.ok { color: #0aa06e; }
+  .msg.err { color: #e0342b; }
+  .tips { margin-top: 20px; font-size: 11.5px; color: #8a93aa; line-height: 1.8; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>定投 (lldca) 授权码生成器</h1>
+  <p class="sub">本工具供应用作者使用：输入用户在激活页看到的「设备识别码」，生成对应的授权码发给用户。授权码与设备绑定，仅在该设备有效。</p>
+
+  <label>设备识别码（12 位，App 激活页显示）</label>
+  <input id="dev" type="text" maxlength="17" placeholder="如 4F2A9C1B7D3E" autocomplete="off">
+
+  <div class="row">
+    <button class="btn-primary" id="gen">生成授权码</button>
+    <button class="btn-ghost" id="rand">随机生成一对（测试）</button>
+  </div>
+
+  <div class="out hidden" id="out">
+    <div class="l">设备识别码</div>
+    <div class="v dev" id="o-dev">—</div>
+    <div class="l" style="margin-top:12px">授权码（发给用户）</div>
+    <div class="v code" id="o-code">—</div>
+  </div>
+  <div class="msg" id="msg"></div>
+
+  <div class="tips">
+    命令行等价工具：<code>node tools/gen-license.js &lt;设备识别码&gt;</code><br>
+    注意：授权码由 HMAC-SHA256 算法离线生成，可被逆向；仅防随手分享，不防专业破解。
+  </div>
+</div>
+
+<script src="../www/app.js"></script>
+<script>
+(function () {
+  var dev = document.getElementById('dev');
+  var out = document.getElementById('out');
+  var oDev = document.getElementById('o-dev');
+  var oCode = document.getElementById('o-code');
+  var msg = document.getElementById('msg');
+
+  function norm(s) { return String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, ''); }
+
+  function show(devId) {
+    var code = MAG7.licenseCodeFor(devId);
+    oDev.textContent = devId;
+    oCode.textContent = code;
+    out.classList.remove('hidden');
+    msg.className = 'msg ok';
+    msg.textContent = '生成成功，自校验 ' + (MAG7.verifyCode(code, devId) ? '通过' : '失败');
+  }
+
+  document.getElementById('gen').addEventListener('click', function () {
+    var d = norm(dev.value).replace(/^LLDCA/, '');
+    if (!/^[0-9A-F]{12}$/.test(d)) {
+      msg.className = 'msg err';
+      msg.textContent = '设备识别码应为 12 位十六进制字符（0-9, A-F）';
+      out.classList.add('hidden');
+      return;
+    }
+    show(d);
+  });
+
+  document.getElementById('rand').addEventListener('click', function () {
+    var d = MAG7.genDeviceId();
+    dev.value = d;
+    show(d);
+  });
+
+  dev.addEventListener('keydown', function (e) { if (e.key === 'Enter') document.getElementById('gen').click(); });
+})();
+</script>
+</body>
+</html>
