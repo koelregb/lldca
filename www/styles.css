@@ -485,6 +485,15 @@ input { font-family: inherit; }
 .stock-nm { font-size: 12.5px; font-weight: 600; color: var(--ink2); min-width: 0; line-height: 1.35; }
 .stock-nm b { color: var(--ink); font-weight: 800; margin-right: 2px; }
 .stock-pl { display: block; font-size: 10.5px; color: var(--primary); font-weight: 700; margin-top: 1px; }
+.stock-tag {
+  display: inline-block; vertical-align: 1px;
+  font-size: 9.5px; font-weight: 700; line-height: 1;
+  color: var(--primary); background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  border-radius: 5px; padding: 2.5px 5px; margin-left: 4px;
+}
+.custom-add { display: flex; gap: 10px; margin-bottom: 12px; }
+.custom-add .input { flex: 1; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 
 /* chips 可滚动（股票较多时） */
 .chips.scrollable { max-height: 108px; overflow-y: auto; flex-wrap: nowrap; }

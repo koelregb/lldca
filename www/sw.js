@@ -1,5 +1,5 @@
 /* 定投 (lldca) — Service Worker（离线可用） */
-const CACHE = 'lldca-v2';
+const CACHE = 'lldca-v3';
 const ASSETS = [
   './',
   './index.html',

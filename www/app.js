@@ -1,6 +1,6 @@
 /* =============================================================
    定投 (lldca)
-   美股定投记录与收益统计（默认七巨头，股票可自选）
+   美股定投记录与收益统计（默认七巨头，41 只预设池 + 任意美股代码自选）
    - 纯前端实现，数据仅存 localStorage，可打包为 Android App
    - 红涨绿跌（中文金融惯例）；默认人民币显示，可切换美元
    - 现价支持腾讯财经行情自动获取（国内可直连）或手动输入
@@ -61,13 +61,39 @@
   const DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
   const POOL_MAP = {};
   for (const s of STOCK_POOL) POOL_MAP[s.symbol] = s;
-  const SYM = (s) => POOL_MAP[s] || null;
+  // 自定义股票调色板（按代码哈希稳定取色）
+  const CUSTOM_COLORS = ['#5b8def', '#2f9e6e', '#e8a33d', '#e07b39', '#6fbf73', '#8b6fd8', '#c0553f', '#4a7a9f', '#b0523d', '#c0392b'];
+  function colorFor(sym) {
+    let h = 0;
+    for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) >>> 0;
+    return CUSTOM_COLORS[h % CUSTOM_COLORS.length];
+  }
+  // 美股代码格式：1-5 个字母，可带 .B 后缀（如 BRK.B）
+  const validSym = (s) => /^[A-Z]{1,5}(\.[A-Z])?$/.test(String(s || '').toUpperCase());
+  // 查股票元数据：预设池 → 本机自定义注册表
+  const SYM = (s) => {
+    const up = String(s || '').toUpperCase();
+    if (POOL_MAP[up]) return POOL_MAP[up];
+    if (state && Array.isArray(state.custom)) {
+      const c = state.custom.find((x) => x && x.symbol === up);
+      if (c) return c;
+    }
+    return null;
+  };
+  // 兜底合成元数据（旧数据或未注册的自定义代码）
+  function symMeta(sym) {
+    const up = String(sym || '').toUpperCase();
+    return SYM(up) || { symbol: up, name: up, color: colorFor(up), custom: !POOL_MAP[up] };
+  }
 
-  // 用户选中的股票（默认七巨头）
+  // 用户选中的股票（默认七巨头；支持预设池外任意代码）
   function activeStocks(st) {
     const list = (st && Array.isArray(st.stocks) && st.stocks.length) ? st.stocks : DEFAULT_SYMBOLS;
     const out = [];
-    for (const sym of list) { const s = SYM(sym); if (s && out.indexOf(s) < 0) out.push(s); }
+    for (const sym of list) {
+      const s = symMeta(sym);
+      if (out.indexOf(s) < 0) out.push(s);
+    }
     return out;
   }
 
@@ -205,6 +231,7 @@
       v: 2,
       settings: { currency: 'CNY', rate: 7.2, theme: 'light', payDay: 5 },
       stocks: DEFAULT_SYMBOLS.slice(),
+      custom: [],
       plan: { AAPL: 600, MSFT: 600, GOOGL: 400, AMZN: 400, NVDA: 800, META: 400, TSLA: 400 },
       records: [],
       prices: {},
@@ -218,7 +245,14 @@
     for (const k of Object.keys(o)) {
       if (k === 'settings' || k === 'plan') Object.assign(out[k], o[k] || {});
       else if (k === 'stocks') {
-        if (Array.isArray(o.stocks)) out.stocks = o.stocks.map((x) => String(x).toUpperCase()).filter((x) => SYM(x));
+        if (Array.isArray(o.stocks)) out.stocks = o.stocks.map((x) => String(x).toUpperCase()).filter((x) => validSym(x));
+      }
+      else if (k === 'custom') {
+        if (Array.isArray(o.custom)) out.custom = o.custom.filter((x) => x && validSym(x.symbol)).map((x) => ({
+          symbol: String(x.symbol).toUpperCase(),
+          name: String(x.name || x.symbol),
+          color: x.color || colorFor(String(x.symbol).toUpperCase())
+        }));
       }
       else out[k] = o[k];
     }
@@ -398,7 +432,7 @@
     const months = 14;
     const now = new Date();
     const walk = {};
-    for (const s of activeStocks(st)) walk[s.symbol] = s.base * (0.6 + Math.random() * 0.42);
+    for (const s of activeStocks(st)) walk[s.symbol] = (s.base || 100) * (0.6 + Math.random() * 0.42);
     for (let i = months - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, clamp(st.settings.payDay, 1, 28), 10, 30, 0);
       const ds = dateStr(d);
@@ -411,7 +445,7 @@
       }
     }
     for (const s of activeStocks(st)) {
-      st.prices[s.symbol] = { usd: round2(s.base * (0.995 + Math.random() * 0.012)), at: Date.now() };
+      st.prices[s.symbol] = { usd: round2((s.base || 100) * (0.995 + Math.random() * 0.012)), at: Date.now() };
     }
     st.records.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0)));
     return st;
@@ -420,11 +454,15 @@
   function parseImport(text) {
     const p = JSON.parse(text);
     if (!p || typeof p !== 'object' || !Array.isArray(p.records)) throw new Error('文件格式不正确');
+    const symSet = new Set();
+    if (Array.isArray(p.stocks)) for (const x of p.stocks) symSet.add(String(x).toUpperCase());
     for (const r of p.records) {
-      if (!r || typeof r.symbol !== 'string' || !SYM(r.symbol)) throw new Error('包含未知的股票代码');
+      if (!r || typeof r.symbol !== 'string' || !validSym(r.symbol)) throw new Error('包含无效的股票代码');
       if (!(+r.usd > 0)) throw new Error('包含无效的金额');
       if (typeof r.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) throw new Error('包含无效的日期');
+      symSet.add(String(r.symbol).toUpperCase());
     }
+    p.stocks = Array.from(symSet);
     if (p.stocks != null && !Array.isArray(p.stocks)) throw new Error('stocks 字段格式不正确');
     return mergeState(defaultState(), p);
   }
@@ -593,6 +631,7 @@
     goto: (t) => { closeSheet(); switchTab(t); },
     manageStocks: () => openStockSheet(),
     toggleStock: (sym) => toggleStock(sym),
+    addCustom: () => addCustomFromSheet(),
     selectSeven: () => { state.stocks = DEFAULT_SYMBOLS.slice(); saveState(); refreshStockSheet(); toast('已恢复七巨头'); },
     clearStocks: () => { state.stocks = []; saveState(); refreshStockSheet(); },
     stockDone: () => { closeSheet(); render(); }
@@ -737,7 +776,7 @@
     const recent = state.records.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0))).slice(0, 3);
     if (recent.length) {
       const rows = recent.map((r) => {
-        const s = SYM(r.symbol) || { symbol: r.symbol, name: '', color: '#888' };
+        const s = symMeta(r.symbol);
         return `<div class="row" data-act="delRec" data-arg="${r.id}">
           <span class="dot" style="background:${s.color}">${r.symbol.slice(0, 2)}</span>
           <div class="row-main"><div class="row-title" style="font-size:13.5px">${s.symbol} · ${s.name}</div><div class="row-sub">${r.date}</div></div>
@@ -854,7 +893,7 @@
       body = Object.keys(groups).sort().reverse().map((ym) => {
         const mt = groups[ym].reduce((a, r) => a + r.usd, 0);
         const rows = groups[ym].map((r) => {
-          const s = SYM(r.symbol) || { symbol: r.symbol, name: '', color: '#888' };
+          const s = symMeta(r.symbol);
           const px = state.prices[r.symbol] ? state.prices[r.symbol].usd : 0;
           const pnl = px > 0 && r.price > 0 ? ((px - r.price) / r.price) * 100 : null;
           return `<div class="row" data-act="delRec" data-arg="${r.id}">
@@ -1134,6 +1173,10 @@
       <div class="sheet-grip"></div>
       <div class="sheet-title">选择定投股票<span class="sheet-sub" id="stock-count"></span></div>
       <div class="sheet-body">
+        <div class="custom-add">
+          <input class="input" id="custom-sym" type="text" maxlength="8" autocomplete="off" placeholder="自定义代码，如 NFLX / UBER / CRM">
+          <button class="btn btn-primary btn-sm" data-act="addCustom" type="button">添加</button>
+        </div>
         <div class="search-wrap">
           <span class="search-ic">${IC.search}</span>
           <input class="input" id="stock-q" type="text" data-bind="stockq" placeholder="搜索代码或名称，如 NVDA / 英伟达">
@@ -1143,7 +1186,10 @@
       <div class="sheet-foot" style="display:flex;gap:10px">
         <button class="btn btn-ghost" style="flex:1" data-act="selectSeven">恢复七巨头</button>
         <button class="btn btn-primary" style="flex:1" data-act="stockDone">完成</button>
-      </div>`);
+      </div>`, () => {
+      const ci = $('custom-sym');
+      if (ci) ci.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomFromSheet(); } });
+    });
     renderStockList();
   }
 
@@ -1158,25 +1204,55 @@
     if (!listEl) return;
     const q = (stockQuery || '').toUpperCase();
     const selected = activeStocks(state).map((s) => s.symbol);
-    const items = STOCK_POOL.filter((s) => !q || s.symbol.toUpperCase().indexOf(q) >= 0 || s.name.toUpperCase().indexOf(q) >= 0);
-    if (cntEl) cntEl.textContent = `已选 ${selected.length} / ${STOCK_POOL.length}`;
+    const all = STOCK_POOL.concat(state.custom || []);
+    const items = all.filter((s) => !q || s.symbol.toUpperCase().indexOf(q) >= 0 || String(s.name).toUpperCase().indexOf(q) >= 0);
+    if (cntEl) cntEl.textContent = `已选 ${selected.length}`;
     if (!items.length) {
-      listEl.innerHTML = '<div class="hint" style="margin:12px 0">没有匹配的股票</div>';
+      listEl.innerHTML = '<div class="hint" style="margin:12px 0">没有匹配的预设股票。<br>可直接在上方输入美股代码（1-5 个字母，如 <b>NFLX</b>）点「添加」，加入任意想定投的股票。</div>';
       return;
     }
     listEl.innerHTML = '<div class="stock-grid">' + items.map((s) => {
       const on = selected.indexOf(s.symbol) >= 0;
       const planned = (+state.plan[s.symbol]) || 0;
+      const isCustom = !!s.custom || !POOL_MAP[s.symbol];
       return `<button class="stock-item ${on ? 'on' : ''}" data-act="toggleStock" data-arg="${s.symbol}">
         <span class="stock-ck">${on ? IC.check : ''}</span>
-        <span class="stock-nm"><b>${s.symbol}</b> ${esc(s.name)}${planned > 0 ? '<span class="stock-pl">月投 ' + fmtMoney(planned) + '</span>' : ''}</span>
+        <span class="stock-nm"><b>${s.symbol}</b> ${esc(s.name)}${isCustom ? '<span class="stock-tag">自定义</span>' : ''}${planned > 0 ? '<span class="stock-pl">月投 ' + fmtMoney(planned) + '</span>' : ''}</span>
       </button>`;
     }).join('') + '</div>';
   }
 
+  // 自定义添加任意美股代码
+  function addCustomStock(raw) {
+    const sym = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!sym) return '请输入股票代码';
+    if (!validSym(sym)) return '代码格式不正确：1-5 个字母，如 NFLX（BRK.B 形式亦可）';
+    if (POOL_MAP[sym]) return sym + ' 已在预设池中，直接勾选即可';
+    const cur = Array.isArray(state.stocks) ? state.stocks.slice() : DEFAULT_SYMBOLS.slice();
+    if (cur.indexOf(sym) >= 0) return sym + ' 已在定投列表中';
+    state.custom = Array.isArray(state.custom) ? state.custom : [];
+    if (!state.custom.some((x) => x && x.symbol === sym)) {
+      state.custom.push({ symbol: sym, name: sym, color: colorFor(sym), custom: true });
+    }
+    state.stocks = cur.concat(sym);
+    saveState();
+    refreshStockSheet();
+    return null;
+  }
+
+  function addCustomFromSheet() {
+    const el = $('custom-sym');
+    const sym = String((el && el.value) || '').trim().toUpperCase();
+    const err = addCustomStock(sym);
+    if (err) { toast(err); return; }
+    if (el) el.value = '';
+    toast('已添加 ' + sym);
+    renderStockList();
+  }
+
   function toggleStock(sym) {
-    const s = SYM(sym);
-    if (!s) return;
+    sym = String(sym || '').toUpperCase();
+    if (!validSym(sym)) return;
     const cur = activeStocks(state).map((x) => x.symbol);
     const idx = cur.indexOf(sym);
     if (idx >= 0) {
@@ -1301,7 +1377,9 @@
 
   /* ---------------- 导出（供 Node 测试） ---------------- */
   return {
-    STOCK_POOL, DEFAULT_SYMBOLS, SYM, activeStocks,
+    get state() { return state; },
+    set state(v) { state = v; },
+    STOCK_POOL, DEFAULT_SYMBOLS, SYM, symMeta, activeStocks, validSym, colorFor,
     defaultState, mergeState, loadState, saveState,
     calcHoldings, totals, monthRecorded, planTotal, nextPayday, cumByMonth, niceCeil,
     fmtMoney, fmtUsd, fmtPct, fmtShares, fmtShort, toDisp, pnlClass,
