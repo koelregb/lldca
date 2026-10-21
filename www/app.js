@@ -4,7 +4,7 @@
    - 纯前端实现，数据仅存 localStorage，可打包为 Android App
    - 红涨绿跌（中文金融惯例）；默认人民币显示，可切换美元
    - 现价支持腾讯财经行情自动获取（国内可直连）或手动输入
-   - License 授权：激活门 + 离线授权码校验（HMAC-SHA256）
+   - License 授权码机制已内置但默认未启用（tools/ 下附授权码生成器，备用）
    ============================================================= */
 (function (root, factory) {
   const api = factory();
@@ -525,7 +525,6 @@
     document.addEventListener('backbutton', () => {
       if ($('sheet').classList.contains('show')) closeSheet();
     });
-    initLicenseGate();
     switchTab('home');
   }
 
@@ -549,56 +548,6 @@
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     });
-  }
-
-  /* ---------------- 授权门 ---------------- */
-  function initLicenseGate() {
-    const gate = $('licenseGate');
-    if (!gate) return;
-    const lic = licenseState();
-    if (lic.activated) { gate.classList.add('hidden'); return; }
-    gate.classList.remove('hidden');
-    $('gateDevId').textContent = lic.deviceId;
-    $('gateCode').value = '';
-    $('gateErr').textContent = '';
-    $('gateActivate').addEventListener('click', doActivate);
-    $('gateCopy').addEventListener('click', copyDeviceId);
-    $('gateCode').addEventListener('keydown', (e) => { if (e.key === 'Enter') doActivate(); });
-  }
-
-  function doActivate() {
-    const code = $('gateCode').value.trim();
-    if (!code) { $('gateErr').textContent = '请输入授权码'; return; }
-    if (activateLicense(code)) {
-      $('licenseGate').classList.add('hidden');
-      toast('激活成功，欢迎使用定投');
-      buzz(15);
-      render();
-    } else {
-      $('gateErr').textContent = '授权码无效，请检查后重试';
-      buzz(30);
-    }
-  }
-
-  function copyDeviceId() {
-    const id = licenseState().deviceId;
-    const done = () => toast('设备识别码已复制');
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).then(done, () => fallbackCopy(id, done));
-      else fallbackCopy(id, done);
-    } catch (e) { fallbackCopy(id, done); }
-  }
-
-  function fallbackCopy(text, cb) {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.style.position = 'fixed';
-    ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select();
-    try { document.execCommand('copy'); } catch (e) { /* ignore */ }
-    ta.remove();
-    if (cb) cb();
   }
 
   /* ---------------- 事件 ---------------- */
@@ -646,8 +595,7 @@
     toggleStock: (sym) => toggleStock(sym),
     selectSeven: () => { state.stocks = DEFAULT_SYMBOLS.slice(); saveState(); refreshStockSheet(); toast('已恢复七巨头'); },
     clearStocks: () => { state.stocks = []; saveState(); refreshStockSheet(); },
-    stockDone: () => { closeSheet(); render(); },
-    deactivate: () => deactivateFlow()
+    stockDone: () => { closeSheet(); render(); }
   };
 
   function onImportFile(e) {
@@ -950,21 +898,12 @@
         <div class="hint" id="pmh-${s.symbol}">${p ? '≈ ' + fmtMoney(p.usd) + ' / 股' : '输入美元股价'}</div>
       </div>`;
     }).join('');
-    const lic = licenseState();
     $('view-me').innerHTML = `
       <div class="card" style="margin-top:12px">
         <div class="stat-grid">
           <div class="stat"><div class="stat-l">投资笔数</div><div class="stat-v">${state.records.length}</div></div>
           <div class="stat"><div class="stat-l">持有股票</div><div class="stat-v">${held} / ${stocks.length}</div></div>
           <div class="stat"><div class="stat-l">首次定投</div><div class="stat-v" style="font-size:13px">${first}</div></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">软件授权<span class="sub">${lic.activated ? '已激活' : '未激活'}</span></div>
-        <div class="me-list">
-          <div class="me-item" style="cursor:default"><div class="mi-ic" style="color:${lic.activated ? 'var(--up)' : 'var(--ink3)'}">${IC.key}</div><div class="mi-t">授权状态<div class="mi-d">${lic.activated ? '本设备已激活' : '未激活，重启应用后将要求输入授权码'}</div></div></div>
-          <div class="me-item" style="cursor:default"><div class="mi-ic">${IC.list}</div><div class="mi-t">设备识别码<div class="mi-d" style="font-family:ui-monospace,monospace;letter-spacing:.5px">${lic.deviceId}</div></div></div>
-          <div class="me-item danger" data-act="deactivate"><div class="mi-ic">${IC.trash}</div><div class="mi-t">重新激活<div class="mi-d">清除本机授权，重新输入授权码</div></div></div>
         </div>
       </div>
       <div class="card">
@@ -1352,23 +1291,6 @@
     saveState();
     render();
     toast('已删除');
-  }
-
-  function deactivateFlow() {
-    const dlg = confirmDialog({ title: '重新激活', msg: '将清除本机授权记录，下次启动需要重新输入授权码。确定继续？', ok: '清除授权', danger: true });
-    dlg.then((ok) => {
-      if (!ok) return;
-      deactivateLicense();
-      const gate = $('licenseGate');
-      if (gate) {
-        gate.classList.remove('hidden');
-        $('gateDevId').textContent = licenseState().deviceId;
-        $('gateCode').value = '';
-        $('gateErr').textContent = '';
-      }
-      render();
-      toast('已清除授权');
-    });
   }
 
   /* ---------------- 浏览器启动 ---------------- */

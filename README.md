@@ -4,9 +4,9 @@
 
 - 技术路线：移动端 PWA（纯前端、零依赖构建）+ Capacitor 封装原生 Android 工程
 - 数据全部存储在本地（localStorage），不上传任何服务器
-- 首次使用需**授权码激活**（离线校验，见下文）
 - 现价支持**腾讯财经行情自动获取**（国内可直连，无需 API Key），失败时可手动输入
 - 配色遵循 A 股惯例：**红涨绿跌**
+- 授权码机制已内置但**默认未启用**（打开即用，无需激活；需要时可按下文开启）
 
 ## 功能一览
 
@@ -16,22 +16,22 @@
 | 持仓 | 选中的每只股票展示持股、摊薄成本、现价、市值、盈亏比例；点击进入详情可改现价、跳转记一笔 |
 | 计划 | 每只股票设置月投金额（人民币/美元计价自动换算）、定投日（1-28）、本月完成度进度条；右上角「+」从 41 只股票池中添加/移除股票 |
 | 记录 | 按月份分组的全部投资记录，支持按股票筛选、单条删除；每笔记录显示相对现价的盈亏 |
-| 我的 | 授权信息、现价批量管理 + 自动获取、显示货币/汇率/主题、导出/导入 JSON 备份、载入演示数据、清空数据 |
+| 我的 | 现价批量管理 + 自动获取、显示货币/汇率/主题、导出/导入 JSON 备份、载入演示数据、清空数据 |
 
 ## 目录结构
 
 ```
 lldca/
 ├── www/                        # Web 应用本体（Capacitor 的 webDir）
-│   ├── index.html              # 入口页面（含授权门）
+│   ├── index.html              # 入口页面
 │   ├── styles.css              # 样式（浅色/深色双主题）
-│   ├── app.js                  # 全部逻辑（计算 / 渲染 / 图表 / 行情 / 授权）
+│   ├── app.js                  # 全部逻辑（计算 / 渲染 / 图表 / 行情）
 │   ├── manifest.webmanifest    # PWA 清单
 │   ├── sw.js                   # Service Worker（离线可用）
 │   └── icons/                  # 应用图标（SVG）
-├── tools/
-│   ├── gen-license.js          # 授权码生成器（命令行，作者用）
-│   └── license.html            # 授权码生成器（浏览器版，作者用）
+├── tools/                      # 备用工具（当前版本未启用授权）
+│   ├── gen-license.js          # 授权码生成器（命令行）
+│   └── license.html            # 授权码生成器（浏览器版）
 ├── capacitor.config.json       # Capacitor 配置（appId: com.lldca.app）
 ├── package.json
 ├── android/                    # 生成的 Android Studio 工程
@@ -82,11 +82,17 @@ gradlew.bat assembleDebug        # Windows
 > 应用图标目前为 SVG 占位方案；如需生成全套 PNG 启动图标：
 > `npm install @capacitor/assets --save-dev && npx @capacitor/assets generate --iconBackgroundColor "#2b5cff" --splashBackgroundColor "#f3f5f9"`
 
-## 授权码（License）说明
+## 授权码（License）说明 — 当前版本未启用
 
-App 首次启动时显示**激活页**，需要输入授权码才能使用。
+当前版本**打开即用，无需激活**。授权码机制的代码与工具已保留在仓库中，将来需要时可随时开启。
 
-### 授权码如何生成
+### 如需开启授权
+
+1. 在 `www/app.js` 的 `boot()` 中恢复调用 `initLicenseGate()`；
+2. 在 `www/index.html` 中恢复授权门 DOM（`#licenseGate`，结构见 git 历史）；
+3. 在 `www/styles.css` 中恢复 `.gate` 相关样式。
+
+### 授权码如何生成（开启后）
 
 授权码由「设备识别码」按固定算法离线推导，**一一对应、仅在该设备有效**：
 
@@ -94,7 +100,7 @@ App 首次启动时显示**激活页**，需要输入授权码才能使用。
 2. 作者用项目自带工具生成授权码：
 
 ```bash
-# 命令行版（ Node.js ）
+# 命令行版（Node.js）
 node tools/gen-license.js 4F2A9C1B7D3E
 # 输出：
 # 设备识别码: 4F2A9C1B7D3E
@@ -113,8 +119,7 @@ node tools/gen-license.js 4F2A9C1B7D3E
 ```
 
 - App 与生成器使用同一算法（`www/app.js` 中的 `licenseCodeFor()`），本地比对，**无需服务器**；
-- 输入时大小写、横线、`LLDCA-` 前缀均可忽略；
-- 清除授权：「我的 → 重新激活」；换设备需用新设备码重新生成。
+- 输入时大小写、横线、`LLDCA-` 前缀均可忽略。
 
 > ⚠️ 安全边界：纯前端离线校验可被逆向（密钥在 JS 中），**仅防止随手分享，不防专业破解**。如需强校验，应改为服务端发放与校验（可配合 `cloud-service` 等后端方案）。
 
@@ -129,7 +134,6 @@ node tools/gen-license.js 4F2A9C1B7D3E
 
 - 所有记录仅存于本机 localStorage（Key：`mag7dca.v1`），卸载 App 或清除浏览器数据会一并删除；
 - 换机/备份：「我的 → 导出备份」生成 JSON 文件，新设备「导入备份」恢复；
-- 授权信息存于本机（Key：`lldca.license` / `lldca.deviceId`）；
 - 演示数据中的历史价格由 2026-10-20 前后真实价格回溯模拟生成，仅用于功能演示。
 
 ## 免责声明

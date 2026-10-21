@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f3f5f9">
-<meta name="description" content="定投（lldca）— 美股月度定投记录与收益统计，默认七巨头，股票可自选，支持授权码激活">
+<meta name="description" content="定投（lldca）— 美股月度定投记录与收益统计，默认七巨头，股票可自选">
 <title>定投</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
@@ -62,29 +62,6 @@
 <div id="dialogRoot"></div>
 <div id="toastRoot"></div>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
-
-<!-- License 授权门：未激活时全屏显示 -->
-<div id="licenseGate" class="gate hidden">
-  <div class="gate-card">
-    <div class="gate-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.4" width="16" height="14.6" rx="2.2"/><path d="M8 3.4v4M16 3.4v4M4 10.2h16"/><path d="M8.6 14h2M13.4 14h2M8.6 17.2h2M13.4 17.2h2"/></svg>
-    </div>
-    <h1 class="gate-title">定投</h1>
-    <p class="gate-sub">美股定投记录 · lldca v1.1.0</p>
-    <div class="gate-dev">
-      <div class="gate-dev-l">设备识别码</div>
-      <div class="gate-dev-v" id="gateDevId">—</div>
-      <button class="btn btn-ghost btn-sm" id="gateCopy" type="button">复制</button>
-    </div>
-    <div class="gate-field">
-      <label>授权码</label>
-      <input class="input" id="gateCode" type="text" autocomplete="off" placeholder="LLDCA-XXXX-XXXX-XXXX-XXXX" maxlength="30">
-      <div class="gate-err" id="gateErr"></div>
-    </div>
-    <button class="btn btn-primary btn-block" id="gateActivate" type="button">激 活</button>
-    <div class="gate-hint">首次使用需输入授权码。<br>请将上方设备识别码提供给应用作者，以获取对应的授权码。</div>
-  </div>
-</div>
 
 <script src="app.js" defer></script>
 </body>
