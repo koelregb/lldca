@@ -33,6 +33,7 @@
     <section class="view active" id="view-home">
       <div class="ntabs plain" id="homeTabs">
         <button class="on" data-pane="trend" onclick="homeTab(this)">走势</button>
+        <button data-pane="vix" onclick="homeTab(this)">VIX</button>
         <button data-pane="cal" onclick="homeTab(this)">日历</button>
       </div>
 
@@ -44,6 +45,27 @@
           <button data-dim="min" onclick="dimSeg(this)">今日分时</button>
         </div>
         <div class="hintbar">行情每 60 秒自动刷新 · 曲线可拖动平移、滚轮/双指缩放、双击重置 · 点击曲线看全屏大图</div>
+      </div>
+
+      <div id="vixPane" style="display:none">
+        <div class="vix-hero">
+          <div class="vix-hero-top">
+            <span class="vix-hero-t">VIX 恐慌指数</span>
+            <span class="vix-src" id="vixAsOf">—</span>
+          </div>
+          <div class="vix-numrow">
+            <span class="vix-num" id="vixNow">--</span>
+            <span class="vix-chg" id="vixChg"></span>
+          </div>
+          <div class="vix-lvline"><span class="vix-dot" id="vixDot"></span><span id="vixLvName">—</span><span class="vix-lvsub" id="vixLvState"></span></div>
+        </div>
+        <div class="vix-gauge" id="vixGauge"></div>
+        <div class="vix-sparkbox">
+          <div class="vix-sparkhead"><span>近一年走势</span><span id="vixRange">—</span></div>
+          <div class="vix-spark" id="vixSpark"></div>
+        </div>
+        <div class="vix-levels" id="vixLevels"></div>
+        <div class="hintbar">数据来源：CBOE / FRED（VIXCLS）· 历史极值 82.69（2020-03-16）· 数值越高市场越恐慌</div>
       </div>
 
       <div id="calPane" style="display:none">

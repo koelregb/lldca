@@ -1,5 +1,5 @@
 /* 浮乐 (fuley) — Service Worker（离线可用） */
-const CACHE = 'fuley-v1';
+const CACHE = 'fuley-v1.1';
 const ASSETS = [
   './',
   './index.html',

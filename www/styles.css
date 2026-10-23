@@ -259,8 +259,12 @@ input, select, textarea { font-family: inherit; }
 .cal-day.blank { visibility: hidden; }
 .cal-day.today { color: var(--accent); font-weight: 800; }
 .cal-day.sel { background: var(--accent); color: #fff; }
-.cal-day .dots { display: flex; gap: 2.5px; height: 4px; }
-.cal-day .dots i { width: 4px; height: 4px; border-radius: 50%; }
+.cal-day .dnum {
+  width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; line-height: 1; font-variant-numeric: tabular-nums;
+}
+.cal-day .dnum.ring { border: 1.5px solid var(--ring, var(--accent)); }
+.cal-day.sel .dnum { border-color: transparent; }
 .cal-sec { font-size: 12px; font-weight: 700; color: var(--sub); margin: 2px 2px 8px; }
 .cal-row {
   display: flex; align-items: center; gap: 9px; background: var(--card); border-radius: 12px;
@@ -274,6 +278,49 @@ input, select, textarea { font-family: inherit; }
 .cal-row .ct-del { border: none; background: none; color: var(--sub); font-size: 14px; cursor: pointer; padding: 0 2px; flex: none; }
 .cal-row.custom .ct-t { color: var(--ink); }
 .cal-empty { text-align: center; color: var(--sub); font-size: 12px; padding: 18px 0 6px; }
+
+/* ---------- VIX 恐慌指数仪表盘 ---------- */
+.vix-hero {
+  background: var(--card); border-radius: 16px; padding: 13px 16px 12px; margin: 10px 12px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.vix-hero-top { display: flex; justify-content: space-between; align-items: baseline; }
+.vix-hero-t { font-size: 13px; font-weight: 750; color: var(--sub); }
+.vix-src { font-size: 10.5px; color: var(--sub); }
+.vix-numrow { display: flex; align-items: baseline; gap: 10px; margin-top: 3px; }
+.vix-num { font-size: 42px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.05; letter-spacing: -.5px; }
+.vix-chg { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.vix-chg.up { color: var(--up); }
+.vix-chg.down { color: var(--down); }
+.vix-chg.flat { color: var(--sub); }
+.vix-lvline { display: flex; align-items: center; gap: 7px; margin-top: 7px; font-size: 13px; font-weight: 750; }
+.vix-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.vix-lvsub { font-size: 11px; font-weight: 500; color: var(--sub); }
+.vix-gauge {
+  background: var(--card); border-radius: 16px; padding: 10px 8px 2px; margin: 0 12px 10px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.vix-gauge svg { display: block; width: 100%; height: auto; }
+.vix-sparkbox {
+  background: var(--card); border-radius: 16px; padding: 12px 14px 8px; margin: 0 12px 10px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.vix-sparkhead { display: flex; justify-content: space-between; font-size: 12px; font-weight: 750; color: var(--sub); margin-bottom: 4px; }
+.vix-sparkhead span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; font-size: 10.5px; }
+.vix-spark svg { display: block; width: 100%; height: 104px; }
+.vix-levels {
+  background: var(--card); border-radius: 16px; padding: 4px 14px; margin: 0 12px 10px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.vix-lvrow { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.vix-lvrow:last-child { border-bottom: none; }
+.vix-lvrow .vix-dot { width: 12px; height: 12px; }
+.vix-lvname { flex: none; width: 52px; font-size: 13px; font-weight: 750; }
+.vix-lvrange { flex: none; font-size: 10.5px; font-weight: 700; color: var(--sub); width: 42px; font-variant-numeric: tabular-nums; }
+.vix-lvinfo { flex: 1; min-width: 0; }
+.vix-lvstate { font-size: 11.5px; color: var(--ink); line-height: 1.4; }
+.vix-lvact { font-size: 10.5px; color: var(--sub); line-height: 1.4; margin-top: 1px; }
+.vix-lvrow.cur { background: var(--chip); border-radius: 10px; padding: 10px 8px; margin: 0 -8px; }
 
 /* ---------- 加减仓条件（做题打勾） ---------- */
 .quiz-head {
