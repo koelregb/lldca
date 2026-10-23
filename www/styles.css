@@ -279,6 +279,83 @@ input, select, textarea { font-family: inherit; }
 .cal-row.custom .ct-t { color: var(--ink); }
 .cal-empty { text-align: center; color: var(--sub); font-size: 12px; padding: 18px 0 6px; }
 
+/* ---------- 黄金走势趋势 ---------- */
+.gold-quotes {
+  background: var(--card); border-radius: 16px; padding: 12px 14px; margin: 10px 12px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04); display: flex; align-items: center;
+}
+.gq-item { flex: 1; min-width: 0; }
+.gq-name { font-size: 11.5px; font-weight: 700; color: var(--sub); }
+.gq-unit { font-size: 9.5px; font-weight: 500; opacity: .8; }
+.gq-num { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 3px; letter-spacing: -.3px; }
+.gq-chg { font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; }
+.gq-chg.up { color: var(--up); }
+.gq-chg.down { color: var(--down); }
+.gq-chg.flat { color: var(--sub); }
+.gq-sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 14px; }
+.gold-chart {
+  background: var(--card); border-radius: 16px; padding: 8px 10px 6px; margin: 0 12px 10px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.gold-chart svg { display: block; width: 100%; height: auto; }
+.gold-stats {
+  background: var(--card); border-radius: 16px; padding: 4px 14px 8px; margin: 0 12px 10px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.gs-row { display: flex; justify-content: space-between; align-items: baseline; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.gs-row:last-child { border-bottom: none; }
+.gs-k { font-size: 12px; color: var(--sub); }
+.gs-v { font-size: 12.5px; font-weight: 750; font-variant-numeric: tabular-nums; }
+.gs-v.up { color: var(--up); }
+.gs-v.down { color: var(--down); }
+.gs-v.flat { color: var(--sub); }
+
+/* ---------- 经济周期 · 康波周期 ---------- */
+.kw-hero {
+  background: var(--card); border-radius: 16px; padding: 13px 16px 12px; margin: 10px 12px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.kw-hero-t { font-size: 12.5px; font-weight: 750; color: var(--sub); }
+.kw-hero-main { font-size: 20px; font-weight: 800; margin-top: 3px; letter-spacing: -.2px; }
+.kw-hero-sub { font-size: 11.5px; color: var(--sub); margin-top: 4px; line-height: 1.5; }
+.kw-tlbox {
+  background: var(--card); border-radius: 16px; padding: 10px 10px 6px; margin: 0 12px 10px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.kw-tlhead { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 750; color: var(--sub); padding: 0 4px 6px; }
+.kw-legend { display: flex; gap: 8px; font-size: 9.5px; font-weight: 650; }
+.kw-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
+.kw-tl svg { display: block; width: 100%; height: auto; }
+.kw-sec { font-size: 12px; font-weight: 750; color: var(--sub); margin: 2px 14px 8px; }
+.kw-stages { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 12px 12px; }
+.kw-stage {
+  background: var(--card); border-radius: 14px; padding: 10px 12px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04); border-top: 3px solid var(--sc);
+}
+.kw-stage-h { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 800; }
+.kw-stage-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sc); }
+.kw-stage-f { font-size: 11px; color: var(--ink); margin-top: 5px; line-height: 1.45; }
+.kw-stage-a { font-size: 10.5px; color: var(--sub); margin-top: 2px; line-height: 1.45; }
+.kw-waves {
+  background: var(--card); border-radius: 16px; padding: 4px 14px; margin: 0 12px 10px;
+  box-shadow: 0 2px 8px rgba(30, 40, 60, .04);
+}
+.kw-wave { display: flex; align-items: center; gap: 11px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.kw-wave:last-child { border-bottom: none; }
+.kw-wave-l { flex: none; }
+.kw-wave-i {
+  width: 24px; height: 24px; border-radius: 50%; background: var(--chip); color: var(--sub);
+  display: grid; place-items: center; font-size: 12px; font-weight: 800;
+}
+.kw-wave.cur .kw-wave-i { background: var(--accent); color: #fff; }
+.kw-wave-m { flex: none; width: 108px; }
+.kw-wave-y { font-size: 12.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.kw-wave-tech { font-size: 10.5px; color: var(--sub); margin-top: 1px; line-height: 1.4; }
+.kw-wave-r { flex: 1; min-width: 0; }
+.kw-wave-ev { font-size: 11.5px; font-weight: 650; line-height: 1.4; }
+.kw-wave-st { font-size: 10px; color: var(--sub); margin-top: 2px; line-height: 1.5; }
+.kw-wave.cur { background: var(--chip); border-radius: 10px; padding: 11px 8px; margin: 0 -8px; }
+
 /* ---------- VIX 恐慌指数仪表盘 ---------- */
 .vix-hero {
   background: var(--card); border-radius: 16px; padding: 13px 16px 12px; margin: 10px 12px;

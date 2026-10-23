@@ -33,6 +33,8 @@
     <section class="view active" id="view-home">
       <div class="ntabs plain" id="homeTabs">
         <button class="on" data-pane="trend" onclick="homeTab(this)">走势</button>
+        <button data-pane="cycle" onclick="homeTab(this)">周期</button>
+        <button data-pane="gold" onclick="homeTab(this)">黄金</button>
         <button data-pane="vix" onclick="homeTab(this)">VIX</button>
         <button data-pane="cal" onclick="homeTab(this)">日历</button>
       </div>
@@ -45,6 +47,47 @@
           <button data-dim="min" onclick="dimSeg(this)">今日分时</button>
         </div>
         <div class="hintbar">行情每 60 秒自动刷新 · 曲线可拖动平移、滚轮/双指缩放、双击重置 · 点击曲线看全屏大图</div>
+      </div>
+
+      <div id="goldPane" style="display:none">
+        <div class="gold-quotes">
+          <div class="gq-item">
+            <div class="gq-name">伦敦金现 <span class="gq-unit">美元/盎司</span></div>
+            <div class="gq-num" id="gqXau">--</div>
+            <div class="gq-chg" id="gqXauChg"></div>
+          </div>
+          <div class="gq-sep"></div>
+          <div class="gq-item">
+            <div class="gq-name">纽约期金 <span class="gq-unit">美元/盎司</span></div>
+            <div class="gq-num" id="gqGc">--</div>
+            <div class="gq-chg" id="gqGcChg"></div>
+          </div>
+        </div>
+        <div class="dimseg" id="goldDimSeg">
+          <button class="on" onclick="goldDimSeg(this, 'all')">全部</button>
+          <button onclick="goldDimSeg(this, 'year')">近一年</button>
+          <button onclick="goldDimSeg(this, 'min')">今日分时</button>
+        </div>
+        <div class="gold-chart" id="goldChart"></div>
+        <div class="gold-stats" id="goldStats"></div>
+        <div class="hintbar">外盘价来自腾讯行情 · 沪金 ETF（518880）曲线反映国内金价（人民币/克）· 分时为当日已成交部分</div>
+      </div>
+
+      <div id="econPane" style="display:none">
+        <div class="kw-hero">
+          <div class="kw-hero-t">康波周期 · 当前所处阶段</div>
+          <div class="kw-hero-main">第五次长波 · 萧条尾声</div>
+          <div class="kw-hero-sub">信息技术 / AI 主导 · 新一轮回升的孕育窗口</div>
+        </div>
+        <div class="kw-tlbox">
+          <div class="kw-tlhead"><span>五次长波时间轴（1782 – 2030）</span><span class="kw-legend" id="kwLegend"></span></div>
+          <div class="kw-tl" id="kwTl"></div>
+        </div>
+        <div class="kw-sec">阶段特征</div>
+        <div class="kw-stages" id="kwStages"></div>
+        <div class="kw-sec">五次长波</div>
+        <div class="kw-waves" id="kWaves"></div>
+        <div class="hintbar">周期长度与阶段划分为学术参考（范杜因 / 周金涛等流派，各家略有差异）· 仅供学习，非投资建议</div>
       </div>
 
       <div id="vixPane" style="display:none">

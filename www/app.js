@@ -235,6 +235,7 @@ function applyQuotes(q) {
 function refreshQuotes() {
   return fetchQuotes().then(function (q) {
     if (q && Object.keys(q).length) { applyQuotes(q); checkSignalTriggers(); }
+    refreshGold();
     renderIndices();
   }, function () { renderIndices(); });
 }
@@ -974,6 +975,272 @@ function panicPick(btn, lv) {
   toast('当前恐慌等级：' + lv + ' · ' + PANIC_LEVELS[lv - 1].s);
 }
 
+/* ---------- 黄金走势趋势 ---------- */
+/* 数据：沪金 ETF(518880) 腾讯 fqkline 日线 + 分时（实时拉取，内置为构建日快照）；
+   外盘价：腾讯行情 hf_XAU（伦敦金现）/ hf_GC（纽约期金），字段逗号分隔 */
+var GOLD_KLINES = {
+  day: [
+  ["250627",7.326],["250630",7.314],["250701",7.397],["250702",7.394],["250703",7.445],["250704",7.407],["250707",7.355],["250708",7.398],
+  ["250709",7.314],["250710",7.371],["250711",7.376],["250714",7.440],["250715",7.436],["250716",7.402],["250717",7.397],["250718",7.403],
+  ["250721",7.446],["250722",7.474],["250723",7.548],["250724",7.424],["250725",7.409],["250728",7.388],["250729",7.363],["250730",7.377],
+  ["250731",7.350],["250801",7.352],["250804",7.446],["250805",7.455],["250806",7.468],["250807",7.484],["250808",7.508],["250811",7.429],
+  ["250812",7.399],["250813",7.415],["250814",7.424],["250815",7.401],["250818",7.413],["250819",7.391],["250820",7.374],["250821",7.394],
+  ["250822",7.378],["250825",7.427],["250826",7.449],["250827",7.450],["250828",7.468],["250829",7.486],["250901",7.647],["250902",7.670],
+  ["250903",7.768],["250904",7.750],["250905",7.775],["250908",7.847],["250909",7.966],["250910",7.947],["250911",7.923],["250912",7.954],
+  ["250915",7.931],["250916",8.032],["250917",7.964],["250918",7.862],["250919",7.898],["250922",8.048],["250923",8.143],["250924",8.190],
+  ["250925",8.146],["250926",8.160],["250929",8.259],["250930",8.339],["251009",8.729],["251010",8.602],["251013",8.859],["251014",8.976],
+  ["251015",9.187],["251016",9.244],["251017",9.568],["251020",9.268],["251021",9.490],["251022",9.101],["251023",8.994],["251024",8.950],
+  ["251027",8.914],["251028",8.597],["251029",8.692],["251030",8.704],["251031",8.794],["251103",8.797],["251104",8.737],["251105",8.706],
+  ["251106",8.755],["251107",8.793],["251110",8.936],["251111",9.062],["251112",9.029],["251113",9.175],["251114",9.096],["251117",8.882],
+  ["251118",8.777],["251119",8.954],["251120",8.903],["251121",8.828],["251124",8.857],["251125",9.010],["251126",9.011],["251127",9.010],
+  ["251128",9.067],["251201",9.161],["251202",9.112],["251203",9.096],["251204",9.064],["251205",9.136],["251208",9.110],["251209",9.046],
+  ["251210",9.095],["251211",9.110],["251212",9.227],["251215",9.351],["251216",9.240],["251217",9.310],["251218",9.318],["251219",9.313],
+  ["251222",9.511],["251223",9.639],["251224",9.642],["251225",9.566],["251226",9.650],["251229",9.563],["251230",9.363],["251231",9.301],
+  ["260105",9.495],["260106",9.577],["260107",9.518],["260108",9.511],["260109",9.592],["260112",9.777],["260113",9.793],["260114",9.922],
+  ["260115",9.867],["260116",9.857],["260119",10.006],["260120",10.082],["260121",10.377],["260122",10.341],["260123",10.617],["260126",10.924],
+  ["260127",10.934],["260128",11.280],["260129",11.904],["260130",11.009],["260202",9.908],["260203",10.422],["260204",10.867],["260205",10.523],
+  ["260206",10.357],["260209",10.719],["260210",10.669],["260211",10.758],["260212",10.720],["260213",10.575],["260224",10.950],["260225",10.959],
+  ["260226",10.913],["260227",10.933],["260302",11.417],["260303",11.259],["260304",10.980],["260305",10.964],["260306",10.873],["260309",10.868],
+  ["260310",10.956],["260311",10.974],["260312",10.938],["260313",10.802],["260316",10.664],["260317",10.637],["260318",10.606],["260319",10.126],
+  ["260320",9.896],["260323",8.941],["260324",9.299],["260325",9.641],["260326",9.450],["260327",9.494],["260330",9.656],["260331",9.699],
+  ["260401",10.024],["260402",9.738],["260403",9.828],["260407",9.837],["260408",10.113],["260409",9.908],["260410",9.972],["260413",9.924],
+  ["260414",10.011],["260415",10.064],["260416",10.097],["260417",10.029],["260420",10.036],["260421",10.010],["260422",10.004],["260423",9.900],
+  ["260424",9.826],["260427",9.897],["260428",9.732],["260429",9.637],["260430",9.678],["260506",9.791],["260507",9.909],["260508",9.880],
+  ["260511",9.774],["260512",9.806],["260513",9.804],["260514",9.795],["260515",9.554],["260518",9.513],["260519",9.515],["260520",9.367],
+  ["260521",9.450],["260522",9.461],["260525",9.512],["260526",9.454],["260527",9.345],["260528",9.132],["260529",9.397],["260601",9.344],
+  ["260602",9.410],["260603",9.281],["260604",9.290],["260605",9.252],["260608",8.953],["260609",9.005],["260610",8.736],["260611",8.506],
+  ["260612",8.659],["260615",8.928],["260616",8.949],["260617",8.957],["260618",8.908],["260622",8.716],["260623",8.537],["260624",8.515],
+  ["260625",8.287],["260626",8.390],["260629",8.449],["260630",8.378],["260701",8.271],["260702",8.475],["260703",8.672],["260706",8.631],
+  ["260707",8.597],["260708",8.589],["260709",8.544],["260710",8.541],["260713",8.419],["260714",8.373],["260715",8.369],["260716",8.363],
+  ["260717",8.311],["260720",8.318],["260721",8.468],["260722",8.560],["260723",8.560],["260724",8.385],["260727",8.502],["260728",8.400],
+  ["260729",8.392],["260730",8.360],["260731",8.433],["260803",8.417],["260804",8.408],["260805",8.640],["260806",8.795],["260807",8.892],
+  ["260810",9.005],["260811",9.009],["260812",9.103],["260813",9.042],["260814",8.946],["260817",9.068],["260818",9.078],["260819",8.974],
+  ["260820",9.234],["260821",9.388],["260824",9.564],["260825",9.533],["260826",9.517],["260827",9.446],["260828",9.475],["260831",9.135],
+  ["260901",9.118],["260902",8.902],["260903",9.105],["260904",9.164],["260907",9.024],["260908",9.047],["260909",9.041],["260910",9.083],
+  ["260911",8.943],["260914",8.875],["260915",8.829],["260916",8.905],["260917",8.856],["260918",9.009],["260921",8.930],["260922",8.859],
+  ["260923",8.897],["260924",8.788],["260928",8.568],["260929",8.519],["260930",8.633],["261008",8.474],["261009",8.617],["261012",8.585],
+  ["261013",8.599],["261014",8.501],["261015",8.472],["261016",8.554],["261019",8.553],["261020",8.457],["261021",8.412],["261022",8.360],
+  ["261023",8.210]
+  ],
+  min: [8.220,8.205,8.204,8.200,8.203,8.202,8.193,8.193,8.192,8.192,8.191,8.193,8.194,8.197,8.194,8.192,8.193,8.198,8.201,8.196,8.196,8.193,8.183,8.180,8.178,8.171,8.166,8.154,8.157,8.150,8.150,8.141,8.145,8.145,8.153,8.158,8.160,8.172,8.174,8.181,8.187,8.188,8.189,8.187,8.188,8.192,8.191,8.196,8.202,8.199,8.198,8.197,8.198,8.195,8.198,8.197,8.203,8.205,8.199,8.196,8.195,8.201,8.202,8.203,8.207,8.203,8.206,8.213,8.208,8.202,8.202,8.203,8.199,8.199,8.202,8.203,8.202,8.197,8.200,8.201,8.203,8.209,8.208,8.207,8.210,8.215,8.210,8.209,8.207,8.209,8.206,8.202,8.203,8.203,8.203,8.198,8.199,8.199,8.196,8.196,8.198,8.197,8.196,8.196,8.199,8.199,8.197,8.197,8.196,8.194,8.194,8.194,8.195,8.194,8.197,8.198,8.200,8.202,8.204,8.207,8.206,8.206,8.190,8.189,8.190,8.189,8.186,8.187,8.190,8.195,8.196,8.196,8.201,8.205,8.203,8.203,8.204,8.201,8.202,8.198,8.199,8.202,8.201,8.200,8.201,8.200,8.201,8.195,8.196,8.194,8.190,8.191,8.210,8.210,8.209,8.215,8.210,8.213,8.219,8.213,8.214,8.213]
+,
+  spot: { xau: 4022.23, xauChg: -0.05, gc: 4037.30, gcChg: -0.57, t: "2026-10-23" }
+};
+var goldSpot = GOLD_KLINES.spot || { xau: 0, xauChg: 0, gc: 0, gcChg: 0, tm: '' };
+var goldDim = 'all';
+function goldSeries(dim) {
+  if (dim === 'min') return GOLD_KLINES.min.slice();
+  var d = GOLD_KLINES.day;
+  return (dim === 'year' ? d.slice(-252) : d).map(function (r) { return r[1]; });
+}
+function goldMa(n) {
+  var c = GOLD_KLINES.day.slice(-n).map(function (r) { return r[1]; });
+  if (!c.length) return 0;
+  return c.reduce(function (a, b) { return a + b; }, 0) / c.length;
+}
+function goldTrend() {
+  var d = GOLD_KLINES.day;
+  if (!d.length) return { t: '数据缺失', up: null, sub: '' };
+  var c = d[d.length - 1][1];
+  var ma20 = goldMa(20), ma60 = goldMa(60);
+  if (c > ma20 && ma20 > ma60) return { t: '多头排列', up: true, sub: '价 > MA20 > MA60' };
+  if (c < ma20 && ma20 < ma60) return { t: '空头排列', up: false, sub: '价 < MA20 < MA60' };
+  return { t: '震荡整理', up: null, sub: '均线交织，方向不明' };
+}
+function goldChartSvg(vals) {
+  var W = 300, H = 112, PT = 10, PB = 16, PL = 3, PR = 3;
+  var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+  if (mx - mn < 0.02) { mn -= 0.01; mx += 0.01; }
+  function X(i) { return PL + (W - PL - PR) * i / Math.max(1, vals.length - 1); }
+  function Y(v) { return PT + (H - PT - PB) * (1 - (v - mn) / (mx - mn)); }
+  var d = '';
+  vals.forEach(function (v, i) { d += (i ? ' L ' : 'M ') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1); });
+  var area = d + ' L ' + X(vals.length - 1).toFixed(1) + ' ' + (H - PB) + ' L ' + X(0).toFixed(1) + ' ' + (H - PB) + ' Z';
+  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">';
+  s += '<defs><linearGradient id="goldgrad" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0" stop-color="#d8a92c" stop-opacity=".3"/>' +
+    '<stop offset="1" stop-color="#d8a92c" stop-opacity=".02"/></linearGradient></defs>';
+  if (goldDim !== 'min') {
+    var ma20 = goldMa(20), ma60 = goldMa(60);
+    [[ma60, 'MA60'], [ma20, 'MA20']].forEach(function (mk) {
+      if (mk[0] > mn && mk[0] < mx && vals.length > 60) {
+        s += '<line x1="' + PL + '" y1="' + Y(mk[0]).toFixed(1) + '" x2="' + (W - PR) + '" y2="' + Y(mk[0]).toFixed(1) +
+          '" stroke="var(--sub)" stroke-width="1" stroke-dasharray="4 3" opacity=".6"/>';
+        s += '<text x="' + (W - PR) + '" y="' + (Y(mk[0]) - 3).toFixed(1) + '" text-anchor="end" font-size="8" font-weight="700" fill="var(--sub)">' + mk[1] + '</text>';
+      }
+    });
+  }
+  s += '<path d="' + area + '" fill="url(#goldgrad)"/>';
+  s += '<path d="' + d + '" fill="none" stroke="#d8a92c" stroke-width="1.8" stroke-linejoin="round"/>';
+  s += '<circle cx="' + X(vals.length - 1).toFixed(1) + '" cy="' + Y(vals[vals.length - 1]).toFixed(1) + '" r="3" fill="#d8a92c"/>';
+  s += '<text x="' + (W - PR) + '" y="' + (H - 3) + '" text-anchor="end" font-size="9" font-weight="600" fill="var(--sub)">' + mn.toFixed(2) + ' ~ ' + mx.toFixed(2) + '</text>';
+  return s + '</svg>';
+}
+function renderGold() {
+  /* 外盘价 */
+  if (goldSpot.xau) {
+    document.getElementById('gqXau').textContent = goldSpot.xau.toFixed(2);
+    var xc = document.getElementById('gqXauChg');
+    xc.textContent = (goldSpot.xauChg >= 0 ? '+' : '') + goldSpot.xauChg.toFixed(2) + '%';
+    xc.className = 'gq-chg ' + (goldSpot.xauChg > 0 ? 'up' : goldSpot.xauChg < 0 ? 'down' : 'flat');
+  }
+  if (goldSpot.gc) {
+    document.getElementById('gqGc').textContent = goldSpot.gc.toFixed(2);
+    var gc = document.getElementById('gqGcChg');
+    gc.textContent = (goldSpot.gcChg >= 0 ? '+' : '') + goldSpot.gcChg.toFixed(2) + '%';
+    gc.className = 'gq-chg ' + (goldSpot.gcChg > 0 ? 'up' : goldSpot.gcChg < 0 ? 'down' : 'flat');
+  }
+  var vals = goldSeries(goldDim);
+  document.getElementById('goldChart').innerHTML = goldChartSvg(vals);
+  /* 统计卡 */
+  var d = GOLD_KLINES.day;
+  if (d.length) {
+    var c = d[d.length - 1][1];
+    var yAgo = d[Math.max(0, d.length - 252)][1];
+    var chg = (c - yAgo) / yAgo * 100;
+    var yVals = d.slice(-252).map(function (r) { return r[1]; });
+    var tr = goldTrend();
+    var ma20 = goldMa(20), ma60 = goldMa(60);
+    var h = '<div class="gs-row"><span class="gs-k">沪金 ETF 现价</span><span class="gs-v">' + c.toFixed(3) + ' 元/克</span></div>' +
+      '<div class="gs-row"><span class="gs-k">近一年涨跌</span><span class="gs-v ' + (chg >= 0 ? 'up' : 'down') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%</span></div>' +
+      '<div class="gs-row"><span class="gs-k">一年区间</span><span class="gs-v">' + Math.min.apply(null, yVals).toFixed(2) + ' – ' + Math.max.apply(null, yVals).toFixed(2) + '</span></div>' +
+      '<div class="gs-row"><span class="gs-k">均线</span><span class="gs-v">MA20 ' + ma20.toFixed(2) + ' · MA60 ' + ma60.toFixed(2) + '</span></div>' +
+      '<div class="gs-row"><span class="gs-k">趋势信号</span><span class="gs-v ' + (tr.up === true ? 'up' : tr.up === false ? 'down' : 'flat') + '">' + tr.t + '（' + tr.sub + '）</span></div>';
+    document.getElementById('goldStats').innerHTML = h;
+  }
+}
+function goldDimSeg(btn, dim) {
+  goldDim = dim;
+  document.querySelectorAll('#goldDimSeg button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderGold();
+}
+/* 外盘实时价（hf_XAU / hf_GC，逗号分隔字段） */
+function fetchGoldSpot() {
+  return fetch('https://qt.gtimg.cn/q=hf_XAU,hf_GC', { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (txt) {
+    var out = {};
+    var re = /v_([A-Za-z0-9_]+)="([^"]*)"/g, m;
+    while ((m = re.exec(txt))) {
+      var f = m[2].split(',');
+      var price = parseFloat(f[0]), chg = parseFloat(f[1]);
+      if (!isFinite(price) || price <= 0) continue;
+      out[m[1]] = { price: price, chg: isFinite(chg) ? chg : 0, tm: f[6] || '' };
+    }
+    return out;
+  });
+}
+function refreshGold() {
+  return fetchGoldSpot().then(function (q) {
+    if (q.hf_XAU) { goldSpot.xau = q.hf_XAU.price; goldSpot.xauChg = q.hf_XAU.chg; goldSpot.tm = q.hf_XAU.tm; }
+    if (q.hf_GC) { goldSpot.gc = q.hf_GC.price; goldSpot.gcChg = q.hf_GC.chg; }
+    if (curHomePane === 'gold') renderGold();
+  }, function () { /* 离线用内置 */ });
+}
+/* 518880 日 K / 分时（启动拉一次） */
+function fetchGoldKline() {
+  return fetch('https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=sh518880,day,,,320,qfq', { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var days = (j && j.data && j.data.sh518880 && j.data.sh518880.qfqday) || [];
+      var arr = days.map(function (d) { return [d[0].replace(/-/g, '').slice(2), Number(d[2])]; });
+      if (arr.length) { GOLD_KLINES.day = arr; return true; }
+      return false;
+    }, function () { return false; });
+}
+function fetchGoldMin() {
+  return fetch('https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=sh518880', { cache: 'no-store' })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      var data = (j && j.data && j.data.sh518880 && j.data.sh518880.data && j.data.sh518880.data.data) || [];
+      var arr = data.map(function (r) { return Number(String(r).split(' ')[1]); }).filter(function (v) { return isFinite(v) && v > 0; });
+      if (arr.length) { GOLD_KLINES.min = arr; return true; }
+      return false;
+    }, function () { return false; });
+}
+
+/* ---------- 经济周期 · 康波周期（Kondratiev Wave） ---------- */
+var KW_STAGES = [
+  { name: '回升', color: '#1a9e5c', feat: '经济触底反弹 · 货币宽松',     asset: '黄金 / 成长资产率先表现' },
+  { name: '繁荣', color: '#4a7fd4', feat: '增长强劲 · 通胀温和',       asset: '权益资产最佳阶段' },
+  { name: '衰退', color: '#dfa32a', feat: '增长放缓 · 政策收紧',       asset: '商品 / 实物资产韧性强' },
+  { name: '萧条', color: '#e04a4a', feat: '过剩出清 · 债务违约频发',   asset: '现金 / 黄金避险 · 孕育下一代技术' }
+];
+function kwStageOf(name) {
+  for (var i = 0; i < KW_STAGES.length; i++) if (KW_STAGES[i].name === name) return KW_STAGES[i];
+  return KW_STAGES[0];
+}
+/* 五次长波：起止 + 四阶段（阶段年份为学术参考划分；第五波含预计段） */
+var KW_WAVES = [
+  { a: 1782, b: 1845, tech: '纺织机 · 蒸汽机', ev: '英国工业革命',
+    st: [[1782, 1802, '回升'], [1802, 1815, '繁荣'], [1815, 1835, '衰退'], [1835, 1845, '萧条']] },
+  { a: 1845, b: 1895, tech: '铁路 · 钢铁 · 煤炭', ev: '蒸汽铁路与重工业扩张',
+    st: [[1845, 1866, '回升'], [1866, 1872, '繁荣'], [1872, 1883, '衰退'], [1883, 1895, '萧条']] },
+  { a: 1895, b: 1945, tech: '电力 · 内燃机 · 化工', ev: '电气化与大生产时代',
+    st: [[1895, 1913, '回升'], [1913, 1920, '繁荣'], [1920, 1930, '衰退'], [1930, 1945, '萧条']] },
+  { a: 1945, b: 1991, tech: '石油 · 汽车 · 航空 · 电子', ev: '战后黄金三十年',
+    st: [[1945, 1966, '回升'], [1966, 1973, '繁荣'], [1973, 1982, '衰退'], [1982, 1991, '萧条']] },
+  { a: 1982, b: 2029, tech: '信息技术 · 互联网 · AI', ev: '信息化革命与智能化萌芽',
+    st: [[1982, 1991, '回升'], [1991, 2004, '繁荣'], [2004, 2015, '衰退'], [2015, 2025, '萧条'], [2025, 2029, '回升']] }
+];
+var KW_NOW = 2026;
+function kwTlSvg(now) {
+  var X0 = 1780, X1 = 2030, W = 340, PL = 36, PR = 8, Y0 = 20, RH = 24, GAP = 4;
+  function X(y) { return PL + (W - PL - PR) * (y - X0) / (X1 - X0); }
+  var H = Y0 + KW_WAVES.length * (RH + GAP) + 20;
+  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
+  KW_WAVES.forEach(function (w, i) {
+    var y = Y0 + i * (RH + GAP);
+    w.st.forEach(function (sg, j) {
+      var x0 = X(sg[0]), x1 = X(sg[1]);
+      var stg = kwStageOf(sg[2]);
+      var future = sg[0] >= 2025;
+      s += '<rect x="' + x0.toFixed(1) + '" y="' + y + '" width="' + Math.max(1, x1 - x0 - 1).toFixed(1) + '" height="' + RH + '" rx="4" fill="' + stg.color + '" opacity="' + (future ? .38 : .88) + '">' +
+        '<title>' + sg[2] + ' ' + sg[0] + '–' + sg[1] + '</title></rect>';
+      if (j === 0) {
+        s += '<text x="0" y="' + (y + RH / 2 + 3.5) + '" font-size="8.5" font-weight="700" fill="var(--sub)">' + w.a + '</text>';
+      }
+    });
+    s += '<text x="' + W + '" y="' + (y + RH / 2 + 3.5) + '" text-anchor="end" font-size="8.5" font-weight="700" fill="var(--sub)">' + w.b + '</text>';
+  });
+  // 当前年标记线
+  var nx = X(now);
+  s += '<line x1="' + nx.toFixed(1) + '" y1="' + (Y0 - 8) + '" x2="' + nx.toFixed(1) + '" y2="' + (H - 14) + '" stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="3 2.5"/>';
+  s += '<text x="' + nx.toFixed(1) + '" y="' + (Y0 - 11) + '" text-anchor="middle" font-size="9" font-weight="800" fill="var(--ink)">今 ' + now + '</text>';
+  // 底部百年刻度
+  [1800, 1850, 1900, 1950, 2000].forEach(function (t) {
+    var tx = X(t);
+    s += '<line x1="' + tx.toFixed(1) + '" y1="' + (H - 13) + '" x2="' + tx.toFixed(1) + '" y2="' + (H - 9) + '" stroke="var(--sub)" stroke-width="1"/>';
+    s += '<text x="' + tx.toFixed(1) + '" y="' + (H - 1.5) + '" text-anchor="middle" font-size="8" font-weight="600" fill="var(--sub)">' + t + '</text>';
+  });
+  return s + '</svg>';
+}
+function renderEconCycle() {
+  document.getElementById('kwTl').innerHTML = kwTlSvg(KW_NOW);
+  document.getElementById('kwLegend').innerHTML = KW_STAGES.map(function (S) {
+    return '<i style="background:' + S.color + '"></i>' + S.name;
+  }).join('');
+  var sh = '';
+  KW_STAGES.forEach(function (S) {
+    sh += '<div class="kw-stage" style="--sc:' + S.color + '">' +
+      '<div class="kw-stage-h"><span class="kw-stage-dot"></span>' + S.name + '</div>' +
+      '<div class="kw-stage-f">' + S.feat + '</div>' +
+      '<div class="kw-stage-a">' + S.asset + '</div></div>';
+  });
+  document.getElementById('kwStages').innerHTML = sh;
+  var wh = '';
+  KW_WAVES.forEach(function (w, i) {
+    var cur = w.a <= KW_NOW && KW_NOW <= w.b;
+    wh += '<div class="kw-wave' + (cur ? ' cur' : '') + '">' +
+      '<div class="kw-wave-l"><div class="kw-wave-i">' + (i + 1) + '</div></div>' +
+      '<div class="kw-wave-m"><div class="kw-wave-y">' + w.a + ' – ' + w.b + '</div>' +
+      '<div class="kw-wave-tech">' + w.tech + '</div></div>' +
+      '<div class="kw-wave-r"><div class="kw-wave-ev">' + w.ev + '</div>' +
+      '<div class="kw-wave-st">' + w.st.map(function (sg) { return sg[2] + ' ' + sg[0] + '–' + sg[1]; }).join(' · ') + '</div></div>' +
+      '</div>';
+  });
+  document.getElementById('kWaves').innerHTML = wh;
+}
+
 /* ---------- VIX 恐慌指数仪表盘 ----------
    数据：CBOE VIX 日线（经 FRED VIXCLS 公开序列生成），构建日截至最新交易日；
    App 内（Capacitor 原生）启动时增量拉取 FRED 更新，浏览器环境用内置数据 */
@@ -1268,12 +1535,14 @@ function vixRestore() {
   } catch (e) {}
 }
 
-/* ---------- 走势 / 日历 / VIX 三子 Tab ---------- */
+/* ---------- 走势 / 周期 / 黄金 / VIX / 日历 五子 Tab ---------- */
 function homeTab(btn) {
   var pane = btn.getAttribute('data-pane');
   document.querySelectorAll('#homeTabs button').forEach(function (b) { b.classList.remove('on'); });
   btn.classList.add('on');
   document.getElementById('trendPane').style.display = pane === 'trend' ? '' : 'none';
+  document.getElementById('econPane').style.display = pane === 'cycle' ? '' : 'none';
+  document.getElementById('goldPane').style.display = pane === 'gold' ? '' : 'none';
   document.getElementById('vixPane').style.display = pane === 'vix' ? '' : 'none';
   document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
   curHomePane = pane;
@@ -1282,6 +1551,8 @@ function homeTab(btn) {
   fab.setAttribute('title', '标记事件');
   if (pane === 'cal') renderCal();
   if (pane === 'vix') renderVix();
+  if (pane === 'cycle') renderEconCycle();
+  if (pane === 'gold') renderGold();
 }
 var curHomePane = 'trend';
 
@@ -1690,6 +1961,11 @@ function toast(msg) {
   vixRestore();
   renderVix();
   vixFetchUpdate();
+  renderEconCycle();
+  renderGold();
+  // 黄金：518880 日 K / 分时拉取（失败则用内置快照）
+  fetchGoldKline().then(function (ok) { if (ok && curHomePane === 'gold') renderGold(); });
+  fetchGoldMin().then(function (ok) { if (ok && curHomePane === 'gold') renderGold(); });
 
   // Service Worker（PWA 离线可用；Capacitor 原生环境无 SW 时静默跳过）
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
