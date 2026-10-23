@@ -1,10 +1,11 @@
 /* 浮乐 (fuley) — Service Worker（离线可用） */
-const CACHE = 'fuley-v1.3.4';
+const CACHE = 'fuley-v1.4.0';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './i18n.js',
   './license.js',
   './manifest.webmanifest',
   './icons/icon.svg',

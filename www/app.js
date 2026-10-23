@@ -5,6 +5,9 @@
    授权：license.js（FuleyLicense，试用 30 天 + HMAC 激活码）
    ========================================================= */
 
+/* ---------- 双语辅助（i18n.js 缺失时回退中文，保证旧行为可用） ---------- */
+var L = (window.FuleyI18N && window.FuleyI18N.L) || function (zh, en) { return zh; };
+
 /* ---------- 工具与存储 ---------- */
 var LS_FALLBACK = {};
 function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return LS_FALLBACK[k] != null ? LS_FALLBACK[k] : null; } }
@@ -269,7 +272,7 @@ function renderStkHero() {
     '<div class="sh-top"><span class="sh-n">' + ix.name + '</span><span class="sh-c">' + ix.code + '</span></div>'
     + '<div class="sh-p ' + (ix.up ? 'up' : 'down') + '">' + fmtNum(ix.price) + '</div>'
     + '<div class="sh-d ' + (ix.up ? 'up' : 'down') + '">' + signedAbs(d) + '　' + signedPct(pct) + '</div>'
-    + '<div class="sh-st">已收盘 ' + todayStr() + ' ' + (ix.tm ? ix.tm + ':00' : '') + '</div>';
+    + '<div class="sh-st">' + L('已收盘 ', 'Closed ') + todayStr() + ' ' + (ix.tm ? ix.tm + ':00' : '') + '</div>';
 }
 function renderStkDims() {
   var html = '';
@@ -322,7 +325,7 @@ function renderStkGrid() {
     ['均价', fmtNum(avg)],
     ['振幅', amp.toFixed(2) + '%'],
     ['涨跌', signedPct(pctOf(last, g.prev))],
-    ['样本', g.vals.length + ' 点']
+    ['样本', g.vals.length + L(' 点', ' points')]
   ];
   var html = '';
   cells.forEach(function (c) {
@@ -939,14 +942,14 @@ if (!notes.case) notes.case = [];
 function saveNotes() { saveJSON(NOTES_KEY, notes); }
 function noteKind() { return lampDir === 1 ? 'red' : lampDir === -1 ? 'green' : 'case'; }
 function noteBoxId(kind) { return kind === 'red' ? 'noteListRed' : kind === 'green' ? 'noteListGreen' : 'noteListCase'; }
-function noteLabel(kind) { return kind === 'red' ? '红线' : kind === 'green' ? '绿线' : '案例'; }
+function noteLabel(kind) { return kind === 'red' ? L('红线', 'Red') : kind === 'green' ? L('绿线', 'Green') : L('案例', 'Case'); }
 function noteColor(kind) { return kind === 'red' ? 'var(--up)' : kind === 'green' ? 'var(--down)' : 'var(--accent)'; }
 function renderNoteList(kind) {
   var box = document.getElementById(noteBoxId(kind));
   if (!box) return;
   var arr = notes[kind];
   if (!arr.length) {
-    box.innerHTML = '<div class="empty">暂无' + noteLabel(kind) + '记录</div>';
+    box.innerHTML = '<div class="empty">' + L('暂无' + noteLabel(kind) + '记录', 'No ' + noteLabel(kind).toLowerCase() + ' entries yet') + '</div>';
     return;
   }
   var html = '';
@@ -988,7 +991,7 @@ function addNote() {
   if (segBtns[segIdx]) lampSeg(segBtns[segIdx], lampDir);
   ta.value = '';
   document.getElementById('noteCount').textContent = '0 / 500';
-  toast('已录入' + noteLabel(kind));
+  toast(L('已录入' + noteLabel(kind), 'Saved to ' + noteLabel(kind)));
 }
 function delNote(kind, i) {
   notes[kind].splice(i, 1);
@@ -1044,7 +1047,8 @@ function renderQuizVerdict(items) {
   var pass = items.length > 0 && score >= line;
   var sideTxt = curQuizSide === 'sell' ? '减仓' : '加仓';
   var resTxt = pass ? sideTxt : '不建议' + sideTxt;
-  var sub = '得分 <b>' + score + '</b> / ' + items.length + ' · 通过线 ' + line + ' 分　'
+  var sub = L('得分 <b>' + score + '</b> / ' + items.length + ' · 通过线 ' + line + ' 分　',
+    'Score <b>' + score + '</b> / ' + items.length + ' · pass line ' + line + '　')
     + (pass ? '纪律确认达标' : '未达标，暂缓操作');
   box.className = 'quiz-verdict' + (pass ? ' ok' : ' no');
   box.innerHTML = '<div class="qr-t">' + resTxt + '</div><div class="qr-s">' + sub + '</div>';
@@ -1267,7 +1271,7 @@ function goldTrend() {
   var c = d[d.length - 1][1];
   var ma20 = goldMa(20), ma60 = goldMa(60);
   if (c > ma20 && ma20 > ma60) return { t: '多头排列', up: true, sub: '价 > MA20 > MA60' };
-  if (c < ma20 && ma20 < ma60) return { t: '空头排列', up: false, sub: '价 < MA20 < MA60' };
+  if (c < ma20 && ma20 < ma60) return { t: L('空头排列', 'Bearish stack'), up: false, sub: 'Price < MA20 < MA60' };
   return { t: '震荡整理', up: null, sub: '均线交织，方向不明' };
 }
 function goldChartSvg(vals) {
@@ -1324,7 +1328,7 @@ function renderGold() {
     var yVals = d.slice(-252).map(function (r) { return r[1]; });
     var tr = goldTrend();
     var ma20 = goldMa(20), ma60 = goldMa(60);
-    var h = '<div class="gs-row"><span class="gs-k">沪金 ETF 现价</span><span class="gs-v">' + c.toFixed(3) + ' 元/克</span></div>' +
+    var h = '<div class="gs-row"><span class="gs-k">沪金 ETF 现价</span><span class="gs-v">' + c.toFixed(3) + L(' 元/克', ' CNY/g') + '</span></div>' +
       '<div class="gs-row"><span class="gs-k">近一年涨跌</span><span class="gs-v ' + (chg >= 0 ? 'up' : 'down') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%</span></div>' +
       '<div class="gs-row"><span class="gs-k">一年区间</span><span class="gs-v">' + Math.min.apply(null, yVals).toFixed(2) + ' – ' + Math.max.apply(null, yVals).toFixed(2) + '</span></div>' +
       '<div class="gs-row"><span class="gs-k">均线</span><span class="gs-v">MA20 ' + ma20.toFixed(2) + ' · MA60 ' + ma60.toFixed(2) + '</span></div>' +
@@ -1457,7 +1461,7 @@ function kwTlSvg(now) {
   // 当前年标记
   var nx = X(now).toFixed(1);
   s += '<line x1="' + nx + '" y1="' + (yTop - 2) + '" x2="' + nx + '" y2="' + (yBot + 2) + '" stroke="var(--ink)" stroke-width="1.3" stroke-dasharray="3 2.5"/>';
-  s += '<text x="' + nx + '" y="32" text-anchor="middle" font-size="9" font-weight="800" fill="var(--ink)">今 ' + now + '</text>';
+  s += '<text x="' + nx + '" y="32" text-anchor="middle" font-size="9" font-weight="800" fill="var(--ink)">' + L('今 ', 'Now ') + now + '</text>';
   // 底部：注释 + 康波编号年数 + 起止
   KW_WAVES.forEach(function (w, i) {
     var mx = (X(w.a) + X(w.b)) / 2;
@@ -1467,11 +1471,11 @@ function kwTlSvg(now) {
       ny += 11;
     });
     if (w.future) {
-      s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">第六康波 · 畅想</text>';
-      s += '<text x="' + mx.toFixed(1) + '" y="189" text-anchor="middle" font-size="8" fill="var(--sub)">（预测 ' + w.a + ' – ）</text>';
+      s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">' + L('第六康波 · 畅想', 'Wave 6 · imagined') + '</text>';
+      s += '<text x="' + mx.toFixed(1) + '" y="189" text-anchor="middle" font-size="8" fill="var(--sub)">' + L('（预测 ' + w.a + ' – ）', '(est. ' + w.a + ' – )') + '</text>';
     } else {
-      s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">第' + KW_CN[i] + '康波 · ' + (w.b - w.a) + '年</text>';
-      var yr = w.bPred ? '（' + w.a + ' – 预测' + w.b + '年）' : '（' + w.a + ' – ' + w.b + '年）';
+      s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">' + L('第' + KW_CN[i] + '康波 · ' + (w.b - w.a) + '年', 'Wave ' + (i + 1) + ' · ' + (w.b - w.a) + 'y') + '</text>';
+      var yr = w.bPred ? L('（' + w.a + ' – 预测' + w.b + '年）', '(' + w.a + ' – est. ' + w.b + ')') : L('（' + w.a + ' – ' + w.b + '年）', '(' + w.a + ' – ' + w.b + ')');
       s += '<text x="' + mx.toFixed(1) + '" y="189" text-anchor="middle" font-size="8" fill="var(--sub)">' + yr + '</text>';
     }
   });
@@ -1493,7 +1497,7 @@ function renderEconCycle() {
   var wh = '';
   KW_WAVES.forEach(function (w, i) {
     var cur = w.a <= KW_NOW && KW_NOW <= w.b;
-    var yr = w.a + ' – ' + (w.bPred ? '预测' + w.b : w.b);
+    var yr = w.a + ' – ' + (w.bPred ? L('预测' + w.b, 'est. ' + w.b) : w.b);
     wh += '<div class="kw-wave' + (cur ? ' cur' : '') + (w.future ? ' future' : '') + '">' +
       '<div class="kw-wave-l"><div class="kw-wave-i">' + (i + 1) + '</div></div>' +
       '<div class="kw-wave-m"><div class="kw-wave-y">' + yr + '</div>' +
@@ -1862,14 +1866,15 @@ function eventsOn(ds) {
   calCustom.forEach(function (c, i) { if (c.d === ds) out.push({ t: c.t, title: c.title, note: '自定义', idx: i }); });
   return out;
 }
+var calMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function renderCal() {
-  document.getElementById('calTitle').textContent = calY + '年' + (calM + 1) + '月';
+  document.getElementById('calTitle').textContent = L(calY + '年' + (calM + 1) + '月', calMonths[calM] + ' ' + calY);
   var first = new Date(calY, calM, 1);
   var startDow = (first.getDay() + 6) % 7; // 周一=0
   var daysInMonth = new Date(calY, calM + 1, 0).getDate();
   var today = new Date();
   var todayStr = today.getFullYear() + '-' + (today.getMonth() + 1 < 10 ? '0' : '') + (today.getMonth() + 1) + '-' + (today.getDate() < 10 ? '0' : '') + today.getDate();
-  var html = ['一', '二', '三', '四', '五', '六', '日'].map(function (w) { return '<div class="cal-wd">' + w + '</div>'; }).join('');
+  var html = L('一,二,三,四,五,六,日', 'M,T,W,T,F,S,S').split(',').map(function (w) { return '<div class="cal-wd">' + w + '</div>'; }).join('');
   var b;
   for (b = 0; b < startDow; b++) html += '<div class="cal-day blank"></div>';
   for (var day = 1; day <= daysInMonth; day++) {
@@ -1949,9 +1954,9 @@ function delCalEvent(i) {
 
 /* ---------- 授权许可（试用期 / 一年期授权） ---------- */
 function licStateText(st) {
-  if (st.status === 'licensed') return '已授权 · 剩 ' + st.daysLeft + ' 天';
-  if (st.status === 'trial') return '试用中 · 剩 ' + st.daysLeft + ' 天';
-  return '已过期 · 点击续签';
+  if (st.status === 'licensed') return L('已授权 · 剩 ' + st.daysLeft + ' 天', 'Licensed · ' + st.daysLeft + ' days left');
+  if (st.status === 'trial') return L('试用中 · 剩 ' + st.daysLeft + ' 天', 'Trial · ' + st.daysLeft + ' days left');
+  return L('已过期 · 点击续签', 'Expired · tap to renew');
 }
 function renderLicenseState() {
   var row = document.getElementById('licState');
@@ -1964,9 +1969,10 @@ function showLicLock() {
   document.getElementById('llDev').textContent = window.FuleyLicense.getDeviceId();
   var t = document.getElementById('llTitle');
   var s = document.getElementById('llSub');
-  if (t) t.textContent = (st.trial ? '试用期已结束' : '授权已到期');
-  if (s) s.textContent = (st.trial ? '输入激活码继续使用浮乐 · 激活后授权 1 年'
-    : '一年一签，请续签后继续使用（' + (st.expireDate || '') + ' 已到期）');
+  if (t) t.textContent = (st.trial ? L('试用期已结束', 'Trial ended') : L('授权已到期', 'License expired'));
+  if (s) s.textContent = (st.trial ? L('输入激活码继续使用浮乐 · 激活后授权 1 年', 'Enter a code to keep using Fuley · 1-year license')
+    : L('一年一签，请续签后继续使用（' + (st.expireDate || '') + ' 已到期）',
+      'Renewed yearly — please renew to continue (expired ' + (st.expireDate || '') + ')'));
   document.getElementById('licLock').classList.add('on');
 }
 function hideLicLock() {
@@ -1977,13 +1983,13 @@ function openLicense() {
   var st = window.FuleyLicense.state();
   var totalDays = (st.status === 'trial') ? window.FuleyLicense.TRIAL_DAYS : window.FuleyLicense.LIC_DAYS;
   var pct = Math.round((totalDays - st.daysLeft) / totalDays * 100);
-  document.getElementById('sheetSave').textContent = '激活';
-  document.getElementById('sheetTitle').textContent = '授权许可';
+  document.getElementById('sheetSave').textContent = L('激活', 'Activate');
+  document.getElementById('sheetTitle').textContent = L('授权许可', 'License');
   document.getElementById('sheetBody').innerHTML =
     '<div class="lic-state' + (st.status === 'expired' ? ' locked' : '') + '">'
-    + '<div class="ls-t">' + (st.status === 'trial' ? '试用期' : '正式授权') + '<span>' + licStateText(st) + '</span></div>'
+    + '<div class="ls-t">' + (st.status === 'trial' ? L('试用期', 'Trial') : L('正式授权', 'Licensed')) + '<span>' + licStateText(st) + '</span></div>'
     + '<div class="lic-bar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div>'
-    + '<div class="ls-d">' + (st.expireDate ? '到期日 ' + st.expireDate : '') + '</div>'
+    + '<div class="ls-d">' + (st.expireDate ? L('到期日 ' + st.expireDate, 'Expires ' + st.expireDate) : '') + '</div>'
     + '</div>'
     + '<div class="field"><label>设备识别码（长按复制，发给作者获取激活码）</label>'
     + '<div class="lic-dev">' + window.FuleyLicense.getDeviceId() + '</div></div>'
@@ -2031,10 +2037,28 @@ function meAuth() {
   authMode = loadAccount() ? 'login' : 'register';
   openAuthSheet();
 }
+/* ---------- 语言切换（中文 / English） ---------- */
+var APP_VERSION = 'v1.4.0';
+function renderLangSeg() {
+  var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
+  var html = '';
+  [['zh', '中文'], ['en', 'English']].forEach(function (it) {
+    html += '<button class="' + (cur === it[0] ? 'on' : '') + '" onclick="switchLang(\'' + it[0] + '\')">' + it[1] + '</button>';
+  });
+  var box = document.getElementById('langSeg');
+  if (box) box.innerHTML = html;
+  var ver = document.getElementById('appVer');
+  if (ver) ver.textContent = APP_VERSION;
+}
+function switchLang(l) {
+  if (window.FuleyI18N) window.FuleyI18N.switchLang(l);
+}
 function renderMe() {
-  document.getElementById('meUname').textContent = meUser ? meUser.name : '未登录';
-  document.getElementById('meUsub').textContent = meUser ? '账号 ' + meUser.account + ' · 数据仅保存在本机' : '注册账号后可多设备云端同步';
-  document.getElementById('meAuthBtn').textContent = meUser ? '登出' : (loadAccount() ? '登录' : '注册');
+  document.getElementById('meUname').textContent = meUser ? meUser.name : L('未登录', 'Not signed in');
+  document.getElementById('meUsub').textContent = meUser
+    ? L('账号 ' + meUser.account + ' · 数据仅保存在本机', 'Account ' + meUser.account + ' · data stays on this device')
+    : L('注册账号后可多设备云端同步', 'Sign up to sync across devices');
+  document.getElementById('meAuthBtn').textContent = meUser ? L('登出', 'Sign out') : (loadAccount() ? L('登录', 'Sign in') : L('注册', 'Sign up'));
   document.getElementById('meAvatar').textContent = meUser ? meUser.name.charAt(0) : '浮';
 }
 function openAuthSheet() {
@@ -2139,16 +2163,17 @@ function renderRegGate() {
   f += '<button class="btn" onclick="rgSubmit()">' + (isReg ? '注册并开始' : '登录') + '</button>';
   document.getElementById('rgForm').innerHTML = f;
   document.getElementById('rgSwitch').innerHTML = isReg
-    ? '已有账号？<a onclick="authMode=\'login\';renderRegGate()">去登录</a>'
-    : '没有账号？<a onclick="authMode=\'register\';renderRegGate()">去注册</a>';
+    ? L('已有账号？<a onclick="authMode=\'login\';renderRegGate()">去登录</a>', 'Have an account? <a onclick="authMode=\'login\';renderRegGate()">Sign in</a>')
+    : L('没有账号？<a onclick="authMode=\'register\';renderRegGate()">去注册</a>', 'No account? <a onclick="authMode=\'register\';renderRegGate()">Sign up</a>');
 }
 function rgSubmit() { if (authMode === 'register') doRegister(); else doSignIn(); }
 function showTrialNotice(opt) {
   opt = opt || {};
-  document.getElementById('tnT').textContent = opt.title || '试用期 30 天';
-  document.getElementById('tnS').innerHTML = opt.body || '注册成功，欢迎加入浮乐！<br>当前为试用版，有效期 30 天，功能全部开放；到期后输入激活码可授权使用 1 年。';
+  document.getElementById('tnT').textContent = opt.title || L('试用期 30 天', '30-day trial');
+  document.getElementById('tnS').innerHTML = opt.body || L('注册成功，欢迎加入浮乐！<br>当前为试用版，有效期 30 天，功能全部开放；到期后输入激活码可授权使用 1 年。',
+    'You are in! Welcome to Fuley.<br>You are on a 30-day trial with all features open; after it ends, enter an activation code for a 1-year license.');
   document.getElementById('tnLater').style.display = opt.later ? '' : 'none';
-  document.getElementById('tnOk').textContent = opt.okText || '知道了';
+  document.getElementById('tnOk').textContent = opt.okText || L('知道了', 'Got it');
   document.getElementById('trialNotice').classList.add('on');
 }
 function closeTrialNotice() { document.getElementById('trialNotice').classList.remove('on'); }
@@ -2169,15 +2194,17 @@ function checkTrialDaily() {
   tnActivateFlag = true;
   if (isTrial) {
     showTrialNotice({
-      title: '试用期剩余 ' + st.daysLeft + ' 天',
-      body: '试用期还剩 <b>' + st.daysLeft + ' 天</b>，到期后将锁定功能。<br>在「我的 - 授权许可」发送设备识别码给作者，获取激活码激活后使用 1 年。',
-      okText: '去激活', later: true
+      title: L('试用期剩余 ' + st.daysLeft + ' 天', st.daysLeft + ' days left in trial'),
+      body: L('试用期还剩 <b>' + st.daysLeft + ' 天</b>，到期后将锁定功能。<br>在「我的 - 授权许可」发送设备识别码给作者，获取激活码激活后使用 1 年。',
+        '<b>' + st.daysLeft + ' days</b> left in your trial; features lock after that.<br>Send your device ID from Me → License to the author to get a code, then enjoy 1 year.'),
+      okText: L('去激活', 'Activate'), later: true
     });
   } else {
     showTrialNotice({
-      title: '授权还有 ' + st.daysLeft + ' 天到期',
-      body: '当前授权将于 <b>' + (st.expireDate || '') + '</b> 到期，还剩 <b>' + st.daysLeft + ' 天</b>。<br>一年一签，请及时续签以免功能被锁定。',
-      okText: '去续签', later: true
+      title: L('授权还有 ' + st.daysLeft + ' 天到期', 'License expires in ' + st.daysLeft + ' days'),
+      body: L('当前授权将于 <b>' + (st.expireDate || '') + '</b> 到期，还剩 <b>' + st.daysLeft + ' 天</b>。<br>一年一签，请及时续签以免功能被锁定。',
+        'Your license expires on <b>' + (st.expireDate || '') + '</b>, <b>' + st.daysLeft + ' days</b> left.<br>Licenses renew yearly — please renew in time to avoid a lockout.'),
+      okText: L('去续签', 'Renew'), later: true
     });
   }
 }
@@ -2292,6 +2319,7 @@ function toast(msg) {
 
   // 初始渲染
   renderMe();
+  renderLangSeg();
   renderIndices();
   renderPlans();
   renderSignals();
