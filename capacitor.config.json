@@ -1,6 +1,6 @@
 {
   "appId": "com.lldca.app",
-  "appName": "定投",
+  "appName": "浮乐",
   "webDir": "www",
   "server": {
     "androidScheme": "https"

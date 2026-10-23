@@ -4,65 +4,262 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#f3f5f9">
-<meta name="description" content="定投（lldca）— 美股月度定投记录与收益统计，默认七巨头，股票可自选">
-<title>定投</title>
+<meta name="description" content="浮乐（fuley）— 大盘走势 / 定投提醒 / 红绿灯 / 加减仓纪律">
+<title>浮乐</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
 <link rel="apple-touch-icon" href="icons/icon.svg">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="定投">
+<meta name="apple-mobile-web-status-bar-style" content="default">
+<meta name="apple-mobile-web-title" content="浮乐">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div id="app">
   <header id="topbar">
-    <div class="tb-title" id="tbTitle">定投</div>
-    <div class="tb-actions" id="tbActions"></div>
+    <div class="tb-title" id="tbTitle">走势</div>
+    <div class="tb-actions">
+      <button class="icon-btn" id="refreshBtn" aria-label="刷新行情">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 14.6A8.6 8.6 0 0 1 9.4 3.5 8.5 8.5 0 1 0 20.5 14.6z"/></svg>
+      </button>
+    </div>
   </header>
 
   <main id="main">
-    <section class="view active" id="view-home"></section>
-    <section class="view" id="view-holdings"></section>
-    <section class="view" id="view-plan"></section>
-    <section class="view" id="view-records"></section>
-    <section class="view" id="view-me"></section>
+    <!-- ============ 走势页 ============ -->
+    <section class="view active" id="view-home">
+      <div class="ntabs plain" id="homeTabs">
+        <button class="on" data-pane="trend" onclick="homeTab(this)">走势</button>
+        <button data-pane="cal" onclick="homeTab(this)">日历</button>
+      </div>
+
+      <div id="trendPane">
+        <div id="idxList"></div>
+        <div class="dimseg" id="dimSeg">
+          <button class="on" data-dim="all" onclick="dimSeg(this)">全部至今</button>
+          <button data-dim="year" onclick="dimSeg(this)">近一年</button>
+          <button data-dim="min" onclick="dimSeg(this)">今日分时</button>
+        </div>
+        <div class="hintbar">行情每 60 秒自动刷新 · 曲线可拖动平移、滚轮/双指缩放、双击重置 · 点击曲线看全屏大图</div>
+      </div>
+
+      <div id="calPane" style="display:none">
+        <div class="cal-head">
+          <button class="cal-nav" onclick="calMove(-1)" aria-label="上个月">‹</button>
+          <span class="cal-t" id="calTitle"></span>
+          <button class="cal-nav" onclick="calMove(1)" aria-label="下个月">›</button>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-sec" id="calSelTitle"></div>
+        <div id="calEvents"></div>
+        <button class="qadd" onclick="openCalEvent()">+ 标记事件</button>
+        <div class="hintbar">财报 / 经济指标 / 选举日程 · 底部按钮可自定义标记 · 点击日期查看当天</div>
+      </div>
+    </section>
+
+    <!-- ============ 定投页 ============ -->
+    <section class="view" id="view-plan">
+      <div class="listcard" id="planList"></div>
+      <div class="hintbar">到定投日自动推送本地通知 · 点击条目可编辑</div>
+    </section>
+
+    <!-- ============ 红绿灯页 ============ -->
+    <section class="view" id="view-notes">
+      <div class="editor">
+        <div class="lampseg" id="lampSeg">
+          <button class="on red" onclick="lampSeg(this, 1)"><span class="lamp"></span>红线 · 禁忌</button>
+          <button onclick="lampSeg(this, -1)"><span class="lamp"></span>绿线 · 可重复</button>
+          <button onclick="lampSeg(this, 0)"><span class="lamp"></span>案例</button>
+        </div>
+        <textarea id="noteInput" maxlength="500" placeholder="录入心得或红线，如：单只个股不超过总仓位 20%；不追高，跌破成本 8% 必须止损……"></textarea>
+        <div class="efoot">
+          <span class="ecount" id="noteCount">0 / 500</span>
+          <button class="btn" onclick="addNote()">保存</button>
+        </div>
+      </div>
+      <div id="noteListRed"></div>
+      <div id="noteListGreen" style="display:none"></div>
+      <div id="noteListCase" style="display:none"></div>
+      <div class="hintbar">红线 = 绝不做 · 绿线 = 可重复 · 案例 = 复盘存档</div>
+    </section>
+
+    <!-- ============ 加减仓页 ============ -->
+    <section class="view" id="view-signals">
+      <div class="ntabs plain" id="sigTabs">
+        <button class="on" data-pane="sig" onclick="sigTab(this)">信号提醒</button>
+        <button data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
+        <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
+      </div>
+
+      <div id="sigPane">
+        <div class="listcard" id="sigList"></div>
+        <div class="hintbar">支持价格触发与定时提醒 · 触发时推送本地通知</div>
+      </div>
+
+      <div id="quizPane" style="display:none">
+        <div class="quiz-head">
+          <div class="qh-l">已完成 <b id="qDone">0</b> / <span id="qTotal">10</span></div>
+          <div class="qbar"><i id="qFill"></i></div>
+        </div>
+        <div id="quizList"></div>
+        <button class="qadd" onclick="addQuizItem()">+ 自定义题目</button>
+        <button class="qreset" onclick="resetQuiz()">重置，再来一轮</button>
+        <div class="hintbar">每笔操作前过一遍这十道题 · 全部打勾 = 纪律确认完成 · 可自定义题目，不限次数重做</div>
+      </div>
+
+      <div id="panicPane" style="display:none">
+        <div class="me-sec">当前恐慌等级（自评）</div>
+        <div class="panic-pick" id="panicPick">
+          <button data-tone="g" onclick="panicPick(this,1)">1</button>
+          <button data-tone="g" onclick="panicPick(this,2)">2</button>
+          <button data-tone="g" onclick="panicPick(this,3)">3</button>
+          <button data-tone="y" onclick="panicPick(this,4)">4</button>
+          <button data-tone="y" onclick="panicPick(this,5)">5</button>
+          <button data-tone="y" onclick="panicPick(this,6)">6</button>
+          <button data-tone="y" onclick="panicPick(this,7)">7</button>
+          <button data-tone="r" onclick="panicPick(this,8)">8</button>
+          <button data-tone="r" onclick="panicPick(this,9)">9</button>
+          <button data-tone="r" onclick="panicPick(this,10)">10</button>
+        </div>
+        <div class="panic-card" id="panicCard"></div>
+        <div class="me-sec">Kübler-Ross 哀伤五阶段</div>
+        <div id="krFlow"></div>
+        <div class="hintbar">市场恐慌时的情绪地图：多数人在 1-5 级时追涨杀跌 · 级别越高越接近底部，也越需要按纪律执行</div>
+      </div>
+    </section>
+
+    <!-- ============ 我的页 ============ -->
+    <section class="view" id="view-me">
+      <div class="me-user">
+        <div class="me-avatar" id="meAvatar">浮</div>
+        <div class="me-uinfo">
+          <div class="me-uname" id="meUname">未登录</div>
+          <div class="me-usub" id="meUsub">注册账号后可多设备云端同步</div>
+        </div>
+        <button class="btn" id="meAuthBtn" onclick="meAuth()">登录</button>
+      </div>
+
+      <div class="me-sec">数据管理</div>
+      <div class="listcard">
+        <div class="mrow" onclick="exportData()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11M7.5 9.5 12 14l4.5-4.5"/><path d="M4.5 17.5v2h15v-2"/></svg>
+          <div class="mrow-l">导出数据</div>
+          <span class="mrow-v">JSON 文件</span>
+        </div>
+        <div class="mrow" onclick="backupData()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8V6"/><path d="M4.5 12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8"/></svg>
+          <div class="mrow-l">备份数据</div>
+          <span class="mrow-v" id="backupState">未备份</span>
+        </div>
+        <div class="mrow" onclick="pickRestoreFile()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14.5v-11M7.5 8.5 12 4l4.5 4.5"/><path d="M4.5 17.5v2h15v-2"/></svg>
+          <div class="mrow-l">恢复数据</div>
+          <span class="mrow-v">选择备份文件</span>
+        </div>
+        <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
+      </div>
+
+      <div class="me-sec">授权</div>
+      <div class="listcard">
+        <div class="mrow" onclick="openLicense()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.6 18.6 6v5.2c0 4.3-2.9 7.3-6.6 9.2-3.7-1.9-6.6-4.9-6.6-9.2V6L12 3.6z"/><path d="M9.3 11.9 11.2 13.8 15 9.9"/></svg>
+          <div class="mrow-l">授权许可</div>
+          <span class="mrow-v" id="licState">…</span>
+        </div>
+      </div>
+
+      <div class="me-sec">关于</div>
+      <div class="listcard">
+        <div class="mrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
+          <div class="mrow-l">当前版本</div>
+          <span class="mrow-v">v1.3.0</span>
+        </div>
+        <div class="mrow" onclick="toast('已是最新版本')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
+          <div class="mrow-l">检查更新</div>
+          <span class="mrow-v">已是最新</span>
+        </div>
+      </div>
+      <div class="hintbar">数据仅保存在本机 · 导出 / 备份可用于换机迁移</div>
+    </section>
   </main>
 
-  <button class="fab" data-act="add" aria-label="记一笔">
+  <button class="fab hide" id="fab" aria-label="添加">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>
   </button>
 
   <nav id="tabbar">
     <button class="tab active" data-tab="home">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.2 12 4l8 7.2"/><path d="M6.4 9.6V20h11.2V9.6"/><path d="M10.4 20v-5.4h3.2V20"/></svg>
-      <span>首页</span>
-    </button>
-    <button class="tab" data-tab="holdings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6V12l7.2 4.2"/></svg>
-      <span>持仓</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15.5 9.2 9l4 3.6L20 5.5"/><path d="M4 19.5h16"/></svg>
+      <span>走势</span>
     </button>
     <button class="tab" data-tab="plan">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.4" width="16" height="14.6" rx="2.2"/><path d="M8 3.4v4M16 3.4v4M4 10.2h16"/><path d="M8.6 14h2M13.4 14h2M8.6 17.2h2M13.4 17.2h2"/></svg>
-      <span>计划</span>
+      <span>定投</span>
     </button>
-    <button class="tab" data-tab="records">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h6"/><circle cx="4.6" cy="6.5" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="17.5" r="1.15" fill="currentColor" stroke="none"/></svg>
-      <span>记录</span>
+    <button class="tab" data-tab="notes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v3M12 18v2.5M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3.5 12h3M18 12h2.5M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+      <span>红绿灯</span>
+    </button>
+    <button class="tab" data-tab="signals">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5v16M6.5 10.5 12 5l5.5 5.5"/><path d="M17.5 13.5 12 19l-5.5-5.5" opacity="0.45"/></svg>
+      <span>加减仓</span>
     </button>
     <button class="tab" data-tab="me">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8.2" r="3.6"/><path d="M4.8 20.2c1.5-3.7 4.1-5.4 7.2-5.4s5.7 1.7 7.2 5.4"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8.2" r="3.6"/><path d="M4.8 20c.9-3.6 3.8-5.6 7.2-5.6s6.3 2 7.2 5.6"/></svg>
       <span>我的</span>
     </button>
   </nav>
 </div>
 
+<!-- 底部弹层 -->
 <div class="backdrop" id="backdrop"></div>
-<div class="sheet" id="sheet"></div>
-<div id="dialogRoot"></div>
-<div id="toastRoot"></div>
-<input type="file" id="importFile" accept=".json,application/json" hidden>
+<div class="sheet" id="sheet">
+  <div class="sheet-grip"></div>
+  <h3 class="sheet-title" id="sheetTitle">添加</h3>
+  <div class="sheet-body" id="sheetBody"></div>
+  <div class="sheet-foot">
+    <button class="btn btn-ghost" onclick="closeSheet()">取消</button>
+    <button class="btn" id="sheetSave" onclick="sheetSave()">保存</button>
+  </div>
+</div>
 
+<!-- 全屏走势大图 -->
+<div class="chartfull" id="chartFull">
+  <div class="cf-head">
+    <button class="cf-close" id="cfClose" aria-label="关闭">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <div class="cf-title"><span id="cfName"></span><span class="cf-dim" id="cfDim"></span></div>
+  </div>
+  <div class="cf-hud" id="cfHud"></div>
+  <div class="cf-canvas" id="cfCanvas"><svg id="cfSvg" preserveAspectRatio="none"></svg></div>
+  <div class="cf-foot">
+    <span>拖动平移 · 滚轮 / 双指缩放 · 双击重置</span>
+    <button class="cf-reset" id="cfReset">重置</button>
+  </div>
+</div>
+
+<!-- 试用到期锁定遮罩 -->
+<div id="licLock">
+  <div class="ll-card">
+    <div class="ll-logo">浮</div>
+    <div class="ll-t">试用期已结束</div>
+    <div class="ll-s">输入激活码继续使用浮乐 · 激活后永久有效</div>
+    <div class="ll-dev"><label>设备识别码（长按复制，发给作者获取激活码）</label><div class="lic-dev" id="llDev"></div></div>
+    <div class="field"><label>激活码</label><input type="text" id="llCode" placeholder="FULEY-XXXX-XXXX-XXXX-XXXX" autocomplete="off"></div>
+    <button class="btn" id="llActivate" onclick="llActivate()">激活</button>
+    <div class="ll-f">购买 / 咨询：联系作者获取激活码</div>
+  </div>
+</div>
+
+<div id="toastRoot"></div>
+
+<script src="license.js" defer></script>
 <script src="app.js" defer></script>
 </body>
 </html>

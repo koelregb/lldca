@@ -1,14 +1,14 @@
 {
-  "name": "定投",
-  "short_name": "定投",
-  "description": "美股七巨头月度定投记录与收益统计",
+  "name": "浮乐",
+  "short_name": "浮乐",
+  "description": "浮乐（fuley）— 大盘走势 / 定投提醒 / 红绿灯 / 加减仓纪律",
   "lang": "zh-CN",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f3f5f9",
-  "theme_color": "#2b5cff",
+  "theme_color": "#f3f5f9",
   "icons": [
     { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icons/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }

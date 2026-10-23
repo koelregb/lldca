@@ -1,10 +1,11 @@
-/* 定投 (lldca) — Service Worker（离线可用） */
-const CACHE = 'lldca-v3';
+/* 浮乐 (fuley) — Service Worker（离线可用） */
+const CACHE = 'fuley-v1';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './license.js',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-maskable.svg'

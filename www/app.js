@@ -1,1414 +1,1404 @@
-/* =============================================================
-   定投 (lldca)
-   美股定投记录与收益统计（默认七巨头，41 只预设池 + 任意美股代码自选）
-   - 纯前端实现，数据仅存 localStorage，可打包为 Android App
-   - 红涨绿跌（中文金融惯例）；默认人民币显示，可切换美元
-   - 现价支持腾讯财经行情自动获取（国内可直连）或手动输入
-   - License 授权码机制已内置但默认未启用（tools/ 下附授权码生成器，备用）
-   ============================================================= */
-(function (root, factory) {
-  const api = factory();
-  if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  if (root) root.MAG7 = api;
-})(typeof self !== 'undefined' ? self : globalThis, function () {
-  'use strict';
-
-  /* ---------------- 常量与元数据 ---------------- */
-  // 预设股票池：美股七巨头 + 热门蓝筹/科技/中概，用户可自选
-  const STOCK_POOL = [
-    { symbol: 'AAPL',  name: '苹果',       color: '#5b8def', base: 342.94 },
-    { symbol: 'MSFT',  name: '微软',       color: '#2f9e6e', base: 533.52 },
-    { symbol: 'GOOGL', name: '谷歌',       color: '#e8a33d', base: 344.18 },
-    { symbol: 'AMZN',  name: '亚马逊',     color: '#e07b39', base: 262.45 },
-    { symbol: 'NVDA',  name: '英伟达',     color: '#6fbf73', base: 217.09 },
-    { symbol: 'META',  name: 'Meta',       color: '#4a7fd4', base: 705.44 },
-    { symbol: 'TSLA',  name: '特斯拉',     color: '#d05b5b', base: 368.06 },
-    { symbol: 'AVGO',  name: '博通',       color: '#c2503f', base: 368.92 },
-    { symbol: 'AMD',   name: 'AMD',        color: '#a8547d', base: 227.31 },
-    { symbol: 'TSM',   name: '台积电',     color: '#8a6fc9', base: 300.44 },
-    { symbol: 'INTC',  name: '英特尔',     color: '#4f8fc0', base: 38.94 },
-    { symbol: 'QCOM',  name: '高通',       color: '#d4884a', base: 172.16 },
-    { symbol: 'MU',    name: '美光',       color: '#5aa6a0', base: 181.05 },
-    { symbol: 'MRVL',  name: '迈威尔',     color: '#3f9e8c', base: 126.38 },
-    { symbol: 'ORCL',  name: '甲骨文',     color: '#b0523d', base: 285.63 },
-    { symbol: 'CRM',   name: 'Salesforce', color: '#4d9fd6', base: 340.72 },
-    { symbol: 'ADBE',  name: 'Adobe',      color: '#c0523f', base: 365.19 },
-    { symbol: 'NOW',   name: 'ServiceNow', color: '#6f8fd4', base: 985.40 },
-    { symbol: 'PLTR',  name: 'Palantir',   color: '#5b7fc0', base: 175.86 },
-    { symbol: 'SNOW',  name: 'Snowflake',  color: '#57b8d9', base: 226.41 },
-    { symbol: 'SHOP',  name: 'Shopify',    color: '#5aa84f', base: 76.35 },
-    { symbol: 'NFLX',  name: '奈飞',       color: '#c0392b', base: 1265.70 },
-    { symbol: 'BABA',  name: '阿里巴巴',   color: '#e8842a', base: 172.35 },
-    { symbol: 'PDD',   name: '拼多多',     color: '#d0453f', base: 135.62 },
-    { symbol: 'JD',    name: '京东',       color: '#b03a48', base: 34.96 },
-    { symbol: 'BIDU',  name: '百度',       color: '#3f6fb5', base: 118.42 },
-    { symbol: 'JPM',   name: '摩根大通',   color: '#4a6fa5', base: 319.66 },
-    { symbol: 'V',     name: 'Visa',       color: '#2f5fa8', base: 348.90 },
-    { symbol: 'MA',    name: 'Mastercard', color: '#e07b1f', base: 562.13 },
-    { symbol: 'BAC',   name: '美国银行',   color: '#a05a7a', base: 51.24 },
-    { symbol: 'GS',    name: '高盛',       color: '#5f7f9f', base: 768.55 },
-    { symbol: 'WMT',   name: '沃尔玛',     color: '#3f7fb5', base: 102.48 },
-    { symbol: 'COST',  name: '好市多',     color: '#b0523d', base: 985.62 },
-    { symbol: 'KO',    name: '可口可乐',   color: '#c0392b', base: 73.85 },
-    { symbol: 'PEP',   name: '百事',       color: '#2f5f9e', base: 152.44 },
-    { symbol: 'MCD',   name: '麦当劳',     color: '#d4a017', base: 262.31 },
-    { symbol: 'NKE',   name: '耐克',       color: '#c0553f', base: 69.47 },
-    { symbol: 'DIS',   name: '迪士尼',     color: '#7a5fc0', base: 106.53 },
-    { symbol: 'XOM',   name: '埃克森美孚', color: '#b0523d', base: 114.36 },
-    { symbol: 'LLY',   name: '礼来',       color: '#c0392b', base: 812.47 },
-    { symbol: 'UBER',  name: 'Uber',       color: '#4a7a9f', base: 93.58 }
-  ];
-  const DEFAULT_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
-  const POOL_MAP = {};
-  for (const s of STOCK_POOL) POOL_MAP[s.symbol] = s;
-  // 自定义股票调色板（按代码哈希稳定取色）
-  const CUSTOM_COLORS = ['#5b8def', '#2f9e6e', '#e8a33d', '#e07b39', '#6fbf73', '#8b6fd8', '#c0553f', '#4a7a9f', '#b0523d', '#c0392b'];
-  function colorFor(sym) {
-    let h = 0;
-    for (let i = 0; i < sym.length; i++) h = (h * 31 + sym.charCodeAt(i)) >>> 0;
-    return CUSTOM_COLORS[h % CUSTOM_COLORS.length];
-  }
-  // 美股代码格式：1-5 个字母，可带 .B 后缀（如 BRK.B）
-  const validSym = (s) => /^[A-Z]{1,5}(\.[A-Z])?$/.test(String(s || '').toUpperCase());
-  // 查股票元数据：预设池 → 本机自定义注册表
-  const SYM = (s) => {
-    const up = String(s || '').toUpperCase();
-    if (POOL_MAP[up]) return POOL_MAP[up];
-    if (state && Array.isArray(state.custom)) {
-      const c = state.custom.find((x) => x && x.symbol === up);
-      if (c) return c;
-    }
-    return null;
-  };
-  // 兜底合成元数据（旧数据或未注册的自定义代码）
-  function symMeta(sym) {
-    const up = String(sym || '').toUpperCase();
-    return SYM(up) || { symbol: up, name: up, color: colorFor(up), custom: !POOL_MAP[up] };
-  }
-
-  // 用户选中的股票（默认七巨头；支持预设池外任意代码）
-  function activeStocks(st) {
-    const list = (st && Array.isArray(st.stocks) && st.stocks.length) ? st.stocks : DEFAULT_SYMBOLS;
-    const out = [];
-    for (const sym of list) {
-      const s = symMeta(sym);
-      if (out.indexOf(s) < 0) out.push(s);
-    }
-    return out;
-  }
-
-  const LS_KEY = 'mag7dca.v1';
-  const PRICE_API = (s) => 'https://qt.gtimg.cn/q=us' + s;
-
-  /* ---------------- 工具函数 ---------------- */
-  const pad2 = (n) => String(n).padStart(2, '0');
-  const dateStr = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  const todayStr = () => dateStr(new Date());
-  const ymOf = (ds) => String(ds).slice(0, 7);
-  const ymNow = () => ymOf(todayStr());
-  const monthLabel = (ym) => { const p = String(ym).split('-'); return `${p[0]}年${+p[1]}月`; };
-  const monthShort = (ym) => { const p = String(ym).split('-'); return `${p[0].slice(2)}/${p[1]}`; };
-  const round2 = (v) => Math.round(v * 100) / 100;
-  const round4 = (v) => Math.round(v * 10000) / 10000;
-  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const trimNum = (v) => String(Math.round(v * 100) / 100);
-
-  /* =============================================================
-     License 授权（离线校验）
-     - deviceId：首次启动随机生成，存本机
-     - 授权码：HMAC-SHA256(内置密钥, deviceId) 前 16 位十六进制
-     - 注意：纯前端方案可被逆向，仅防止随手分享；如需强校验需服务端
-     ============================================================= */
-  const LICENSE_SECRET = 'lldca-license-v1.9f3A';
-  const LICENSE_PREFIX = 'LLDCA';
-  const LICENSE_DEV_KEY = 'lldca.deviceId';
-  const LICENSE_DATA_KEY = 'lldca.license';
-
-  const SHA_K = new Uint32Array([
-    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
-  ]);
-  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
-
-  function sha256Bytes(message) {
-    const l = message.length;
-    const total = ((l + 9 + 63) & ~63);
-    const buf = new Uint8Array(total);
-    buf.set(message);
-    buf[l] = 0x80;
-    const dv = new DataView(buf.buffer);
-    dv.setUint32(total - 8, Math.floor(l / 0x20000000));
-    dv.setUint32(total - 4, (l * 8) >>> 0);
-    let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
-    let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
-    const w = new Uint32Array(64);
-    for (let i = 0; i < total; i += 64) {
-      for (let t = 0; t < 16; t++) w[t] = dv.getUint32(i + t * 4);
-      for (let t = 16; t < 64; t++) {
-        const s0 = rotr(w[t - 15], 7) ^ rotr(w[t - 15], 18) ^ (w[t - 15] >>> 3);
-        const s1 = rotr(w[t - 2], 17) ^ rotr(w[t - 2], 19) ^ (w[t - 2] >>> 10);
-        w[t] = (w[t - 16] + s0 + w[t - 7] + s1) >>> 0;
-      }
-      let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
-      for (let t = 0; t < 64; t++) {
-        const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
-        const ch = (e & f) ^ (~e & g);
-        const t1 = (h + S1 + ch + SHA_K[t] + w[t]) >>> 0;
-        const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
-        const maj = (a & b) ^ (a & c) ^ (b & c);
-        const t2 = (S0 + maj) >>> 0;
-        h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
-      }
-      h0 = (h0 + a) >>> 0; h1 = (h1 + b) >>> 0; h2 = (h2 + c) >>> 0; h3 = (h3 + d) >>> 0;
-      h4 = (h4 + e) >>> 0; h5 = (h5 + f) >>> 0; h6 = (h6 + g) >>> 0; h7 = (h7 + h) >>> 0;
-    }
-    const out = new Uint8Array(32);
-    const odv = new DataView(out.buffer);
-    odv.setUint32(0, h0); odv.setUint32(4, h1); odv.setUint32(8, h2); odv.setUint32(12, h3);
-    odv.setUint32(16, h4); odv.setUint32(20, h5); odv.setUint32(24, h6); odv.setUint32(28, h7);
-    return out;
-  }
-
-  function hmacSha256Bytes(key, msg) {
-    let k = key;
-    if (k.length > 64) k = sha256Bytes(k);
-    const block = new Uint8Array(64);
-    block.set(k);
-    const ipad = new Uint8Array(64), opad = new Uint8Array(64);
-    for (let i = 0; i < 64; i++) { ipad[i] = block[i] ^ 0x36; opad[i] = block[i] ^ 0x5c; }
-    const innerInput = new Uint8Array(64 + msg.length);
-    innerInput.set(ipad, 0);
-    innerInput.set(msg, 64);
-    const innerHash = sha256Bytes(innerInput);
-    const outerInput = new Uint8Array(64 + 32);
-    outerInput.set(opad, 0);
-    outerInput.set(innerHash, 64);
-    return sha256Bytes(outerInput);
-  }
-
-  const strBytes = (s) => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 0xff; return u; };
-  const toHex = (u8) => { let s = ''; for (let i = 0; i < u8.length; i++) s += ((u8[i] >> 4).toString(16)) + ((u8[i] & 15).toString(16)); return s; };
-
-  function genDeviceId() {
-    const bytes = new Uint8Array(6);
-    const c = (typeof globalThis !== 'undefined' && globalThis.crypto) ? globalThis.crypto : null;
-    if (c && c.getRandomValues) c.getRandomValues(bytes);
-    else for (let i = 0; i < 6; i++) bytes[i] = Math.floor(Math.random() * 256);
-    return toHex(bytes).toUpperCase();
-  }
-
-  // 由设备识别码计算授权码（作者与 App 使用同一算法）
-  function licenseCodeFor(deviceId) {
-    const mac = hmacSha256Bytes(strBytes(LICENSE_SECRET), strBytes(String(deviceId || '').toUpperCase()));
-    const raw = toHex(mac).toUpperCase().slice(0, 16);
-    return [raw.slice(0, 4), raw.slice(4, 8), raw.slice(8, 12), raw.slice(12, 16)].join('-');
-  }
-
-  // 归一化用户输入：去横线/小写、去 LLDCA 前缀
-  function normalizeCode(s) {
-    let t = String(s || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
-    if (t.indexOf(LICENSE_PREFIX) === 0) t = t.slice(LICENSE_PREFIX.length);
-    return t;
-  }
-
-  function verifyCode(code, deviceId) {
-    const d = String(deviceId || '').toUpperCase();
-    if (!d) return false;
-    return normalizeCode(code) === normalizeCode(licenseCodeFor(d));
-  }
-
-  /* ---------------- 状态管理 ---------------- */
-  function defaultState() {
-    return {
-      v: 2,
-      settings: { currency: 'CNY', rate: 7.2, theme: 'light', payDay: 5 },
-      stocks: DEFAULT_SYMBOLS.slice(),
-      custom: [],
-      plan: { AAPL: 600, MSFT: 600, GOOGL: 400, AMZN: 400, NVDA: 800, META: 400, TSLA: 400 },
-      records: [],
-      prices: {},
-      demo: false
-    };
-  }
-
-  function mergeState(base, over) {
-    const out = JSON.parse(JSON.stringify(base));
-    const o = over || {};
-    for (const k of Object.keys(o)) {
-      if (k === 'settings' || k === 'plan') Object.assign(out[k], o[k] || {});
-      else if (k === 'stocks') {
-        if (Array.isArray(o.stocks)) out.stocks = o.stocks.map((x) => String(x).toUpperCase()).filter((x) => validSym(x));
-      }
-      else if (k === 'custom') {
-        if (Array.isArray(o.custom)) out.custom = o.custom.filter((x) => x && validSym(x.symbol)).map((x) => ({
-          symbol: String(x.symbol).toUpperCase(),
-          name: String(x.name || x.symbol),
-          color: x.color || colorFor(String(x.symbol).toUpperCase())
-        }));
-      }
-      else out[k] = o[k];
-    }
-    if (!out.stocks || !out.stocks.length) out.stocks = DEFAULT_SYMBOLS.slice();
-    return out;
-  }
-
-  const memStore = {};
-  function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return memStore[k] != null ? memStore[k] : null; } }
-  function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { memStore[k] = v; } }
-  function lsDel(k) { try { window.localStorage.removeItem(k); } catch (e) { delete memStore[k]; } }
-
-  function loadState() {
-    const raw = lsGet(LS_KEY);
-    if (raw) {
-      try { return mergeState(defaultState(), JSON.parse(raw)); } catch (e) { /* 损坏则用默认值 */ }
-    }
-    return defaultState();
-  }
-
-  /* ---------------- License 存储 ---------------- */
-  function getDeviceId() {
-    let id = lsGet(LICENSE_DEV_KEY);
-    if (!id || !/^[0-9A-F]{12}$/.test(String(id).toUpperCase())) {
-      id = genDeviceId();
-      lsSet(LICENSE_DEV_KEY, id);
-    }
-    return String(id).toUpperCase();
-  }
-
-  function licenseState() {
-    const deviceId = getDeviceId();
-    const raw = lsGet(LICENSE_DATA_KEY);
-    if (!raw) return { activated: false, deviceId, code: '' };
-    try {
-      const d = JSON.parse(raw);
-      if (d && d.deviceId === deviceId && verifyCode(d.code, deviceId)) {
-        return { activated: true, deviceId, code: normalizeCode(d.code) };
-      }
-    } catch (e) { /* 忽略 */ }
-    return { activated: false, deviceId, code: '' };
-  }
-
-  function activateLicense(code) {
-    const deviceId = getDeviceId();
-    if (!verifyCode(code, deviceId)) return false;
-    lsSet(LICENSE_DATA_KEY, JSON.stringify({ code: normalizeCode(licenseCodeFor(deviceId)), deviceId, at: Date.now() }));
-    return true;
-  }
-
-  function deactivateLicense() { lsDel(LICENSE_DATA_KEY); }
-
-  /* ---------------- 计算逻辑 ---------------- */
-  function calcHoldings(st) {
-    const h = {};
-    for (const s of activeStocks(st)) h[s.symbol] = { symbol: s.symbol, name: s.name, color: s.color, shares: 0, cost: 0 };
-    for (const r of st.records || []) {
-      const x = h[r.symbol];
-      if (!x) continue;
-      x.shares += (+r.shares || 0);
-      x.cost += (+r.usd || 0);
-    }
-    for (const k in h) {
-      const x = h[k];
-      x.avg = x.shares > 0 ? x.cost / x.shares : 0;
-      const p = (st.prices && st.prices[k]) ? (+st.prices[k].usd || 0) : 0;
-      x.price = p;
-      x.value = x.shares * p;
-      x.pnl = x.value - x.cost;
-      x.pnlPct = x.cost > 0 ? (x.pnl / x.cost) * 100 : 0;
-    }
-    return h;
-  }
-
-  function totals(h) {
-    let cost = 0, value = 0, hasPrice = false;
-    for (const k in h) {
-      cost += h[k].cost;
-      value += h[k].value;
-      if (h[k].price > 0) hasPrice = true;
-    }
-    return { cost, value, pnl: value - cost, pnlPct: cost > 0 ? ((value - cost) / cost) * 100 : 0, hasPrice };
-  }
-
-  function monthRecorded(st, ym) {
-    const m = {};
-    for (const s of activeStocks(st)) m[s.symbol] = 0;
-    for (const r of st.records || []) {
-      if (ymOf(r.date) === ym) m[r.symbol] = (m[r.symbol] || 0) + (+r.usd || 0);
-    }
-    return m;
-  }
-
-  function planTotal(st) {
-    let t = 0;
-    for (const s of activeStocks(st)) {
-      const v = +(st.plan && st.plan[s.symbol]) || 0;
-      if (v > 0) t += v;
-    }
-    return t;
-  }
-
-  function nextPayday(payDay, from) {
-    const now = from ? new Date(from) : new Date();
-    now.setHours(0, 0, 0, 0);
-    const day = clamp(parseInt(payDay) || 5, 1, 28);
-    let d = new Date(now.getFullYear(), now.getMonth(), day);
-    if (d.getTime() < now.getTime()) d = new Date(now.getFullYear(), now.getMonth() + 1, day);
-    const days = Math.round((d.getTime() - now.getTime()) / 86400000);
-    return { date: d, days };
-  }
-
-  function cumByMonth(st) {
-    const byYm = {};
-    for (const r of st.records || []) {
-      const ym = ymOf(r.date);
-      byYm[ym] = (byYm[ym] || 0) + (+r.usd || 0);
-    }
-    const months = Object.keys(byYm).sort();
-    let cum = 0;
-    return months.map((ym) => { cum += byYm[ym]; return { ym, month: byYm[ym], cum }; });
-  }
-
-  function niceCeil(v) {
-    if (!(v > 0)) return 1;
-    const p = Math.pow(10, Math.floor(Math.log10(v)));
-    const n = v / p;
-    const m = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
-    return m * p;
-  }
-
-  /* ---------------- 格式化 ---------------- */
-  const curSym = (c) => (c === 'CNY' ? '¥' : '$');
-  function curSettings() { return (typeof state !== 'undefined' && state && state.settings) ? state.settings : defaultState().settings; }
-  function toDisp(usd, st) {
-    const s = st || curSettings();
-    return s.currency === 'CNY' ? usd * s.rate : usd;
-  }
-  function fmtMoney(usd, st, withSign) {
-    const s = st || curSettings();
-    const v = toDisp(usd, s);
-    const sign = v < 0 ? '-' : (withSign && v > 0 ? '+' : '');
-    return sign + curSym(s.currency) + Math.abs(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-  function fmtUsd(v, withSign) {
-    const sign = v < 0 ? '-' : (withSign && v > 0 ? '+' : '');
-    return sign + '$' + Math.abs(v).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  }
-  function fmtPct(v, withSign) {
-    const sign = v < 0 ? '-' : (withSign && v > 0 ? '+' : '');
-    return sign + Math.abs(v).toFixed(2) + '%';
-  }
-  function fmtShares(v) { return (+v).toLocaleString('zh-CN', { maximumFractionDigits: 4 }); }
-  function fmtShort(usd, st) {
-    const s = st || curSettings();
-    const v = toDisp(usd, s);
-    const sym = curSym(s.currency);
-    const a = Math.abs(v);
-    if (a >= 1e8) return sym + (v / 1e8).toFixed(2) + '亿';
-    if (a >= 1e4) return sym + (v / 1e4).toFixed(2) + '万';
-    return sym + a.toFixed(0);
-  }
-  function fmtTime(ts) {
-    const d = new Date(ts);
-    return `${d.getMonth() + 1}/${d.getDate()} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  }
-  function pnlClass(v) { return v > 0.0001 ? 'up' : (v < -0.0001 ? 'down' : 'flat'); }
-  function pnlBadge(v) {
-    return `<span class="badge ${pnlClass(v)}">${fmtPct(v, true)}</span>`;
-  }
-
-  /* ---------------- 数据操作 ---------------- */
-  function seedDemo(st) {
-    st.records = [];
-    st.prices = {};
-    st.demo = true;
-    const months = 14;
-    const now = new Date();
-    const walk = {};
-    for (const s of activeStocks(st)) walk[s.symbol] = (s.base || 100) * (0.6 + Math.random() * 0.42);
-    for (let i = months - 1; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, clamp(st.settings.payDay, 1, 28), 10, 30, 0);
-      const ds = dateStr(d);
-      for (const s of activeStocks(st)) {
-        const drift = 1 + (Math.random() - 0.44) * 0.13;
-        walk[s.symbol] = Math.max(1, walk[s.symbol] * drift);
-        const px = round2(walk[s.symbol]);
-        const usd = (+st.plan[s.symbol]) || 300;
-        st.records.push({ id: genId(), symbol: s.symbol, date: ds, usd, price: px, shares: round4(usd / px), note: '', ts: d.getTime() });
-      }
-    }
-    for (const s of activeStocks(st)) {
-      st.prices[s.symbol] = { usd: round2((s.base || 100) * (0.995 + Math.random() * 0.012)), at: Date.now() };
-    }
-    st.records.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0)));
-    return st;
-  }
-
-  function parseImport(text) {
-    const p = JSON.parse(text);
-    if (!p || typeof p !== 'object' || !Array.isArray(p.records)) throw new Error('文件格式不正确');
-    const symSet = new Set();
-    if (Array.isArray(p.stocks)) for (const x of p.stocks) symSet.add(String(x).toUpperCase());
-    for (const r of p.records) {
-      if (!r || typeof r.symbol !== 'string' || !validSym(r.symbol)) throw new Error('包含无效的股票代码');
-      if (!(+r.usd > 0)) throw new Error('包含无效的金额');
-      if (typeof r.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(r.date)) throw new Error('包含无效的日期');
-      symSet.add(String(r.symbol).toUpperCase());
-    }
-    p.stocks = Array.from(symSet);
-    if (p.stocks != null && !Array.isArray(p.stocks)) throw new Error('stocks 字段格式不正确');
-    return mergeState(defaultState(), p);
-  }
-
-  /* ---------------- 行情获取（腾讯财经，国内直连） ---------------- */
-  function parseGtimg(text) {
-    const m = /="([^"]*)"/.exec(text || '');
-    if (!m) return 0;
-    const f = m[1].split('~');
-    const v = parseFloat(f[3]);
-    return isFinite(v) && v > 0 ? v : 0;
-  }
-
-  async function fetchText(url, ms) {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), ms || 5000);
-    try {
-      const res = await fetch(url, { signal: ctrl.signal });
-      if (!res.ok) throw new Error('http ' + res.status);
-      return await res.text();
-    } finally { clearTimeout(timer); }
-  }
-
-  async function fetchPrice(symbol) {
-    const cands = [
-      PRICE_API(symbol),
-      'https://stooq.com/q/l/?s=' + symbol.toLowerCase() + '.us&f=sd2t2ohlcv&h&e=csv',
-      'https://api.allorigins.win/raw?url=' + encodeURIComponent(PRICE_API(symbol))
-    ];
-    for (const u of cands) {
-      try {
-        const txt = await fetchText(u, 4500);
-        let p = parseGtimg(txt);
-        if (!p) {
-          const line = (txt || '').trim().split('\n')[0] || '';
-          const f = line.split(',');
-          p = parseFloat(f[6]);
-        }
-        if (p > 0) return round2(p);
-      } catch (e) { /* 尝试下一个来源 */ }
-    }
-    return 0;
-  }
-
-  async function fetchAllPrices(st) {
-    const stocks = activeStocks(st || (typeof state !== 'undefined' ? state : null) || defaultState());
-    const rs = await Promise.all(stocks.map(async (s) => [s.symbol, await fetchPrice(s.symbol)]));
-    const out = {};
-    for (const kv of rs) if (kv[1] > 0) out[kv[0]] = kv[1];
-    return out;
-  }
-
-  /* =============================================================
-     UI 层（仅在浏览器环境执行）
-     ============================================================= */
-  let state = null;
-  let view = 'home';
-  let filterSym = 'ALL';
-  let fCur = 'CNY';
-  let sheetSym = null;
-  let stockQuery = '';
-
-  const $ = (id) => document.getElementById(id);
-
-  const IC = {
-    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 12a8.5 8.5 0 1 1-2.5-6"/><path d="M20.5 3.5V8h-4.5"/></svg>',
-    download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M8 11.5 12 15.5 16 11.5"/><path d="M4.5 19.5h15"/></svg>',
-    upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15.5V4.5"/><path d="M8 8 12 4l4 4"/><path d="M4.5 19.5h15"/></svg>',
-    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 7h15"/><path d="M9.5 7V5h5v2"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v5M14 11v5"/></svg>',
-    pie: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.4"/><path d="M12 3.6V12l7.2 4.2"/></svg>',
-    list: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h6"/><circle cx="4.6" cy="6.5" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="4.6" cy="17.5" r="1.15" fill="currentColor" stroke="none"/></svg>',
-    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></svg>',
-    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15.5" r="4.2"/><path d="M11 12.5 20 3.5"/><path d="M17.5 6l2.5 2.5"/><path d="M15 8.5 17.5 11"/></svg>',
-    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
-    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg>'
-  };
-
-  const VIEW_META = {
-    home: { title: '定投', actions: '' },
-    holdings: { title: '我的持仓', actions: '<button class="icon-btn" data-act="prices" title="更新现价">' + IC.refresh + '</button>' },
-    plan: { title: '定投计划', actions: '<button class="icon-btn" data-act="manageStocks" title="管理定投股票">' + IC.plus + '</button>' },
-    records: { title: '投资记录', actions: '<button class="icon-btn" data-act="export" title="导出备份">' + IC.download + '</button>' },
-    me: { title: '我的', actions: '' }
-  };
-
-  /* ---------------- 启动 ---------------- */
-  function boot() {
-    state = loadState();
-    applyTheme();
-    $('backdrop').addEventListener('click', closeSheet);
-    $('importFile').addEventListener('change', onImportFile);
-    window.addEventListener('scroll', () => {
-      $('topbar').classList.toggle('scrolled', window.scrollY > 4);
-    }, { passive: true });
-    document.addEventListener('click', onClick);
-    document.addEventListener('input', onInput);
-    document.addEventListener('change', onChange);
-    document.addEventListener('backbutton', () => {
-      if ($('sheet').classList.contains('show')) closeSheet();
-    });
-    // 软键盘优化①：输入框聚焦时自动滚到可视区中央（弹层/页面通用）
-    document.addEventListener('focusin', (e) => {
-      const el = e.target;
-      if (!el || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
-      setTimeout(() => {
-        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-        catch (_) { try { el.scrollIntoView(); } catch (e2) { /* ignore */ } }
-      }, 260);
-    });
-    // 软键盘优化②：部分 WebView 未 adjustResize 时，把底部弹层抬到键盘上方
-    if (window.visualViewport) {
-      const vv = window.visualViewport;
-      vv.addEventListener('resize', () => {
-        const sh = $('sheet');
-        if (!sh || !sh.classList.contains('show')) return;
-        const kh = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-        sh.style.transform = kh > 120 ? 'translate(-50%, ' + kh + 'px)' : '';
-      });
-    }
-    switchTab('home');
-  }
-
-  function applyTheme() {
-    const t = curSettings().theme || 'light';
-    document.documentElement.dataset.theme = t;
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.content = t === 'dark' ? '#0c1017' : '#f3f5f9';
-  }
-
-  function saveState() {
-    if (!state) return;
-    lsSet(LS_KEY, JSON.stringify(state));
-  }
-
-  function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignore */ } }
-
-  function registerSW() {
-    if (!('serviceWorker' in navigator)) return;
-    if (!/^https?:/.test(location.protocol)) return;
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    });
-  }
-
-  /* ---------------- 事件 ---------------- */
-  function onClick(e) {
-    const tabBtn = e.target.closest('[data-tab]');
-    if (tabBtn) { switchTab(tabBtn.dataset.tab); return; }
-    const el = e.target.closest('[data-act]');
-    if (!el) return;
-    const act = el.dataset.act;
-    if (actions[act]) actions[act](el.dataset.arg, el);
-  }
-
-  const actions = {
-    add: (sym) => openAddSheet(sym || (activeStocks(state)[0] || {}).symbol || 'AAPL'),
-    prices: () => openPriceSheet(),
-    export: () => exportJSON(),
-    import: () => $('importFile').click(),
-    demo: () => loadDemo(),
-    reset: () => clearData(),
-    delRec: (id) => delRecord(id),
-    setcur: (c) => { state.settings.currency = c; saveState(); render(); },
-    settheme: (t) => { state.settings.theme = t; applyTheme(); saveState(); },
-    filter: (s) => { filterSym = s; renderRecords(); },
-    autoprice: () => autoPrice(),
-    holding: (sym) => openHoldingSheet(sym),
-    planplus: (sym) => openAddSheet(sym),
-    saveRecord: () => saveRecord(),
-    fcur: (c) => { fCur = c; refreshAddSheetCur(); },
-    fsym: (sym) => {
-      sheetSym = sym;
-      document.querySelectorAll('#f-syms .chip').forEach((c) => c.classList.toggle('active', c.dataset.arg === sym));
-      const p = state.prices[sym];
-      const inp = $('f-price');
-      if (inp) inp.value = p ? p.usd : '';
-      updateAddHints();
-    },
-    usenow: () => {
-      const p = state.prices[sheetSym];
-      if (p) { $('f-price').value = p.usd; updateAddHints(); toast('已填入 ' + sheetSym + ' 现价'); }
-      else toast('尚未获取该股现价，请手动输入');
-    },
-    closeSheet: () => closeSheet(),
-    goto: (t) => { closeSheet(); switchTab(t); },
-    manageStocks: () => openStockSheet(),
-    toggleStock: (sym) => toggleStock(sym),
-    addCustom: () => addCustomFromSheet(),
-    selectSeven: () => { state.stocks = DEFAULT_SYMBOLS.slice(); saveState(); refreshStockSheet(); toast('已恢复七巨头'); },
-    clearStocks: () => { state.stocks = []; saveState(); refreshStockSheet(); },
-    stockDone: () => { closeSheet(); render(); }
-  };
-
-  function onImportFile(e) {
-    const f = e.target.files && e.target.files[0];
-    if (f) importJSON(f);
-    e.target.value = '';
-  }
-
-  function onInput(e) {
-    const el = e.target.closest('[data-bind]');
-    if (!el || !el.dataset.bind) return;
-    const parts = el.dataset.bind.split(':');
-    const kind = parts[0], key = parts[1];
-    if (kind === 'plan') {
-      const v = Math.max(0, parseFloat(el.value) || 0);
-      const st = state.settings;
-      state.plan[key] = round2(st.currency === 'CNY' ? v / st.rate : v);
-      saveState();
-      const hint = el.dataset.hint ? $(el.dataset.hint) : null;
-      if (hint) hint.textContent = state.plan[key] > 0 ? '≈ ' + fmtUsd(state.plan[key]) : '设为 0 即暂停该股定投';
-      const sub = $('ps-' + key);
-      if (sub) {
-        const done = monthRecorded(state, ymNow())[key];
-        sub.textContent = state.plan[key] > 0 ? '本月 ' + fmtMoney(done) + ' / ' + fmtMoney(state.plan[key]) : '未设置月投金额';
-      }
-      const wrap = $('pg-' + key), bar = $('pgi-' + key);
-      if (wrap && bar && state.plan[key] > 0) {
-        wrap.style.display = '';
-        const done = monthRecorded(state, ymNow())[key];
-        bar.style.width = Math.min(100, done / state.plan[key] * 100) + '%';
-        bar.classList.toggle('done', done >= state.plan[key]);
-      } else if (wrap) {
-        wrap.style.display = 'none';
-      }
-      const tot = $('plan-total-inline');
-      if (tot) tot.textContent = fmtMoney(planTotal(state));
-    } else if (kind === 'price') {
-      const v = parseFloat(el.value);
-      if (v > 0) state.prices[key] = { usd: round2(v), at: Date.now() };
-      else delete state.prices[key];
-      saveState();
-      const hint = el.dataset.hint ? $(el.dataset.hint) : null;
-      if (hint) hint.textContent = v > 0 ? '≈ ' + fmtMoney(v) + ' / 股' : '输入美元股价';
-    } else if (kind === 'rate') {
-      const v = parseFloat(el.value);
-      if (v > 0) state.settings.rate = v;
-    } else if (kind === 'payday') {
-      const v = clamp(parseInt(el.value) || 5, 1, 28);
-      state.settings.payDay = v;
-      const np = nextPayday(v);
-      const el2 = $('payday-next');
-      if (el2) {
-        el2.textContent = '每月 ' + v + ' 日定投 · 下次 ' + (np.days === 0 ? '就是今天' : np.days + ' 天后（' + (np.date.getMonth() + 1) + '月' + np.date.getDate() + '日）');
-      }
-    } else if (kind === 'stockq') {
-      stockQuery = el.value.trim();
-      renderStockList();
-    }
-  }
-
-  function onChange(e) {
-    const el = e.target;
-    if (!el || !el.dataset || !el.dataset.bind) return;
-    const kind = el.dataset.bind.split(':')[0];
-    if (kind === 'price') { saveState(); }
-    else if (kind === 'rate' || kind === 'payday') { saveState(); render(); }
-  }
-
-  /* ---------------- 视图切换与渲染 ---------------- */
-  function switchTab(t) {
-    if (!VIEW_META[t]) t = 'home';
-    view = t;
-    document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === 'view-' + t));
-    document.querySelectorAll('.tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === t));
-    renderTopbar();
-    render();
-    window.scrollTo({ top: 0 });
-    buzz(8);
-  }
-
-  function renderTopbar() {
-    const m = VIEW_META[view];
-    $('tbTitle').textContent = m.title;
-    $('tbActions').innerHTML = m.actions || '';
-  }
-
-  function render() {
-    ({ home: renderHome, holdings: renderHoldings, plan: renderPlan, records: renderRecords, me: renderMe })[view]();
-  }
-
-  /* ---------------- 首页 ---------------- */
-  function renderHome() {
-    const h = calcHoldings(state);
-    const t = totals(h);
-    const st = state.settings;
-    const ym = ymNow();
-    const rec = monthRecorded(state, ym);
-    const pt = planTotal(state);
-    const done = activeStocks(state).reduce((a, s) => a + (rec[s.symbol] || 0), 0);
-    const np = nextPayday(st.payDay);
-    let html = '';
-
-    if (state.demo) {
-      html += '<div class="banner"><span>演示数据模式：记录与现价均为模拟示例</span><button class="btn btn-ghost" data-act="reset" style="margin-left:auto">清除</button></div>';
-    }
-
-    html += `
-      <div class="hero">
-        <div class="hero-label">总市值（${st.currency === 'CNY' ? '人民币' : '美元'}）</div>
-        <div class="hero-total">${t.hasPrice ? fmtMoney(t.value) : '—'}</div>
-        <div class="hero-row">
-          <div class="hero-stat">总投入<b>${fmtMoney(t.cost)}</b></div>
-          <div class="hero-stat">累计收益<b class="${pnlClass(t.pnl)}">${t.hasPrice ? fmtMoney(t.pnl, null, true) : '—'}</b></div>
-          <div class="hero-stat">收益率<b class="${pnlClass(t.pnlPct)}">${t.hasPrice ? fmtPct(t.pnlPct, true) : '—'}</b></div>
-        </div>
-        <div class="hero-divider"></div>
-        <div class="hero-row">
-          <div class="hero-stat">本月已投<b>${fmtMoney(done)}</b></div>
-          <div class="hero-stat">本月计划<b>${fmtMoney(pt)}</b></div>
-          <div class="hero-stat">下次定投<b>${np.days === 0 ? '今天' : np.days + ' 天后'}</b></div>
-        </div>
-        <div class="hero-actions">
-          <button class="btn btn-light" data-act="add">记一笔</button>
-          <button class="btn btn-light" data-act="prices">更新现价</button>
-        </div>
-      </div>`;
-
-    const planRows = activeStocks(state).filter((s) => ((+state.plan[s.symbol]) || 0) > 0).map((s) => {
-      const planned = +state.plan[s.symbol];
-      const d = rec[s.symbol] || 0;
-      const pct = Math.min(100, d / planned * 100);
-      return `<div class="mini-row"><span class="dot" style="background:${s.color}"></span><span class="mini-nm">${s.symbol}</span><div class="progress"><i class="${d >= planned ? 'done' : ''}" style="width:${pct}%"></i></div><span class="mini-vl">${fmtMoney(d)}/${fmtMoney(planned)}</span></div>`;
-    }).join('');
-    html += `<div class="card"><div class="card-title">本月定投进度<span class="sub">${monthLabel(ym)}</span></div>${planRows || '<div class="hint" style="margin:0">尚未设置定投计划，去「计划」页设置每月金额</div>'}</div>`;
-
-    html += `<div class="card"><div class="card-title">持仓分布<span class="sub">按市值</span></div>${donutHtml(h)}</div>`;
-    html += `<div class="card"><div class="card-title">累计投入 vs 当前市值<span class="sub">按月</span></div>${lineHtml()}</div>`;
-
-    const recent = state.records.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0))).slice(0, 3);
-    if (recent.length) {
-      const rows = recent.map((r) => {
-        const s = symMeta(r.symbol);
-        return `<div class="row" data-act="delRec" data-arg="${r.id}">
-          <span class="dot" style="background:${s.color}">${r.symbol.slice(0, 2)}</span>
-          <div class="row-main"><div class="row-title" style="font-size:13.5px">${s.symbol} · ${s.name}</div><div class="row-sub">${r.date}</div></div>
-          <div class="row-right"><div class="row-value" style="font-size:13.5px">${fmtMoney(r.usd)}</div></div>
-        </div>`;
-      }).join('');
-      html += `<div class="card"><div class="card-title">最近记录<span class="sub" data-act="goto" data-arg="records" style="cursor:pointer;color:var(--primary)">查看全部</span></div>${rows}</div>`;
-    } else {
-      html += `<div class="card"><div class="card-title">开始你的定投</div>
-        <div class="hint" style="margin:0">1. 到「计划」页选择股票并设置每月定投金额<br>2. 每次扣款后点「记一笔」记录成交金额与价格<br>3. 在「我的」页更新现价，自动计算收益</div>
-        <div style="display:flex;gap:10px;margin-top:14px"><button class="btn btn-primary" style="flex:1" data-act="add">记一笔</button><button class="btn btn-ghost" style="flex:1" data-act="demo">载入演示数据</button></div></div>`;
-    }
-
-    $('view-home').innerHTML = html;
-  }
-
-  /* ---------------- 持仓 ---------------- */
-  function renderHoldings() {
-    const h = calcHoldings(state);
-    const t = totals(h);
-    const arr = activeStocks(state).map((s) => h[s.symbol]).sort((a, b) => (b.value - a.value) || (b.shares - a.shares));
-    const anyShares = arr.some((x) => x.shares > 0);
-    const rows = arr.map((x) => {
-      const pxTxt = x.price > 0 ? fmtUsd(x.price) : '未更新';
-      return `<div class="row" data-act="holding" data-arg="${x.symbol}">
-        <span class="dot" style="background:${x.color}">${x.symbol.slice(0, 2)}</span>
-        <div class="row-main">
-          <div class="row-title">${x.symbol} · ${x.name}</div>
-          <div class="row-sub">${x.shares > 0 ? '持股 ' + fmtShares(x.shares) + ' · 成本 ' + fmtUsd(x.avg) : '尚未买入'}</div>
-        </div>
-        <div class="row-right">
-          <div class="row-value">${x.value > 0 ? fmtMoney(x.value) : '—'}</div>
-          <div style="margin-top:3px">${x.shares > 0 && x.price > 0 ? pnlBadge(x.pnlPct) : '<span class="badge flat">' + pxTxt + '</span>'}</div>
-        </div>
-      </div>`;
-    }).join('');
-    $('view-holdings').innerHTML = `
-      <div class="card" style="margin-top:12px">
-        <div class="stat-grid">
-          <div class="stat"><div class="stat-l">总市值</div><div class="stat-v">${t.hasPrice ? fmtMoney(t.value) : '—'}</div></div>
-          <div class="stat"><div class="stat-l">总成本</div><div class="stat-v">${fmtMoney(t.cost)}</div></div>
-          <div class="stat"><div class="stat-l">收益率</div><div class="stat-v ${pnlClass(t.pnlPct)}">${t.hasPrice ? fmtPct(t.pnlPct, true) : '—'}</div></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">持仓明细<span class="sub">${activeStocks(state).length} 只 · 点击查看详情 / 改现价</span></div>
-        ${anyShares ? rows : `<div class="empty">${IC.pie}<div class="t">暂无持仓</div><div class="d">记录第一笔定投后，这里会显示每只股票的盈亏</div><div class="btns"><button class="btn btn-primary" data-act="add">记一笔</button><button class="btn btn-ghost" data-act="demo">演示数据</button></div></div>`}
-      </div>`;
-  }
-
-  /* ---------------- 计划 ---------------- */
-  function renderPlan() {
-    const st = state.settings;
-    const ym = ymNow();
-    const rec = monthRecorded(state, ym);
-    const pt = planTotal(state);
-    const np = nextPayday(st.payDay);
-    const rows = activeStocks(state).map((s) => {
-      const planned = (+state.plan[s.symbol]) || 0;
-      const d = rec[s.symbol] || 0;
-      const pct = planned > 0 ? Math.min(100, d / planned * 100) : 0;
-      return `<div class="plan-row">
-        <div class="plan-top">
-          <span class="dot" style="background:${s.color}">${s.symbol.slice(0, 2)}</span>
-          <div class="row-main">
-            <div class="row-title">${s.symbol} · ${s.name}</div>
-            <div class="row-sub" id="ps-${s.symbol}">${planned > 0 ? '本月 ' + fmtMoney(d) + ' / ' + fmtMoney(planned) : '未设置月投金额'}</div>
-          </div>
-          <button class="icon-btn" data-act="planplus" data-arg="${s.symbol}" title="记一笔">${IC.plus}</button>
-        </div>
-        <div class="plan-amt">
-          <input class="input" type="text" inputmode="decimal" data-bind="plan:${s.symbol}" data-hint="ph-${s.symbol}" value="${planned > 0 ? trimNum(toDisp(planned, st)) : ''}" placeholder="月投金额">
-          <div class="hint" id="ph-${s.symbol}" style="margin:0;flex:1">${planned > 0 ? '≈ ' + fmtUsd(planned) : '设为 0 即暂停该股定投'}</div>
-        </div>
-        <div class="progress" id="pg-${s.symbol}" style="margin-top:8px;${planned > 0 ? '' : 'display:none'}"><i id="pgi-${s.symbol}" class="${planned > 0 && d >= planned ? 'done' : ''}" style="width:${pct}%"></i></div>
-      </div>`;
-    }).join('');
-    const nStocks = activeStocks(state).length;
-    $('view-plan').innerHTML = `
-      <div class="card" style="margin-top:12px">
-        <div class="card-title">月度定投预算</div>
-        <div style="font-size:26px;font-weight:800;font-variant-numeric:tabular-nums"><span id="plan-total-inline">${fmtMoney(pt)}</span><span style="font-size:12px;color:var(--ink2);font-weight:700"> / 月</span></div>
-        <div class="hint" id="payday-next">每月 ${st.payDay} 日定投 · 下次 ${np.days === 0 ? '就是今天' : np.days + ' 天后（' + (np.date.getMonth() + 1) + '月' + np.date.getDate() + '日）'}</div>
-        <div class="plan-amt" style="margin-top:12px">
-          <div style="flex:1">
-            <div class="hint" style="margin:0 0 6px">定投日（1-28）</div>
-            <input class="input" type="number" min="1" max="28" data-bind="payday" value="${st.payDay}">
-          </div>
-        </div>
-      </div>
-      <div class="card"><div class="card-title">各股票月投金额<span class="sub">${st.currency === 'CNY' ? '人民币计价' : '美元计价'}</span></div>
-        <div class="hint" style="margin:0 0 12px">当前选中 <b>${nStocks}</b> 只股票。点右上角 <b>+</b> 可添加或移除股票（共 ${STOCK_POOL.length} 只可选）。</div>
-        ${rows || '<div class="empty">' + IC.pie + '<div class="t">还没有选择股票</div><div class="d">点右上角 + 从股票池中选择要定投的股票</div><div class="btns"><button class="btn btn-primary" data-act="manageStocks">选择股票</button></div></div>'}
-      </div>
-      <div class="card"><div class="hint" style="margin:0">提示：输入的金额按当前汇率折算为美元入账；之后修改「显示货币」或汇率，不会影响已记录的成本。坚持按计划执行，忽略短期波动。</div></div>`;
-  }
-
-  /* ---------------- 记录 ---------------- */
-  function renderRecords() {
-    const recs = state.records.slice().sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0)));
-    const list = filterSym === 'ALL' ? recs : recs.filter((r) => r.symbol === filterSym);
-    const totalUsd = list.reduce((a, r) => a + r.usd, 0);
-    const chips = ['ALL'].concat(activeStocks(state).map((s) => s.symbol)).map((s) =>
-      `<button class="chip ${filterSym === s ? 'active' : ''}" data-act="filter" data-arg="${s}">${s === 'ALL' ? '全部' : s}</button>`).join('');
-    let body = '';
-    if (!list.length) {
-      body = `<div class="empty">${IC.list}<div class="t">还没有投资记录</div><div class="d">点击首页的「记一笔」开始记录定投</div><div class="btns"><button class="btn btn-primary" data-act="add">记一笔</button><button class="btn btn-ghost" data-act="demo">载入演示数据</button></div></div>`;
-    } else {
-      const groups = {};
-      for (const r of list) {
-        const ym = ymOf(r.date);
-        (groups[ym] = groups[ym] || []).push(r);
-      }
-      body = Object.keys(groups).sort().reverse().map((ym) => {
-        const mt = groups[ym].reduce((a, r) => a + r.usd, 0);
-        const rows = groups[ym].map((r) => {
-          const s = symMeta(r.symbol);
-          const px = state.prices[r.symbol] ? state.prices[r.symbol].usd : 0;
-          const pnl = px > 0 && r.price > 0 ? ((px - r.price) / r.price) * 100 : null;
-          return `<div class="row" data-act="delRec" data-arg="${r.id}">
-            <span class="dot" style="background:${s.color}">${r.symbol.slice(0, 2)}</span>
-            <div class="row-main">
-              <div class="row-title">${s.symbol} · ${s.name}${r.note ? '<span class="row-sub" style="font-weight:500">· ' + esc(r.note) + '</span>' : ''}</div>
-              <div class="row-sub">${r.date.slice(5).replace('-', '/')} · @${fmtUsd(r.price)} × ${fmtShares(r.shares)}</div>
-            </div>
-            <div class="row-right">
-              <div class="row-value">${fmtMoney(r.usd)}</div>
-              <div style="margin-top:3px">${pnl === null ? '<span class="badge flat">—</span>' : pnlBadge(pnl)}</div>
-            </div>
-          </div>`;
-        }).join('');
-        return `<div class="month-head"><span>${monthLabel(ym)}</span><span>当月投入 ${fmtMoney(mt)}</span></div>${rows}`;
-      }).join('');
-    }
-    $('view-records').innerHTML = `
-      <div class="chips" style="margin-top:10px">${chips}</div>
-      <div class="card" style="margin-top:6px">
-        <div class="card-title">共 ${list.length} 笔 · 总投入 ${fmtMoney(totalUsd)}<span class="sub">点击记录可删除</span></div>
-        ${body}
-      </div>`;
-  }
-
-  /* ---------------- 我的 ---------------- */
-  function renderMe() {
-    const st = state.settings;
-    const h = calcHoldings(state);
-    const stocks = activeStocks(state);
-    const held = stocks.filter((s) => h[s.symbol].shares > 0).length;
-    const first = state.records.length ? state.records.map((r) => r.date).sort()[0] : '—';
-    const priceRows = stocks.map((s) => {
-      const p = state.prices[s.symbol];
-      return `<div class="plan-row">
-        <div class="plan-top">
-          <span class="dot" style="background:${s.color}">${s.symbol.slice(0, 2)}</span>
-          <div class="row-main"><div class="row-title">${s.symbol} · ${s.name}</div><div class="row-sub">${p ? '更新于 ' + fmtTime(p.at) : '未更新'}</div></div>
-          <div style="width:104px"><input class="input" type="text" inputmode="decimal" data-bind="price:${s.symbol}" data-hint="pmh-${s.symbol}" placeholder="0.00" value="${p ? p.usd : ''}"></div>
-        </div>
-        <div class="hint" id="pmh-${s.symbol}">${p ? '≈ ' + fmtMoney(p.usd) + ' / 股' : '输入美元股价'}</div>
-      </div>`;
-    }).join('');
-    $('view-me').innerHTML = `
-      <div class="card" style="margin-top:12px">
-        <div class="stat-grid">
-          <div class="stat"><div class="stat-l">投资笔数</div><div class="stat-v">${state.records.length}</div></div>
-          <div class="stat"><div class="stat-l">持有股票</div><div class="stat-v">${held} / ${stocks.length}</div></div>
-          <div class="stat"><div class="stat-l">首次定投</div><div class="stat-v" style="font-size:13px">${first}</div></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">现价管理<span class="sub">美元/股</span></div>
-        ${priceRows}
-        <div style="display:flex;gap:10px;margin-top:12px">
-          <button class="btn btn-ghost" style="flex:1" data-act="autoprice">${IC.refresh}自动获取</button>
-        </div>
-        <div class="hint">来源：腾讯财经行情接口（美股实时价，国内可直连），需联网。自动获取失败时可手动输入，收盘数据约有延迟。</div>
-      </div>
-      <div class="card">
-        <div class="card-title">偏好设置</div>
-        <div class="me-list">
-          <div class="me-item" style="cursor:default"><div class="mi-t">显示货币</div><div class="seg" style="margin-left:auto"><button class="${st.currency === 'CNY' ? 'active' : ''}" data-act="setcur" data-arg="CNY">¥ 人民币</button><button class="${st.currency === 'USD' ? 'active' : ''}" data-act="setcur" data-arg="USD">$ 美元</button></div></div>
-          <div class="me-item" style="cursor:default"><div class="mi-t">美元汇率<div class="mi-d">1 USD = ? CNY</div></div><input class="input" style="width:92px;margin-left:auto" type="text" inputmode="decimal" data-bind="rate" value="${st.rate}"></div>
-          <div class="me-item" style="cursor:default"><div class="mi-t">界面主题</div><div class="seg" style="margin-left:auto"><button class="${st.theme === 'light' ? 'active' : ''}" data-act="settheme" data-arg="light">浅色</button><button class="${st.theme === 'dark' ? 'active' : ''}" data-act="settheme" data-arg="dark">深色</button></div></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">数据管理<span class="sub">本地存储</span></div>
-        <div class="me-list">
-          <div class="me-item" data-act="export"><div class="mi-ic">${IC.download}</div><div class="mi-t">导出备份<div class="mi-d">下载 JSON 数据文件</div></div></div>
-          <div class="me-item" data-act="import"><div class="mi-ic">${IC.upload}</div><div class="mi-t">导入备份<div class="mi-d">从 JSON 文件恢复数据</div></div></div>
-          <div class="me-item" data-act="demo"><div class="mi-ic">${IC.pie}</div><div class="mi-t">载入演示数据<div class="mi-d">生成 14 个月模拟定投</div></div></div>
-          <div class="me-item danger" data-act="reset"><div class="mi-ic">${IC.trash}</div><div class="mi-t">清空数据<div class="mi-d">删除全部记录与现价</div></div></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">关于</div>
-        <div class="hint" style="margin:0">定投 v1.2.2（lldca）· 数据仅存储在本机（浏览器/应用内），不会上传。更换设备请使用「导出/导入备份」。<br><br>自定义股票：在「计划」页点右上角 <b>+</b> 打开股票选择器，下方「自定义代码」输入框可添加任意美股代码（1-5 位字母，如 NFLX / UBER / CRM，BRK.B 形式亦可）。<br><br>本应用可打包为安卓 App：通过 Capacitor 生成 Android 工程，用 Android Studio 构建 APK，详见项目 README.md。<br><br>注意：本应用仅用于个人投资记录与统计，不构成任何投资建议。股市有风险，投资需谨慎。</div>
-      </div>`;
-  }
-
-  /* ---------------- 图表 ---------------- */
-  function donutHtml(h) {
-    const items = activeStocks(state).map((s) => h[s.symbol]).filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
-    const total = items.reduce((a, x) => a + x.value, 0);
-    if (!items.length) return '<div class="hint" style="margin:0">暂无持仓数据，记录定投并更新现价后显示分布</div>';
-    const size = 132, r = 52, cx = 66, cy = 66, C = 2 * Math.PI * r;
-    let acc = 0;
-    let arcs = '';
-    for (const it of items) {
-      const frac = it.value / total;
-      const len = Math.max(0.5, frac * C - 2);
-      arcs += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${it.color}" stroke-width="15" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-acc * C).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
-      acc += frac;
-    }
-    const legend = items.map((it) =>
-      `<div class="legend-row"><span class="dot" style="background:${it.color}"></span><span class="nm">${it.symbol} ${esc(it.name)}</span><span class="vl">${((it.value / total) * 100).toFixed(1)}%</span></div>`).join('');
-    return `<div class="donut-box"><svg class="donut" viewBox="0 0 ${size} ${size}">${arcs}<text class="donut-num" x="${cx}" y="${cy + 1}">${fmtShort(total)}</text><text class="donut-lbl" x="${cx}" y="${cy + 16}">总市值</text></svg><div class="legend">${legend}</div></div>`;
-  }
-
-  function lineHtml() {
-    const series = cumByMonth(state);
-    const t = totals(calcHoldings(state));
-    if (series.length < 2) {
-      return '<div class="hint" style="margin:0">坚持定投，记录满 2 个月后这里会生成「累计投入 vs 当前市值」曲线。</div>';
-    }
-    const W = 340, H = 168, pl = 42, pr = 14, pt = 16, pb = 22;
-    const iw = W - pl - pr, ih = H - pt - pb;
-    const maxV = Math.max(t.value || 0, ...series.map((p) => p.cum)) * 1.08;
-    const nice = niceCeil(maxV);
-    const X = (i) => pl + (series.length === 1 ? iw / 2 : (iw * i) / (series.length - 1));
-    const Y = (v) => pt + ih * (1 - v / nice);
-    let d = '';
-    series.forEach((p, i) => { d += (i ? ' L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.cum).toFixed(1); });
-    const area = d + ` L${X(series.length - 1).toFixed(1)} ${(pt + ih).toFixed(1)} L${X(0).toFixed(1)} ${(pt + ih).toFixed(1)} Z`;
-    let grid = '';
-    [0, 0.5, 1].forEach((f) => {
-      const v = nice * f;
-      const y = Y(v).toFixed(1);
-      grid += `<line class="grid-line" x1="${pl}" y1="${y}" x2="${W - pr}" y2="${y}"/><text class="axis-txt" x="${pl - 5}" y="${(+y + 3).toFixed(1)}" text-anchor="end">${fmtShort(v)}</text>`;
-    });
-    let xlab = '';
-    const step = Math.max(1, Math.ceil(series.length / 5));
-    series.forEach((p, i) => {
-      if (i % step === 0 || i === series.length - 1) {
-        xlab += `<text class="axis-txt" x="${X(i).toFixed(1)}" y="${H - 6}" text-anchor="middle">${monthShort(p.ym)}</text>`;
-      }
-    });
-    const dots = series.map((p, i) => `<circle class="lc-dot" cx="${X(i).toFixed(1)}" cy="${Y(p.cum).toFixed(1)}" r="2"/>`).join('');
-    let ref = '';
-    if (t.hasPrice && t.value > 0) {
-      const y = Y(t.value).toFixed(1);
-      const c = t.pnl >= 0 ? 'var(--up)' : 'var(--down)';
-      ref = `<line class="ref-line" x1="${pl}" y1="${y}" x2="${W - pr}" y2="${y}" style="stroke:${c}"/><text class="axis-txt" x="${W - pr}" y="${(+y - 4).toFixed(1)}" text-anchor="end" style="fill:${c};font-weight:700">当前市值 ${fmtShort(t.value)}</text>`;
-    }
-    const last = series[series.length - 1];
-    return `<svg class="line-chart" viewBox="0 0 ${W} ${H}">
-      <defs><linearGradient id="lcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--primary);stop-opacity:0.22"/><stop offset="1" style="stop-color:var(--primary);stop-opacity:0"/></linearGradient></defs>
-      ${grid}${ref}
-      <path d="${area}" fill="url(#lcg)"/>
-      <path class="lc-line" d="${d}"/>
-      ${dots}
-      <circle cx="${X(series.length - 1).toFixed(1)}" cy="${Y(last.cum).toFixed(1)}" r="3.6" fill="var(--primary)" stroke="var(--card)" stroke-width="1.6"/>
-      ${xlab}
-    </svg>
-    <div class="legend" style="margin-top:6px">
-      <div class="legend-row"><span class="dot" style="background:var(--primary)"></span><span class="nm">累计投入</span><span class="vl">${fmtMoney(t.cost)}</span></div>
-      ${t.hasPrice ? `<div class="legend-row"><span class="dot" style="background:${t.pnl >= 0 ? 'var(--up)' : 'var(--down)'}"></span><span class="nm">当前市值</span><span class="vl ${pnlClass(t.pnlPct)}">${fmtMoney(t.value)}（${fmtPct(t.pnlPct, true)}）</span></div>` : ''}
-    </div>`;
-  }
-
-  /* ---------------- 弹层 ---------------- */
-  function openSheet(html, onMount) {
-    const sh = $('sheet');
-    sh.innerHTML = html;
-    sh.style.transform = '';
-    sh.classList.add('show');
-    $('backdrop').classList.add('show');
-    document.body.style.overflow = 'hidden';
-    if (onMount) onMount();
-  }
-
-  function closeSheet() {
-    const sh = $('sheet');
-    sh.classList.remove('show');
-    sh.style.transform = '';
-    $('backdrop').classList.remove('show');
-    document.body.style.overflow = '';
-    setTimeout(() => { if (!sh.classList.contains('show')) sh.innerHTML = ''; }, 350);
-    sheetSym = null;
-  }
-
-  function openAddSheet(sym) {
-    sheetSym = sym || 'AAPL';
-    fCur = state.settings.currency;
-    const p = state.prices[sheetSym];
-    const chips = activeStocks(state).map((s) => `<button class="chip ${s.symbol === sheetSym ? 'active' : ''}" data-act="fsym" data-arg="${s.symbol}">${s.symbol} ${s.name}</button>`).join('');
-    openSheet(`
-      <div class="sheet-grip"></div>
-      <div class="sheet-title">记一笔</div>
-      <div class="sheet-body">
-        <div class="field" style="margin-top:4px"><label>股票</label><div class="chips scrollable" id="f-syms">${chips}</div></div>
-        <div class="field"><label>日期</label><input class="input" id="f-date" type="date" value="${todayStr()}"></div>
-        <div class="field">
-          <label>投入金额</label>
-          <div style="display:flex;gap:10px;align-items:center">
-            <input class="input" id="f-amount" type="text" inputmode="decimal" placeholder="0.00" style="flex:1">
-            <div class="seg" id="f-curseg">
-              <button class="${fCur === 'CNY' ? 'active' : ''}" data-act="fcur" data-arg="CNY">¥</button>
-              <button class="${fCur === 'USD' ? 'active' : ''}" data-act="fcur" data-arg="USD">$</button>
-            </div>
-          </div>
-          <div class="hint" id="f-amount-hint">≈ $0.00</div>
-        </div>
-        <div class="field">
-          <label>成交价格（美元/股）</label>
-          <input class="input" id="f-price" type="text" inputmode="decimal" placeholder="如 342.94" value="${p ? p.usd : ''}">
-          <div class="hint" id="f-price-hint">${p ? '现价 ≈ ' + fmtMoney(p.usd) + ' / 股' : '按实际成交价填写'}</div>
-        </div>
-        <div class="field"><label>备注（可选）</label><input class="input" id="f-note" type="text" placeholder="如：第 12 期定投" maxlength="30"></div>
-        <div class="field"><div class="hint" id="f-shares" style="margin:0">可获得约 — 股</div></div>
-      </div>
-      <div class="sheet-foot"><button class="btn btn-primary btn-block" data-act="saveRecord">保存记录</button></div>
-    `, () => {
-      ['f-amount', 'f-price'].forEach((id) => {
-        const el = $(id);
-        if (el) el.addEventListener('input', updateAddHints);
-      });
-      updateAddHints();
-    });
-  }
-
-  function updateAddHints() {
-    const amt = parseFloat($('f-amount').value) || 0;
-    const px = parseFloat($('f-price').value) || 0;
-    const usd = fCur === 'CNY' ? amt / state.settings.rate : amt;
-    $('f-amount-hint').textContent = fCur === 'CNY' ? '≈ ' + fmtUsd(usd) : '≈ ' + fmtMoney(usd);
-    $('f-price-hint').textContent = px > 0 ? '≈ ' + fmtMoney(px) + ' / 股' : '按实际成交价填写';
-    $('f-shares').textContent = px > 0 && amt > 0 ? '可获得约 ' + fmtShares(usd / px) + ' 股' : '可获得约 — 股';
-  }
-
-  function refreshAddSheetCur() {
-    document.querySelectorAll('#f-curseg button').forEach((b) => b.classList.toggle('active', b.dataset.arg === fCur));
-    updateAddHints();
-  }
-
-  function saveRecord() {
-    const sym = sheetSym || 'AAPL';
-    const date = $('f-date').value || todayStr();
-    const amt = parseFloat($('f-amount').value);
-    const px = parseFloat($('f-price').value);
-    const note = $('f-note').value.trim();
-    if (!(amt > 0)) { toast('请输入投入金额'); return; }
-    if (!(px > 0)) { toast('请输入成交价格'); return; }
-    const usd = fCur === 'CNY' ? amt / state.settings.rate : amt;
-    state.records.push({ id: genId(), symbol: sym, date, usd: round2(usd), price: round2(px), shares: round4(usd / px), note, ts: Date.now() });
-    if (!state.prices[sym]) state.prices[sym] = { usd: round2(px), at: Date.now() };
-    // 若记录了未选中的股票，自动加入选中列表
-    if (activeStocks(state).every((s) => s.symbol !== sym)) {
-      state.stocks = activeStocks(state).map((s) => s.symbol).concat(sym);
-    }
-    saveState();
-    closeSheet();
-    buzz(15);
-    toast('已记录 ' + fmtMoney(usd) + ' → ' + sym);
-    render();
-  }
-
-  function openPriceSheet() {
-    const rows = activeStocks(state).map((s) => {
-      const p = state.prices[s.symbol];
-      return `<div class="plan-row">
-        <div class="plan-top">
-          <span class="dot" style="background:${s.color}">${s.symbol.slice(0, 2)}</span>
-          <div class="row-main"><div class="row-title">${s.symbol} · ${s.name}</div><div class="row-sub">${p ? '更新于 ' + fmtTime(p.at) : '未更新'}</div></div>
-          <div style="width:104px"><input class="input" type="text" inputmode="decimal" data-bind="price:${s.symbol}" data-hint="sph-${s.symbol}" placeholder="0.00" value="${p ? p.usd : ''}"></div>
-        </div>
-        <div class="hint" id="sph-${s.symbol}">${p ? '≈ ' + fmtMoney(p.usd) + ' / 股' : '输入美元股价'}</div>
-      </div>`;
-    }).join('');
-    openSheet(`
-      <div class="sheet-grip"></div>
-      <div class="sheet-title">更新现价</div>
-      <div class="sheet-body">
-        ${rows}
-        <div class="hint" style="margin-top:10px">单位为美元/股。修改后自动保存；也可点「自动获取」从腾讯财经拉取实时价。</div>
-      </div>
-      <div class="sheet-foot" style="display:flex;gap:10px">
-        <button class="btn btn-ghost" style="flex:1" data-act="autoprice">${IC.refresh}自动获取</button>
-        <button class="btn btn-primary" style="flex:1" data-act="closeSheet">完成</button>
-      </div>`);
-  }
-
-  /* ---------------- 股票选择弹层 ---------------- */
-  function openStockSheet() {
-    stockQuery = '';
-    openSheet(`
-      <div class="sheet-grip"></div>
-      <div class="sheet-title">选择定投股票<span class="sheet-sub" id="stock-count"></span></div>
-      <div class="sheet-body">
-        <div class="search-wrap">
-          <span class="search-ic">${IC.search}</span>
-          <input class="input" id="stock-q" type="text" data-bind="stockq" placeholder="搜索代码或名称，如 NVDA / 英伟达">
-        </div>
-        <div id="stock-list"></div>
-      </div>
-      <div class="custom-bar">
-        <div class="custom-bar-t">不在列表里？输入代码自定义添加<span class="custom-bar-h">1-5 个字母，如 NFLX / UBER / CRM</span></div>
-        <div class="custom-add">
-          <input class="input" id="custom-sym" type="text" maxlength="8" autocomplete="off" placeholder="美股代码，如 NFLX">
-          <button class="btn btn-primary btn-sm" data-act="addCustom" type="button">添加</button>
-        </div>
-      </div>
-      <div class="sheet-foot" style="display:flex;gap:10px">
-        <button class="btn btn-ghost" style="flex:1" data-act="selectSeven">恢复七巨头</button>
-        <button class="btn btn-primary" style="flex:1" data-act="stockDone">完成</button>
-      </div>`, () => {
-      const ci = $('custom-sym');
-      if (ci) ci.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomFromSheet(); } });
-    });
-    renderStockList();
-  }
-
-  function refreshStockSheet() {
-    renderStockList();
-    render();
-  }
-
-  function renderStockList() {
-    const listEl = $('stock-list');
-    const cntEl = $('stock-count');
-    if (!listEl) return;
-    const q = (stockQuery || '').toUpperCase();
-    const selected = activeStocks(state).map((s) => s.symbol);
-    const all = STOCK_POOL.concat(state.custom || []);
-    const items = all.filter((s) => !q || s.symbol.toUpperCase().indexOf(q) >= 0 || String(s.name).toUpperCase().indexOf(q) >= 0);
-    if (cntEl) cntEl.textContent = `已选 ${selected.length}`;
-    if (!items.length) {
-      listEl.innerHTML = '<div class="hint" style="margin:12px 0">没有匹配的预设股票。<br>可在下方「自定义代码」输入框输入美股代码（1-5 个字母，如 <b>NFLX</b>）点「添加」，加入任意想定投的股票。</div>';
-      return;
-    }
-    listEl.innerHTML = '<div class="stock-grid">' + items.map((s) => {
-      const on = selected.indexOf(s.symbol) >= 0;
-      const planned = (+state.plan[s.symbol]) || 0;
-      const isCustom = !!s.custom || !POOL_MAP[s.symbol];
-      return `<button class="stock-item ${on ? 'on' : ''}" data-act="toggleStock" data-arg="${s.symbol}">
-        <span class="stock-ck">${on ? IC.check : ''}</span>
-        <span class="stock-nm"><b>${s.symbol}</b> ${esc(s.name)}${isCustom ? '<span class="stock-tag">自定义</span>' : ''}${planned > 0 ? '<span class="stock-pl">月投 ' + fmtMoney(planned) + '</span>' : ''}</span>
-      </button>`;
-    }).join('') + '</div>';
-  }
-
-  // 自定义添加任意美股代码
-  function addCustomStock(raw) {
-    const sym = String(raw || '').trim().toUpperCase().replace(/\s+/g, '');
-    if (!sym) return '请输入股票代码';
-    if (!validSym(sym)) return '代码格式不正确：1-5 个字母，如 NFLX（BRK.B 形式亦可）';
-    if (POOL_MAP[sym]) return sym + ' 已在预设池中，直接勾选即可';
-    const cur = Array.isArray(state.stocks) ? state.stocks.slice() : DEFAULT_SYMBOLS.slice();
-    if (cur.indexOf(sym) >= 0) return sym + ' 已在定投列表中';
-    state.custom = Array.isArray(state.custom) ? state.custom : [];
-    if (!state.custom.some((x) => x && x.symbol === sym)) {
-      state.custom.push({ symbol: sym, name: sym, color: colorFor(sym), custom: true });
-    }
-    state.stocks = cur.concat(sym);
-    saveState();
-    refreshStockSheet();
-    return null;
-  }
-
-  function addCustomFromSheet() {
-    const el = $('custom-sym');
-    const sym = String((el && el.value) || '').trim().toUpperCase();
-    const err = addCustomStock(sym);
-    if (err) { toast(err); return; }
-    if (el) el.value = '';
-    toast('已添加 ' + sym);
-    renderStockList();
-  }
-
-  function toggleStock(sym) {
-    sym = String(sym || '').toUpperCase();
-    if (!validSym(sym)) return;
-    const cur = activeStocks(state).map((x) => x.symbol);
-    const idx = cur.indexOf(sym);
-    if (idx >= 0) {
-      if (cur.length <= 1) { toast('至少保留一只股票'); return; }
-      cur.splice(idx, 1);
-    } else {
-      cur.push(sym);
-    }
-    state.stocks = cur;
-    saveState();
-    refreshStockSheet();
-  }
-
-  /* ---------------- 对话框 / Toast ---------------- */
-  function confirmDialog(opts) {
-    return new Promise((resolve) => {
-      const root = $('dialogRoot');
-      root.innerHTML = `<div class="dialog-mask" id="dlgMask"><div class="dialog">
-        <h3>${esc(opts.title)}</h3><p>${esc(opts.msg || '')}</p>
-        <div class="dialog-btns">
-          <button class="btn btn-ghost" id="dlgNo">取消</button>
-          <button class="btn ${opts.danger ? 'btn-danger' : 'btn-primary'}" id="dlgYes">${esc(opts.ok || '确定')}</button>
-        </div></div></div>`;
-      const done = (v) => { root.innerHTML = ''; resolve(v); };
-      $('dlgYes').onclick = () => done(true);
-      $('dlgNo').onclick = () => done(false);
-      $('dlgMask').onclick = (e) => { if (e.target.id === 'dlgMask') done(false); };
-    });
-  }
-
-  function toast(msg) {
-    const root = $('toastRoot');
-    const el = document.createElement('div');
-    el.className = 'toast';
-    el.textContent = msg;
-    root.appendChild(el);
-    setTimeout(() => {
-      el.classList.add('out');
-      setTimeout(() => el.remove(), 260);
-    }, 2100);
-  }
-
-  /* ---------------- 数据动作 ---------------- */
-  async function autoPrice() {
-    toast('正在从腾讯财经获取实时价…');
-    const res = await fetchAllPrices(state);
-    const n = Object.keys(res).length;
-    if (n === 0) { toast('自动获取失败（网络或跨域限制），请手动输入'); return; }
-    for (const k in res) state.prices[k] = { usd: res[k], at: Date.now() };
-    saveState();
-    closeSheet();
-    render();
-    buzz(15);
-    toast(`已更新 ${n}/${activeStocks(state).length} 只股票的现价`);
-  }
-
-  function exportJSON() {
-    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'lldca-backup-' + todayStr() + '.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    toast('备份已导出');
-  }
-
-  async function importJSON(file) {
-    try {
-      const text = await file.text();
-      const s = parseImport(text);
-      const ok = await confirmDialog({ title: '导入备份', msg: `将用备份中的 ${s.records.length} 条记录覆盖当前数据。`, ok: '导入' });
-      if (!ok) return;
-      state = s;
-      saveState();
-      render();
-      buzz(15);
-      toast('导入成功');
-    } catch (e) {
-      toast('导入失败：' + (e && e.message ? e.message : '文件无法解析'));
-    }
-  }
-
-  async function loadDemo() {
-    const ok = await confirmDialog({ title: '载入演示数据', msg: '将生成近 14 个月的模拟定投记录（基于当前选中股票回溯生成），并覆盖当前记录与现价。', ok: '载入' });
-    if (!ok) return;
-    seedDemo(state);
-    saveState();
-    render();
-    buzz(15);
-    toast('演示数据已载入');
-  }
-
-  async function clearData() {
-    const ok = await confirmDialog({ title: '清空数据', msg: '将删除全部投资记录与现价（计划与偏好设置保留）。', ok: '清空', danger: true });
-    if (!ok) return;
-    state.records = [];
-    state.prices = {};
-    state.demo = false;
-    saveState();
-    render();
-    toast('已清空');
-  }
-
-  async function delRecord(id) {
-    const r = state.records.find((x) => x.id === id);
-    if (!r) return;
-    const ok = await confirmDialog({ title: '删除记录', msg: `删除 ${r.date} ${r.symbol} ${fmtUsd(r.usd)} 的记录？`, ok: '删除', danger: true });
-    if (!ok) return;
-    state.records = state.records.filter((x) => x.id !== id);
-    saveState();
-    render();
-    toast('已删除');
-  }
-
-  /* ---------------- 浏览器启动 ---------------- */
-  if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-    else boot();
-  }
-
-  /* ---------------- 导出（供 Node 测试） ---------------- */
+/* =========================================================
+   浮乐 (fuley) v1.3.0 — 主逻辑
+   五页：走势(走势/日历) · 定投 · 红绿灯 · 加减仓(信号/条件/恐慌) · 我的
+   数据：腾讯行情 qt.gtimg.cn（60s 自动刷新）；本地 localStorage
+   授权：license.js（FuleyLicense，试用 30 天 + HMAC 激活码）
+   ========================================================= */
+
+/* ---------- 工具与存储 ---------- */
+var LS_FALLBACK = {};
+function lsGet(k) { try { return window.localStorage.getItem(k); } catch (e) { return LS_FALLBACK[k] != null ? LS_FALLBACK[k] : null; } }
+function lsSet(k, v) { try { window.localStorage.setItem(k, v); } catch (e) { LS_FALLBACK[k] = String(v); } }
+function lsDel(k) { try { window.localStorage.removeItem(k); } catch (e) { delete LS_FALLBACK[k]; } }
+function pad2(n) { return String(n).padStart(2, '0'); }
+function dateStr(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function loadJSON(k, dflt) {
+  try { var v = JSON.parse(lsGet(k) || 'null'); return v == null ? dflt : v; } catch (e) { return dflt; }
+}
+function saveJSON(k, v) { lsSet(k, JSON.stringify(v)); }
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function fmtK(v) { return v >= 10000 ? Math.round(v).toLocaleString('en-US') : v.toFixed(2); }
+function fmtAmt(v) { var n = Number(v) || 0; return n.toLocaleString('zh-CN'); }
+function strBytes(s) { var u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 0xff; return u; }
+function toHex(u8) { var s = ''; for (var i = 0; i < u8.length; i++) s += ((u8[i] >> 4).toString(16)) + ((u8[i] & 15).toString(16)); return s; }
+function nid(prefix, id) { var h = 7; var s = prefix + id; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 1000000; return h; }
+
+/* ---------- 指数历史走势数据（真实快照 + 锚点插值演示） ----------
+   hkHSI / sh000001 = 腾讯 fqkline 真实数据；usINX / usIXIC = 公开历史锚点插值（演示）
+   结构：all = [["2000-03", 1498.58], ...] 月K；year = 近一年日K；min = 今日分时（数值） */
+var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",1471.77],["2000-05",1460.98],["2000-06",1421.83],["2000-07",1405.25],["2000-08",1367.82],["2000-09",1362.79],["2000-10",1322.93],["2000-11",1317.56],["2000-12",1283.73],["2001-01",1267.58],["2001-02",1252.54],["2001-03",1217.68],["2001-04",1191.61],["2001-05",1172.62],["2001-06",1163.82],["2001-07",1135.73],["2001-08",1130.19],["2001-09",1105.1],["2001-10",1080.04],["2001-11",1064.08],["2001-12",1047.37],["2002-01",1024.3],["2002-02",1014.31],["2002-03",1004.06],["2002-04",987.51],["2002-05",964.43],["2002-06",940.89],["2002-07",927.78],["2002-08",916.03],["2002-09",904.01],["2002-10",888.78],["2002-11",896.72],["2002-12",904.41],["2003-01",904.74],["2003-02",924.75],["2003-03",921.72],["2003-04",931.55],["2003-05",949.21],["2003-06",951.97],["2003-07",958.19],["2003-08",979.94],["2003-09",974.55],["2003-10",982.17],["2003-11",992.27],["2003-12",1001.47],["2004-01",1012.99],["2004-02",1025.76],["2004-03",1035.55],["2004-04",1043.4],["2004-05",1058.54],["2004-06",1057.67],["2004-07",1086.83],["2004-08",1085.26],["2004-09",1089.71],["2004-10",1100.61],["2004-11",1126.22],["2004-12",1128.63],["2005-01",1147.31],["2005-02",1152.88],["2005-03",1160.82],["2005-04",1166.79],["2005-05",1174.02],["2005-06",1185.9],["2005-07",1199.38],["2005-08",1221.63],["2005-09",1231.36],["2005-10",1249.18],["2005-11",1246.97],["2005-12",1270.89],["2006-01",1283.77],["2006-02",1295.13],["2006-03",1307.41],["2006-04",1310.05],["2006-05",1316.35],["2006-06",1325.07],["2006-07",1357.92],["2006-08",1363.95],["2006-09",1377.42],["2006-10",1386.58],["2006-11",1407.1],["2006-12",1410.94],["2007-01",1414.98],["2007-02",1449.66],["2007-03",1448.85],["2007-04",1470],["2007-05",1492.02],["2007-06",1479.34],["2007-07",1505.22],["2007-08",1530.85],["2007-09",1528.5],["2007-10",1545.07],["2007-11",1496.61],["2007-12",1445.29],["2008-01",1384.97],["2008-02",1329.29],["2008-03",1277.52],["2008-04",1223.74],["2008-05",1171.18],["2008-06",1139.46],["2008-07",1090.34],["2008-08",1039.19],["2008-09",1000.58],["2008-10",972.75],["2008-11",929.81],["2008-12",898.95],["2009-01",863.68],["2009-02",832.83],["2009-03",798.91],["2009-04",804.62],["2009-05",821.83],["2009-06",837.38],["2009-07",843.5],["2009-08",853.06],["2009-09",870.55],["2009-10",883.64],["2009-11",896.98],["2009-12",907.85],["2010-01",927.52],["2010-02",938.92],["2010-03",948.25],["2010-04",973.9],["2010-05",974.37],["2010-06",995.1],["2010-07",1013.86],["2010-08",1024.1],["2010-09",1035.47],["2010-10",1059.28],["2010-11",1065.54],["2010-12",1095.07],["2011-01",1112.48],["2011-02",1122.46],["2011-03",1142.98],["2011-04",1150.73],["2011-05",1179.52],["2011-06",1181.94],["2011-07",1198.48],["2011-08",1215.92],["2011-09",1232.61],["2011-10",1258.1],["2011-11",1274.31],["2011-12",1296.16],["2012-01",1312.02],["2012-02",1341.57],["2012-03",1353.76],["2012-04",1381.56],["2012-05",1402.01],["2012-06",1412.61],["2012-07",1431],["2012-08",1456.23],["2012-09",1476.59],["2012-10",1513.89],["2012-11",1525.72],["2012-12",1560.81],["2013-01",1572.59],["2013-02",1589.52],["2013-03",1626.57],["2013-04",1630.97],["2013-05",1675.15],["2013-06",1701.35],["2013-07",1708.41],["2013-08",1737.39],["2013-09",1770.01],["2013-10",1786.88],["2013-11",1824.74],["2013-12",1859.46],["2014-01",1862.54],["2014-02",1885.34],["2014-03",1890.34],["2014-04",1896.24],["2014-05",1913.98],["2014-06",1939.03],["2014-07",1933.86],["2014-08",1980.15],["2014-09",1976.95],["2014-10",1991.99],["2014-11",2011.06],["2014-12",2025.17],["2015-01",2026.89],["2015-02",2066.48],["2015-03",2083.01],["2015-04",2106.25],["2015-05",2095.85],["2015-06",2133.99],["2015-07",2142.27],["2015-08",2152.67],["2015-09",2190.53],["2015-10",2209.23],["2015-11",2225.28],["2015-12",2243.2],["2016-01",2239.2],["2016-02",2276.43],["2016-03",2295.64],["2016-04",2306.56],["2016-05",2312.89],["2016-06",2353.32],["2016-07",2348.64],["2016-08",2367.33],["2016-09",2417.87],["2016-10",2398.34],["2016-11",2438.7],["2016-12",2440.95],["2017-01",2458.3],["2017-02",2498.89],["2017-03",2502.29],["2017-04",2536.73],["2017-05",2573.94],["2017-06",2592.19],["2017-07",2614.66],["2017-08",2612.94],["2017-09",2647.1],["2017-10",2651.1],["2017-11",2670.09],["2017-12",2686.96],["2018-01",2749.75],["2018-02",2755.52],["2018-03",2755.61],["2018-04",2817.11],["2018-05",2845.93],["2018-06",2827.33],["2018-07",2860.82],["2018-08",2865.96],["2018-09",2909.15],["2018-10",2885.96],["2018-11",2885.63],["2018-12",2841.79],["2019-01",2833.73],["2019-02",2829.86],["2019-03",2781.09],["2019-04",2774.93],["2019-05",2769.72],["2019-06",2747.52],["2019-07",2750.54],["2019-08",2708.67],["2019-09",2702.31],["2019-10",2666.38],["2019-11",2665.56],["2019-12",2637.72],["2020-01",2611.55],["2020-02",2580.15],["2020-03",2579.32],["2020-04",2672.47],["2020-05",2797.58],["2020-06",2942.26],["2020-07",3065.75],["2020-08",3204.98],["2020-09",3292.07],["2020-10",3444.18],["2020-11",3592.21],["2020-12",3761.13],["2021-01",3817.08],["2021-02",3879.32],["2021-03",3987],["2021-04",4078.53],["2021-05",4150.32],["2021-06",4239.18],["2021-07",4337.83],["2021-08",4416.87],["2021-09",4474.57],["2021-10",4621.8],["2021-11",4703.16],["2021-12",4740.71],["2022-01",4643.19],["2022-02",4566.54],["2022-03",4512.07],["2022-04",4370.58],["2022-05",4273.07],["2022-06",4189.09],["2022-07",4114.13],["2022-08",4003.86],["2022-09",3947.16],["2022-10",3875.51],["2022-11",3912.24],["2022-12",3979.14],["2023-01",4041.86],["2023-02",4150.93],["2023-03",4223.53],["2023-04",4275.22],["2023-05",4356.21],["2023-06",4418.03],["2023-07",4484.45],["2023-08",4564.85],["2023-09",4625.63],["2023-10",4686.46],["2023-11",4803.71],["2023-12",4821.63],["2024-01",4945.54],["2024-02",5025.81],["2024-03",5094.89],["2024-04",5135.96],["2024-05",5217.94],["2024-06",5379.79],["2024-07",5382.09],["2024-08",5523.91],["2024-09",5595.82],["2024-10",5683.05],["2024-11",5798.68],["2024-12",5896.87],["2025-01",5975.58],["2025-02",5988.75],["2025-03",6092.05],["2025-04",6186.35],["2025-05",6229.48],["2025-06",6372.3],["2025-07",6467.78],["2025-08",6459.82],["2025-09",6560.23],["2025-10",6728.63],["2025-11",6799.39],["2025-12",6825.44],["2026-01",6878.18],["2026-02",6952.26],["2026-03",7129.28],["2026-04",7235.96],["2026-05",7221.44],["2026-06",7405.87],["2026-07",7495.63],["2026-08",7570.01],["2026-09",7682.07],["2026-10",7757.17]],"year":[["2025-07-31",6448.86],["2025-08-01",6501.74],["2025-08-04",6440.18],["2025-08-05",6517.62],["2025-08-06",6444.97],["2025-08-07",6426.29],["2025-08-08",6525.98],["2025-08-11",6433.51],["2025-08-12",6487.01],["2025-08-13",6531.3],["2025-08-14",6438.82],["2025-08-15",6433.68],["2025-08-18",6481.09],["2025-08-19",6440.14],["2025-08-20",6427.77],["2025-08-21",6499.11],["2025-08-22",6417.97],["2025-08-25",6522],["2025-08-26",6513.87],["2025-08-27",6447.02],["2025-08-28",6522.89],["2025-08-29",6413.11],["2025-09-01",6464.46],["2025-09-02",6528.26],["2025-09-03",6476.97],["2025-09-04",6418.55],["2025-09-05",6475.57],["2025-09-08",6405.13],["2025-09-09",6508.35],["2025-09-10",6422.67],["2025-09-11",6449],["2025-09-12",6401.96],["2025-09-15",6431.1],["2025-09-16",6412.61],["2025-09-17",6448.43],["2025-09-18",6425.19],["2025-09-19",6416.2],["2025-09-22",6426.99],["2025-09-23",6422.36],["2025-09-24",6519.48],["2025-09-25",6417.73],["2025-09-26",6483.55],["2025-09-29",6425.12],["2025-09-30",6469.88],["2025-10-01",6425.8],["2025-10-02",6537.45],["2025-10-03",6476.19],["2025-10-06",6463.18],["2025-10-07",6508.13],["2025-10-08",6547.16],["2025-10-09",6500.94],["2025-10-10",6542.14],["2025-10-13",6481.93],["2025-10-14",6500.38],["2025-10-15",6499.73],["2025-10-16",6498.79],["2025-10-17",6592.29],["2025-10-20",6554.36],["2025-10-21",6569.15],["2025-10-22",6621.75],["2025-10-23",6521.51],["2025-10-24",6521],["2025-10-27",6514.27],["2025-10-28",6589.7],["2025-10-29",6638.23],["2025-10-30",6633.83],["2025-10-31",6609.46],["2025-11-03",6593.53],["2025-11-04",6642.23],["2025-11-05",6624.32],["2025-11-06",6611.05],["2025-11-07",6716.35],["2025-11-10",6609.85],["2025-11-11",6727.67],["2025-11-12",6724.64],["2025-11-13",6685.62],["2025-11-14",6758.21],["2025-11-17",6699.94],["2025-11-18",6692.5],["2025-11-19",6768.84],["2025-11-20",6767.28],["2025-11-21",6723.54],["2025-11-24",6740.54],["2025-11-25",6807.11],["2025-11-26",6693.65],["2025-11-27",6789.18],["2025-11-28",6766.18],["2025-12-01",6796.69],["2025-12-02",6826.14],["2025-12-03",6749.7],["2025-12-04",6714.34],["2025-12-05",6734.71],["2025-12-08",6775.46],["2025-12-09",6798.74],["2025-12-10",6812.48],["2025-12-11",6832.24],["2025-12-12",6832.01],["2025-12-15",6846.89],["2025-12-16",6759.59],["2025-12-17",6772.35],["2025-12-18",6811.4],["2025-12-19",6799.88],["2025-12-22",6739.55],["2025-12-23",6842.78],["2025-12-24",6793.76],["2025-12-25",6869.08],["2025-12-26",6846.39],["2025-12-29",6773.03],["2025-12-30",6839.03],["2025-12-31",6840.21],["2026-01-01",6830.72],["2026-01-02",6800.05],["2026-01-05",6858.93],["2026-01-06",6757.17],["2026-01-07",6781],["2026-01-08",6784.8],["2026-01-09",6830.72],["2026-01-12",6836.1],["2026-01-13",6833.14],["2026-01-14",6800.85],["2026-01-15",6828.38],["2026-01-16",6782.71],["2026-01-19",6789.26],["2026-01-20",6888.65],["2026-01-21",6829.32],["2026-01-22",6897.95],["2026-01-23",6828.83],["2026-01-26",6793.38],["2026-01-27",6910.92],["2026-01-28",6829.94],["2026-01-29",6848.78],["2026-01-30",6854.63],["2026-02-02",6833.14],["2026-02-03",6803.63],["2026-02-04",6801.76],["2026-02-05",6848.89],["2026-02-06",6899.06],["2026-02-09",6935.1],["2026-02-10",6836.16],["2026-02-11",6860.15],["2026-02-12",6908.35],["2026-02-13",6916.39],["2026-02-16",6941.56],["2026-02-17",6928.62],["2026-02-18",6903.81],["2026-02-19",6872.95],["2026-02-20",6910.18],["2026-02-23",6892.48],["2026-02-24",6911.2],["2026-02-25",6876.5],["2026-02-26",6902.32],["2026-02-27",6917.24],["2026-03-02",6914.15],["2026-03-03",6875.45],["2026-03-04",6932.31],["2026-03-05",6935.64],["2026-03-06",6922.71],["2026-03-09",6908.59],["2026-03-10",6977.8],["2026-03-11",6913.72],["2026-03-12",7008.78],["2026-03-13",6913.96],["2026-03-16",6907.67],["2026-03-17",6924.27],["2026-03-18",6937.04],["2026-03-19",6969.16],["2026-03-20",7069.73],["2026-03-23",7061.79],["2026-03-24",7086.19],["2026-03-25",7088.28],["2026-03-26",7086.57],["2026-03-27",7111.86],["2026-03-30",7123.37],["2026-03-31",7096.71],["2026-04-01",7077.82],["2026-04-02",7087.89],["2026-04-03",7165.63],["2026-04-06",7076.51],["2026-04-07",7149.82],["2026-04-08",7128.4],["2026-04-09",7083.65],["2026-04-10",7198.46],["2026-04-13",7171.26],["2026-04-14",7116.14],["2026-04-15",7101.01],["2026-04-16",7149.89],["2026-04-17",7129.9],["2026-04-20",7109.79],["2026-04-21",7154.9],["2026-04-22",7115.49],["2026-04-23",7138.66],["2026-04-24",7233.74],["2026-04-27",7164.08],["2026-04-28",7246.28],["2026-04-29",7267.84],["2026-04-30",7197.28],["2026-05-01",7232.24],["2026-05-04",7287.25],["2026-05-05",7269.17],["2026-05-06",7242.14],["2026-05-07",7232.36],["2026-05-08",7251.64],["2026-05-11",7279.07],["2026-05-12",7223.03],["2026-05-13",7305.3],["2026-05-14",7266.22],["2026-05-15",7232.63],["2026-05-18",7267.39],["2026-05-19",7273.23],["2026-05-20",7200.81],["2026-05-21",7286.62],["2026-05-22",7230.63],["2026-05-25",7296.72],["2026-05-26",7239.54],["2026-05-27",7222.73],["2026-05-28",7160.81],["2026-05-29",7236.06],["2026-06-01",7188.14],["2026-06-02",7197.76],["2026-06-03",7188.82],["2026-06-04",7180.19],["2026-06-05",7295.88],["2026-06-08",7188.35],["2026-06-09",7215.96],["2026-06-10",7280.37],["2026-06-11",7221.3],["2026-06-12",7221.46],["2026-06-15",7308.08],["2026-06-16",7295.58],["2026-06-17",7298.8],["2026-06-18",7374.98],["2026-06-19",7285.05],["2026-06-22",7298.78],["2026-06-23",7414.35],["2026-06-24",7299.63],["2026-06-25",7296.11],["2026-06-26",7351.44],["2026-06-29",7365.47],["2026-06-30",7326.99],["2026-07-01",7430.85],["2026-07-02",7466.96],["2026-07-03",7376.29],["2026-07-06",7408.34],["2026-07-07",7423.27],["2026-07-08",7430.98],["2026-07-09",7457.71],["2026-07-10",7504.71],["2026-07-13",7412.73],["2026-07-14",7383.11],["2026-07-15",7451.2],["2026-07-16",7390.08],["2026-07-17",7404.95],["2026-07-20",7446.98],["2026-07-21",7490.49],["2026-07-22",7512.7],["2026-07-23",7521.43],["2026-07-24",7485.78],["2026-07-27",7486.84],["2026-07-28",7522.45],["2026-07-29",7439.06],["2026-07-30",7535.15],["2026-07-31",7556.81],["2026-08-03",7577.86],["2026-08-04",7544.9],["2026-08-05",7516.32],["2026-08-06",7525.98],["2026-08-07",7464.59],["2026-08-10",7491.71],["2026-08-11",7452.57],["2026-08-12",7469.33],["2026-08-13",7590.93],["2026-08-14",7468.1],["2026-08-17",7473.34],["2026-08-18",7525.54],["2026-08-19",7589.39],["2026-08-20",7561.19],["2026-08-21",7586.29],["2026-08-24",7544.26],["2026-08-25",7610.38],["2026-08-26",7632.06],["2026-08-27",7565.31],["2026-08-28",7515.71],["2026-08-31",7579.05],["2026-09-01",7560.22],["2026-09-02",7533.27],["2026-09-03",7531.27],["2026-09-04",7541.51],["2026-09-07",7588.28],["2026-09-08",7604.49],["2026-09-09",7618.6],["2026-09-10",7693.52],["2026-09-11",7583.46],["2026-09-14",7658.39],["2026-09-15",7720.9],["2026-09-16",7592.07],["2026-09-17",7637.75],["2026-09-18",7610.34],["2026-09-21",7598],["2026-09-22",7738.35],["2026-09-23",7661.94],["2026-09-24",7729.54],["2026-09-25",7704.34],["2026-09-28",7720.17],["2026-09-29",7681.16],["2026-09-30",7758.01],["2026-10-01",7652.97],["2026-10-02",7672.88],["2026-10-05",7733.75],["2026-10-06",7703.97],["2026-10-07",7710.74],["2026-10-08",7779.55],["2026-10-09",7786.09],["2026-10-12",7802.46],["2026-10-13",7774.02],["2026-10-14",7676.01],["2026-10-15",7807.72],["2026-10-16",7702.16],["2026-10-19",7693.63],["2026-10-20",7813.56],["2026-10-21",7776.99]],"min":[7712.57,7710.17,7713.55,7712.25,7716.18,7711.67,7710.56,7712.55,7713.46,7714.86,7717.3,7715.07,7717.72,7715.35,7713.88,7718.09,7712.4,7719.17,7713.57,7715.88,7716.46,7718.44,7719.35,7716.56,7715.54,7716.33,7718.49,7721.27,7717.24,7720.86,7714.93,7717.24,7721.22,7719.54,7720.21,7719.99,7716.7,7717.7,7721.21,7720.29,7717.04,7718.94,7717.77,7723.79,7717.11,7722.77,7721.77,7718.01,7723.38,7720.23,7719.78,7720.93,7721.12,7719.55,7721.49,7720.49,7725.99,7723.85,7721.73,7721.59,7727.44,7728.5,7728.12,7728.11,7723.48,7726.49,7722.62,7726.1,7728.43,7729.2,7725.71,7730.58,7723.48,7724.06,7724.96,7729.51,7730.76,7723.58,7731.18,7722.67,7729.82,7726.53,7732.5,7723.28,7732.02,7733.01,7725.73,7730.03,7729.52,7733.99,7734.46,7725.59,7727.39,7728.17,7732.18,7725.11,7725.04,7729.49,7728.88,7734.6,7733.14,7736.86,7725.87,7736.38,7731.96,7729.68,7738.07,7735.39,7736.65,7729.98,7735.93,7727.86,7731.1,7739.43,7727.85,7728.32,7736.3,7739.04,7733.89,7729.72,7738.22,7733.76,7732.1,7733.07,7731.76,7734.63,7736.72,7736.85,7739.01,7740.14,7742.41,7735.15,7740.71,7740.54,7733.46,7737.79,7734.93,7740.83,7736.26,7736.37,7734.39,7733.86,7739.12,7743.09,7742.16,7744.38,7738.89,7740.05,7743.67,7736.12,7740.28,7736.08,7739.35,7738.87,7740.87,7743.33,7746.61,7740.59,7743.64,7743.59,7743.31,7747.49,7743.19,7747.42,7744.63,7745.82,7742.38,7747.61,7742.78,7744.47,7742.26,7741.78,7747.83,7744.22,7745.57,7745.92,7744.76,7741.71,7744.52,7744,7747.49,7750.81,7744.08,7749.73,7749.4,7747.67,7748.95,7745.72,7751.25,7745.91,7744.33,7751.31,7750.93,7744.66,7749.28,7753.14,7753.02,7750.58,7750.34,7745.97,7749.38,7746.91,7750.72,7749.13,7753.47,7746.99,7748.69,7753.2,7753.85,7750.12,7749.73,7754.56,7754.53,7749.59,7749.39,7753.2,7749.71,7754.11,7754.49,7752.51,7750.38,7756.4,7756.59,7752.01,7754.95,7751.89,7756.63,7755.19,7757.35,7755.27,7753.05,7758.01,7755.69,7755.38,7756.01,7757.43,7759.33,7754.89,7758.39,7757.17]},"usIXIC":{"demo":true,"all":[["2000-03",5048.62],["2000-04",4817.89],["2000-05",4550.61],["2000-06",4335.92],["2000-07",4120.18],["2000-08",3971.03],["2000-09",3765.97],["2000-10",3606.09],["2000-11",3408.27],["2000-12",3241.82],["2001-01",3102.76],["2001-02",2935.38],["2001-03",2840.29],["2001-04",2667.53],["2001-05",2539.93],["2001-06",2443.01],["2001-07",2326.26],["2001-08",2205.48],["2001-09",2112.84],["2001-10",2015.39],["2001-11",1897.45],["2001-12",1811.02],["2002-01",1742.41],["2002-02",1658.14],["2002-03",1579.33],["2002-04",1498.62],["2002-05",1415.63],["2002-06",1361.06],["2002-07",1284.43],["2002-08",1240.99],["2002-09",1165.39],["2002-10",1116.52],["2002-11",1146.45],["2002-12",1162.6],["2003-01",1168.08],["2003-02",1181.33],["2003-03",1213.38],["2003-04",1223.18],["2003-05",1247.98],["2003-06",1260.75],["2003-07",1281.29],["2003-08",1315.6],["2003-09",1332.52],["2003-10",1344.06],["2003-11",1361.13],["2003-12",1405.33],["2004-01",1409.71],["2004-02",1432.38],["2004-03",1459.1],["2004-04",1470.87],["2004-05",1519.63],["2004-06",1539.63],["2004-07",1542.77],["2004-08",1574.19],["2004-09",1594.16],["2004-10",1633.73],["2004-11",1651.04],["2004-12",1681.13],["2005-01",1714.81],["2005-02",1743.5],["2005-03",1772.56],["2005-04",1795.61],["2005-05",1802.76],["2005-06",1856.91],["2005-07",1859.32],["2005-08",1895.53],["2005-09",1919.68],["2005-10",1951.59],["2005-11",1994.61],["2005-12",2032.18],["2006-01",2043.35],["2006-02",2107.45],["2006-03",2124.21],["2006-04",2165.62],["2006-05",2173.3],["2006-06",2217.4],["2006-07",2279.12],["2006-08",2278.37],["2006-09",2333.28],["2006-10",2356.18],["2006-11",2421.2],["2006-12",2443.51],["2007-01",2498.57],["2007-02",2521.84],["2007-03",2574.98],["2007-04",2614.8],["2007-05",2658.68],["2007-06",2681.35],["2007-07",2739.11],["2007-08",2753.1],["2007-09",2799.15],["2007-10",2874.25],["2007-11",2707.55],["2007-12",2589.99],["2008-01",2488.57],["2008-02",2351.31],["2008-03",2260.47],["2008-04",2152.29],["2008-05",2052.99],["2008-06",1934.53],["2008-07",1861.11],["2008-08",1764.8],["2008-09",1691.7],["2008-10",1603.34],["2008-11",1546.35],["2008-12",1472.01],["2009-01",1387.86],["2009-02",1330.28],["2009-03",1260.58],["2009-04",1290.54],["2009-05",1305.77],["2009-06",1341.77],["2009-07",1354.31],["2009-08",1379.92],["2009-09",1411.4],["2009-10",1437.81],["2009-11",1468.82],["2009-12",1507.76],["2010-01",1512.82],["2010-02",1563.23],["2010-03",1591.11],["2010-04",1595.97],["2010-05",1628.88],["2010-06",1659.76],["2010-07",1686.8],["2010-08",1721.32],["2010-09",1773.24],["2010-10",1808.58],["2010-11",1814.73],["2010-12",1866.48],["2011-01",1903.9],["2011-02",1916.38],["2011-03",1951.92],["2011-04",1993.68],["2011-05",2058.39],["2011-06",2070.52],["2011-07",2114.4],["2011-08",2138.34],["2011-09",2201.49],["2011-10",2231.46],["2011-11",2257.1],["2011-12",2322.85],["2012-01",2365.91],["2012-02",2394.33],["2012-03",2448.98],["2012-04",2473.01],["2012-05",2524.1],["2012-06",2604.26],["2012-07",2652.47],["2012-08",2674.13],["2012-09",2726.2],["2012-10",2767.66],["2012-11",2833.04],["2012-12",2862.87],["2013-01",2941.63],["2013-02",3016.71],["2013-03",3054.23],["2013-04",3088.23],["2013-05",3149.05],["2013-06",3223.2],["2013-07",3255.88],["2013-08",3327],["2013-09",3391.5],["2013-10",3446.65],["2013-11",3522.02],["2013-12",3599.72],["2014-01",3643.47],["2014-02",3714.89],["2014-03",3811.59],["2014-04",3871.23],["2014-05",3907.55],["2014-06",4030.37],["2014-07",4084.11],["2014-08",4145.62],["2014-09",4270.95],["2014-10",4310.78],["2014-11",4373.67],["2014-12",4505.43],["2015-01",4550.35],["2015-02",4610.39],["2015-03",4725.19],["2015-04",4853.7],["2015-05",4902.04],["2015-06",4953.19],["2015-07",5072.91],["2015-08",5100.36],["2015-09",5001.19],["2015-10",5060.97],["2015-11",4957.69],["2015-12",4964.92],["2016-01",4922.71],["2016-02",4903.61],["2016-03",4902.45],["2016-04",4850.72],["2016-05",4819.8],["2016-06",4796.64],["2016-07",4845.31],["2016-08",4750.68],["2016-09",4795.4],["2016-10",4724.91],["2016-11",4720.12],["2016-12",4687.08],["2017-01",4713.04],["2017-02",4652.31],["2017-03",4597.11],["2017-04",4618.98],["2017-05",4561.56],["2017-06",4589.03],["2017-07",4529.7],["2017-08",4549.97],["2017-09",4523.37],["2017-10",4512.45],["2017-11",4427.36],["2017-12",4467.1],["2018-01",4395.34],["2018-02",4384.27],["2018-03",4406.38],["2018-04",4364.14],["2018-05",4351.08],["2018-06",4335.68],["2018-07",4320.93],["2018-08",4277.01],["2018-09",4240.53],["2018-10",4260.78],["2018-11",4193.08],["2018-12",4212.99],["2019-01",4319.89],["2019-02",4456.57],["2019-03",4615.45],["2019-04",4777.74],["2019-05",4924.24],["2019-06",5099.3],["2019-07",5243.41],["2019-08",5478.55],["2019-09",5680.88],["2019-10",5845.61],["2019-11",5967.84],["2019-12",6268.06],["2020-01",6447.07],["2020-02",6622.04],["2020-03",6879.05],["2020-04",7174.47],["2020-05",7442.01],["2020-06",7799.46],["2020-07",8132.54],["2020-08",8503.59],["2020-09",8745.11],["2020-10",9247.33],["2020-11",9625.13],["2020-12",9917],["2021-01",10366.57],["2021-02",10894.31],["2021-03",11326.03],["2021-04",11748.15],["2021-05",12248.31],["2021-06",12783.4],["2021-07",13439.07],["2021-08",13997.73],["2021-09",14572.86],["2021-10",15210.49],["2021-11",15790.3],["2021-12",15219.59],["2022-01",14890.75],["2022-02",14421.4],["2022-03",13877.55],["2022-04",13614.76],["2022-05",13124.53],["2022-06",12736.15],["2022-07",12210.75],["2022-08",11798.92],["2022-09",11443.28],["2022-10",11214.11],["2022-11",10729.94],["2022-12",10522.25],["2023-01",10830.19],["2023-02",11048.07],["2023-03",11253.32],["2023-04",11594.05],["2023-05",11846.67],["2023-06",12153.46],["2023-07",12410.9],["2023-08",12815.64],["2023-09",13173.24],["2023-10",13473.57],["2023-11",13854.69],["2023-12",14246.26],["2024-01",14686.05],["2024-02",14832.93],["2024-03",15345.2],["2024-04",15686.32],["2024-05",16009.97],["2024-06",16430.47],["2024-07",17097.47],["2024-08",17369.54],["2024-09",17970.69],["2024-10",18472.76],["2024-11",18951.48],["2024-12",19253.63],["2025-01",19700.64],["2025-02",19794.27],["2025-03",20031.57],["2025-04",20322.48],["2025-05",20767.18],["2025-06",20938.93],["2025-07",21365.32],["2025-08",21589.62],["2025-09",22160.33],["2025-10",22505.39],["2025-11",22566.13],["2025-12",23011.1],["2026-01",23594.38],["2026-02",23712.45],["2026-03",24015.7],["2026-04",24574.21],["2026-05",24834.11],["2026-06",25321.76],["2026-07",25758.26],["2026-08",25853.12],["2026-09",26441.76],["2026-10",26702.86]],"year":[["2025-07-31",21319.49],["2025-08-01",21546.79],["2025-08-04",21340.41],["2025-08-05",21417.72],["2025-08-06",21423.7],["2025-08-07",21449.66],["2025-08-08",21357.92],["2025-08-11",21479.21],["2025-08-12",21164.87],["2025-08-13",21490.02],["2025-08-14",21195.88],["2025-08-15",21323.35],["2025-08-18",21265.47],["2025-08-19",21330.92],["2025-08-20",21259.07],["2025-08-21",21501.3],["2025-08-22",21400.4],["2025-08-25",21345.08],["2025-08-26",21157.83],["2025-08-27",21538.69],["2025-08-28",21461.25],["2025-08-29",21559.35],["2025-09-01",21249.95],["2025-09-02",21280.13],["2025-09-03",21387.14],["2025-09-04",21534.57],["2025-09-05",21270.06],["2025-09-08",21452.24],["2025-09-09",21516.94],["2025-09-10",21483.18],["2025-09-11",21584.3],["2025-09-12",21577.4],["2025-09-15",21527.82],["2025-09-16",21458.11],["2025-09-17",21543.42],["2025-09-18",21506.01],["2025-09-19",21625.49],["2025-09-22",21463.02],["2025-09-23",21772.44],["2025-09-24",21701.26],["2025-09-25",21441.5],["2025-09-26",21617.21],["2025-09-29",21721.66],["2025-09-30",21752.35],["2025-10-01",21522.98],["2025-10-02",21871.09],["2025-10-03",21759.06],["2025-10-06",21658.45],["2025-10-07",21885.96],["2025-10-08",21888.29],["2025-10-09",22035.59],["2025-10-10",21930.98],["2025-10-13",21851.18],["2025-10-14",21860.42],["2025-10-15",21923.77],["2025-10-16",22135.03],["2025-10-17",22002.17],["2025-10-20",22123.66],["2025-10-21",22114.32],["2025-10-22",21995.59],["2025-10-23",22182.99],["2025-10-24",22205.67],["2025-10-27",22406.41],["2025-10-28",22087.53],["2025-10-29",22281.06],["2025-10-30",22120.79],["2025-10-31",22434.13],["2025-11-03",22263.61],["2025-11-04",22398.27],["2025-11-05",22161.53],["2025-11-06",22280.98],["2025-11-07",22568.02],["2025-11-10",22450.28],["2025-11-11",22213.3],["2025-11-12",22450.97],["2025-11-13",22486.55],["2025-11-14",22635.01],["2025-11-17",22602.24],["2025-11-18",22307.31],["2025-11-19",22471.3],["2025-11-20",22621.43],["2025-11-21",22469.52],["2025-11-24",22395.07],["2025-11-25",22524.81],["2025-11-26",22515.97],["2025-11-27",22689.98],["2025-11-28",22489.52],["2025-12-01",22399.32],["2025-12-02",22429.97],["2025-12-03",22614.8],["2025-12-04",22333.33],["2025-12-05",22626.66],["2025-12-08",22725.83],["2025-12-09",22323.36],["2025-12-10",22645.97],["2025-12-11",22527.78],["2025-12-12",22746.04],["2025-12-15",22402.4],["2025-12-16",22689.78],["2025-12-17",22592.67],["2025-12-18",22624.72],["2025-12-19",22696.35],["2025-12-22",22621.7],["2025-12-23",22565.52],["2025-12-24",22868.37],["2025-12-25",22512.56],["2025-12-26",22654.95],["2025-12-29",22953.15],["2025-12-30",22649.43],["2025-12-31",22996.46],["2026-01-01",22656.16],["2026-01-02",22695.64],["2026-01-05",22873.62],["2026-01-06",22651.04],["2026-01-07",22717.59],["2026-01-08",22750.85],["2026-01-09",22995.87],["2026-01-12",22844.63],["2026-01-13",22761.58],["2026-01-14",23106.2],["2026-01-15",22847.77],["2026-01-16",22939.17],["2026-01-19",22941.09],["2026-01-20",23148.93],["2026-01-21",23277.64],["2026-01-22",23238.55],["2026-01-23",23417.09],["2026-01-26",23148.61],["2026-01-27",23412.86],["2026-01-28",23087.95],["2026-01-29",23186.65],["2026-01-30",23542.65],["2026-02-02",23404.58],["2026-02-03",23608.16],["2026-02-04",23250.75],["2026-02-05",23440.51],["2026-02-06",23726.37],["2026-02-09",23695.33],["2026-02-10",23689.89],["2026-02-11",23519.89],["2026-02-12",23557],["2026-02-13",23791.56],["2026-02-16",23467.72],["2026-02-17",23524.98],["2026-02-18",23695.08],["2026-02-19",23685.38],["2026-02-20",23864.77],["2026-02-23",23854.71],["2026-02-24",23487.46],["2026-02-25",23495.79],["2026-02-26",23625.72],["2026-02-27",23791.06],["2026-03-02",23616.29],["2026-03-03",23534.67],["2026-03-04",23671.58],["2026-03-05",23491.73],["2026-03-06",23538.88],["2026-03-09",23610.49],["2026-03-10",23556.72],["2026-03-11",23916.14],["2026-03-12",23829.62],["2026-03-13",23524.26],["2026-03-16",23884.01],["2026-03-17",23533.05],["2026-03-18",23960.36],["2026-03-19",23564.14],["2026-03-20",23885.61],["2026-03-23",23755.05],["2026-03-24",23676.28],["2026-03-25",23715.97],["2026-03-26",23893],["2026-03-27",23681.14],["2026-03-30",23844.07],["2026-03-31",23706.47],["2026-04-01",23703.68],["2026-04-02",23963.22],["2026-04-03",24060.27],["2026-04-06",24067.81],["2026-04-07",23779.26],["2026-04-08",24204.84],["2026-04-09",24214.82],["2026-04-10",24269.72],["2026-04-13",24303.77],["2026-04-14",24132.98],["2026-04-15",24356.01],["2026-04-16",23924.76],["2026-04-17",24180.84],["2026-04-20",24074.09],["2026-04-21",24316.25],["2026-04-22",24360],["2026-04-23",24127.51],["2026-04-24",24253.86],["2026-04-27",24141.41],["2026-04-28",24360.17],["2026-04-29",24542.8],["2026-04-30",24549.53],["2026-05-01",24376.15],["2026-05-04",24658.11],["2026-05-05",24635.11],["2026-05-06",24720.32],["2026-05-07",24553.37],["2026-05-08",24767.4],["2026-05-11",24691.7],["2026-05-12",24557.26],["2026-05-13",24839.7],["2026-05-14",24829.31],["2026-05-15",24833.46],["2026-05-18",24795.81],["2026-05-19",24588.92],["2026-05-20",24850.26],["2026-05-21",24499.13],["2026-05-22",24567.74],["2026-05-25",24936.37],["2026-05-26",24685.94],["2026-05-27",24906.58],["2026-05-28",24935.18],["2026-05-29",24708.27],["2026-06-01",25031.31],["2026-06-02",24573.8],["2026-06-03",24995.21],["2026-06-04",24899.59],["2026-06-05",24812.43],["2026-06-08",24638.6],["2026-06-09",25024.11],["2026-06-10",24743.5],["2026-06-11",25032.47],["2026-06-12",25207.03],["2026-06-15",24806.22],["2026-06-16",25116.04],["2026-06-17",25046.71],["2026-06-18",25095.5],["2026-06-19",24880.64],["2026-06-22",25068.47],["2026-06-23",25004.4],["2026-06-24",25085.52],["2026-06-25",25136.97],["2026-06-26",25309.21],["2026-06-29",25411.33],["2026-06-30",25234.34],["2026-07-01",25568.32],["2026-07-02",25156.58],["2026-07-03",25536.04],["2026-07-06",25386.34],["2026-07-07",25336.38],["2026-07-08",25380.42],["2026-07-09",25475.19],["2026-07-10",25668.32],["2026-07-13",25654],["2026-07-14",25491.31],["2026-07-15",25780.13],["2026-07-16",25790.8],["2026-07-17",25662.02],["2026-07-20",25515.37],["2026-07-21",25441.5],["2026-07-22",25587.55],["2026-07-23",25611.82],["2026-07-24",25639.01],["2026-07-27",25668.77],["2026-07-28",25949.62],["2026-07-29",25852.47],["2026-07-30",25610.45],["2026-07-31",25876.43],["2026-08-03",25711.09],["2026-08-04",25984.75],["2026-08-05",25954.33],["2026-08-06",25632.17],["2026-08-07",25841.06],["2026-08-10",25953.47],["2026-08-11",25954.72],["2026-08-12",25601.97],["2026-08-13",25860.19],["2026-08-14",25694.64],["2026-08-17",26060.82],["2026-08-18",26044.42],["2026-08-19",25845.4],["2026-08-20",25792.98],["2026-08-21",25630.57],["2026-08-24",25714.39],["2026-08-25",25740.21],["2026-08-26",25863.82],["2026-08-27",26057.7],["2026-08-28",26037.26],["2026-08-31",25886.72],["2026-09-01",25834.18],["2026-09-02",26090.22],["2026-09-03",25998.93],["2026-09-04",25918.55],["2026-09-07",26160.39],["2026-09-08",26018.94],["2026-09-09",26208.63],["2026-09-10",26335.76],["2026-09-11",26083.47],["2026-09-14",26173.93],["2026-09-15",26350.44],["2026-09-16",26259.22],["2026-09-17",26506.26],["2026-09-18",26304.89],["2026-09-21",26494.8],["2026-09-22",26155.29],["2026-09-23",26441.82],["2026-09-24",26459.71],["2026-09-25",26283.23],["2026-09-28",26705.79],["2026-09-29",26613.84],["2026-09-30",26438.77],["2026-10-01",26358.93],["2026-10-02",26679.14],["2026-10-05",26532.64],["2026-10-06",26669.59],["2026-10-07",26561.62],["2026-10-08",26715.5],["2026-10-09",26503.68],["2026-10-12",26661.55],["2026-10-13",26741.74],["2026-10-14",26709.98],["2026-10-15",26398.37],["2026-10-16",26653.79],["2026-10-19",26910.72],["2026-10-20",26424.7],["2026-10-21",26968.86]],"min":[26424.82,26420.54,26432.57,26419.62,26424.26,26435.78,26432.92,26440.28,26440.6,26432.86,26442.23,26442.95,26440.85,26444.25,26438.02,26453.34,26443.8,26445.06,26441.42,26435.39,26443.62,26452.02,26451.83,26456.58,26443.85,26441.05,26446.57,26455.04,26450.03,26451.16,26457.73,26448.09,26452.17,26472.51,26472.35,26473.88,26471.84,26462.27,26467.03,26465.9,26460.44,26463.78,26479.3,26463.01,26463.19,26480.57,26483.12,26466.04,26489.38,26469.48,26488.29,26475.26,26484.06,26474.65,26485.56,26496.87,26483.87,26493.71,26481.86,26491.52,26486.24,26492.87,26508.98,26500.82,26488.53,26489.47,26506.67,26511.44,26518.64,26509.43,26511.23,26490.49,26519.61,26508.96,26498.21,26527.99,26526.4,26515.78,26522.28,26522.63,26524.6,26514.1,26525.38,26523.61,26512.34,26541.47,26507.76,26508.15,26538.94,26517.61,26544.04,26533.61,26538.04,26539.63,26540.22,26539.86,26521.27,26542.85,26552.89,26523.13,26549.09,26531.07,26542.53,26542.62,26527.28,26544.77,26551.63,26548.97,26546.02,26552.43,26544.15,26568.93,26536.23,26574.27,26573.6,26576.06,26568.85,26561.53,26578.03,26562.02,26559.33,26565.28,26556.3,26546.72,26570.47,26554.64,26555.79,26583.11,26577.26,26575.36,26584.94,26587.82,26559.7,26584,26568.46,26584.45,26582.88,26588.99,26599.76,26577.9,26599.96,26577.32,26601.59,26586.16,26604.78,26583.21,26607.45,26578.81,26595.74,26581,26599.67,26595.18,26594.74,26598.09,26601.59,26596.43,26615.82,26605.34,26595.02,26603.74,26608.15,26625.5,26605.57,26626.69,26612.08,26615.64,26604.18,26616.41,26624,26633.72,26606.99,26619.58,26617.41,26636.43,26613.89,26632.25,26618.67,26630.58,26637.94,26638.84,26630.15,26619.59,26636.12,26625.1,26641.56,26628.2,26653.24,26639.51,26633.56,26656.51,26631.55,26643.47,26649.63,26654,26646.92,26645.58,26656.9,26654.12,26655.44,26650.54,26655.1,26654.65,26657.79,26655.09,26669.78,26653.92,26665.89,26672.44,26661.98,26676.34,26666.5,26670.25,26677.44,26683.22,26670.73,26670.37,26684.04,26673,26674.34,26690.02,26679.85,26677.46,26688.65,26687.95,26674.65,26688.67,26690.28,26700.42,26678.47,26691.77,26698.28,26697.49,26696.8,26698.5,26700.19,26708.73,26693.35,26703.09,26692.49,26702.86]},"hkHSI":{"demo":false,"all":[["2000-03-31",17406.54],["2000-04-28",15519.3],["2000-05-31",14713.86],["2000-06-30",16155.78],["2000-07-31",16840.98],["2000-08-31",17097.51],["2000-09-29",15648.98],["2000-10-31",14895.34],["2000-11-30",13984.39],["2000-12-29",15095.53],["2001-01-31",16102.35],["2001-02-28",14787.87],["2001-03-30",12760.64],["2001-04-27",13386.04],["2001-05-31",13174.41],["2001-06-29",13042.53],["2001-07-31",12316.69],["2001-08-31",11090.48],["2001-09-28",9950.7],["2001-10-31",10073.97],["2001-11-30",11279.25],["2001-12-31",11397.21],["2002-01-31",10725.3],["2002-02-28",10482.55],["2002-03-28",11032.92],["2002-04-30",11497.58],["2002-05-31",11301.94],["2002-06-28",10598.55],["2002-07-31",10267.36],["2002-08-30",10043.87],["2002-09-30",9072.21],["2002-10-31",9441.25],["2002-11-29",10069.87],["2002-12-31",9321.29],["2003-01-30",9258.95],["2003-02-28",9122.66],["2003-03-31",8634.45],["2003-04-30",8717.22],["2003-05-30",9487.38],["2003-06-30",9577.12],["2003-07-31",10134.83],["2003-08-29",10908.99],["2003-09-30",11229.87],["2003-10-31",12190.1],["2003-11-28",12317.47],["2003-12-31",12575.94],["2004-01-30",13289.37],["2004-02-27",13907.03],["2004-03-31",12681.67],["2004-04-30",11942.96],["2004-05-31",12198.24],["2004-06-30",12285.75],["2004-07-30",12238.03],["2004-08-31",12850.28],["2004-09-30",13120.03],["2004-10-29",13054.66],["2004-11-30",14060.05],["2004-12-31",14230.14],["2005-01-31",13721.69],["2005-02-28",14195.35],["2005-03-31",13516.88],["2005-04-29",13908.97],["2005-05-31",13867.07],["2005-06-30",14201.06],["2005-07-29",14880.98],["2005-08-31",14903.55],["2005-09-30",15428.52],["2005-10-31",14386.37],["2005-11-30",14937.14],["2005-12-30",14876.43],["2006-01-27",15753.14],["2006-02-28",15918.48],["2006-03-31",15805.04],["2006-04-28",16661.3],["2006-05-30",15857.89],["2006-06-30",16267.62],["2006-07-31",16971.34],["2006-08-31",17392.27],["2006-09-29",17543.05],["2006-10-31",18324.35],["2006-11-30",18960.48],["2006-12-29",19964.72],["2007-01-31",20106.42],["2007-02-28",19651.51],["2007-03-30",19800.93],["2007-04-30",20318.98],["2007-05-31",20634.47],["2007-06-29",21772.73],["2007-07-31",23184.94],["2007-08-31",23984.14],["2007-09-28",27142.47],["2007-10-31",31352.58],["2007-11-30",28643.61],["2007-12-31",27812.7],["2008-01-31",23455.74],["2008-02-29",24331.67],["2008-03-31",22849.2],["2008-04-30",25755.35],["2008-05-30",24533.12],["2008-06-30",22102.01],["2008-07-31",22731.1],["2008-08-29",21261.89],["2008-09-30",18016.21],["2008-10-31",13968.67],["2008-11-28",13888.24],["2008-12-31",14387.48],["2009-01-30",13278.21],["2009-02-27",12811.57],["2009-03-31",13576.02],["2009-04-30",15520.99],["2009-05-29",18171],["2009-06-30",18378.73],["2009-07-31",20573.33],["2009-08-31",19724.19],["2009-09-30",20955.25],["2009-10-30",21752.869],["2009-11-30",21821.5],["2009-12-31",21872.5],["2010-01-29",20121.99],["2010-02-26",20608.699],["2010-03-31",21239.35],["2010-04-30",21108.59],["2010-05-31",19765.189],["2010-06-30",20128.99],["2010-07-30",21029.811],["2010-08-31",20536.49],["2010-09-30",22358.17],["2010-10-29",23096.32],["2010-11-30",23007.99],["2010-12-31",23035.449],["2011-01-31",23447.34],["2011-02-28",23338.02],["2011-03-31",23527.52],["2011-04-29",23720.811],["2011-05-31",23684.131],["2011-06-30",22398.1],["2011-07-29",22440.25],["2011-08-31",20534.85],["2011-09-30",17592.41],["2011-10-31",19864.869],["2011-11-30",17989.35],["2011-12-30",18434.391],["2012-01-31",20390.49],["2012-02-29",21680.08],["2012-03-30",20555.58],["2012-04-30",21094.211],["2012-05-31",18629.52],["2012-06-29",19441.461],["2012-07-31",19796.811],["2012-08-31",19482.57],["2012-09-28",20840.381],["2012-10-31",21641.82],["2012-11-30",22030.391],["2012-12-31",22656.92],["2013-01-31",23729.529],["2013-02-28",23020.27],["2013-03-28",22299.631],["2013-04-30",22737.01],["2013-05-31",22406.97],["2013-06-28",20803.289],["2013-07-31",21883.66],["2013-08-30",21731.369],["2013-09-30",22859.859],["2013-10-31",23206.369],["2013-11-29",23881.289],["2013-12-31",23306.391],["2014-01-30",22035.42],["2014-02-28",22836.961],["2014-03-31",22151.059],["2014-04-30",22133.969],["2014-05-30",23049.02],["2014-06-30",23190.721],["2014-07-31",24756.85],["2014-08-29",24742.061],["2014-09-30",22928.14],["2014-10-31",23998.061],["2014-11-28",23987.449],["2014-12-31",23605.039],["2015-01-30",24507.049],["2015-02-27",24823.289],["2015-03-31",24900.889],["2015-04-30",28132.998],["2015-05-29",27424.03],["2015-06-30",26250.031],["2015-07-31",24647.6],["2015-08-31",21701.52],["2015-09-30",20846.301],["2015-10-30",22640.039],["2015-11-30",21996.42],["2015-12-31",21914.4],["2016-01-29",19707.16],["2016-02-29",19111.93],["2016-03-31",20776.701],["2016-04-29",21067.049],["2016-05-31",20815.09],["2016-06-30",20794.369],["2016-07-29",21891.37],["2016-08-31",22976.881],["2016-09-30",23297.15],["2016-10-31",22934.541],["2016-11-30",22789.77],["2016-12-30",22000.561],["2017-01-27",23360.781],["2017-02-28",23740.73],["2017-03-31",24111.59],["2017-04-28",24615.129],["2017-05-31",25660.65],["2017-06-30",25764.58],["2017-07-31",27323.99],["2017-08-31",27970.301],["2017-09-29",27554.301],["2017-10-31",28245.539],["2017-11-30",29177.35],["2017-12-29",29919.148],["2018-01-31",32887.27],["2018-02-28",30844.721],["2018-03-29",30093.379],["2018-04-30",30808.451],["2018-05-31",30468.561],["2018-06-29",28955.111],["2018-07-31",28583.012],["2018-08-31",27888.551],["2018-09-28",27788.518],["2018-10-31",24979.689],["2018-11-30",26506.75],["2018-12-31",25845.699],["2019-01-31",27942.471],["2019-02-28",28633.182],["2019-03-29",29051.359],["2019-04-30",29699.111],["2019-05-31",26901.092],["2019-06-28",28542.621],["2019-07-31",27777.75],["2019-08-30",25724.73],["2019-09-30",26092.27],["2019-10-31",26906.721],["2019-11-29",26346.49],["2019-12-31",28189.75],["2020-01-31",26312.631],["2020-02-28",26129.93],["2020-03-31",23603.48],["2020-04-29",24643.59],["2020-05-29",22961.471],["2020-06-30",24427.189],["2020-07-31",24595.35],["2020-08-31",25177.049],["2020-09-30",23459.049],["2020-10-30",24107.42],["2020-11-30",26341.49],["2020-12-31",27231.13],["2021-01-29",28283.71],["2021-02-26",28980.21],["2021-03-31",28378.35],["2021-04-30",28724.88],["2021-05-31",29151.8],["2021-06-30",28827.95],["2021-07-30",25961.03],["2021-08-31",25878.99],["2021-09-30",24575.64],["2021-10-29",25377.24],["2021-11-30",23475.26],["2021-12-31",23397.67],["2022-01-31",23802.26],["2022-02-28",22713.02],["2022-03-31",21996.85],["2022-04-29",21089.39],["2022-05-31",21415.2],["2022-06-30",21859.79],["2022-07-29",20156.51],["2022-08-31",19954.39],["2022-09-30",17222.83],["2022-10-31",14687.02],["2022-11-30",18597.23],["2022-12-30",19781.41],["2023-01-31",21842.33],["2023-02-28",19785.94],["2023-03-31",20400.11],["2023-04-28",19894.57],["2023-05-31",18234.27],["2023-06-30",18916.43],["2023-07-31",20078.94],["2023-08-31",18382.06],["2023-09-29",17809.66],["2023-10-31",17112.48],["2023-11-30",17042.88],["2023-12-29",17047.39],["2024-01-31",15485.07],["2024-02-29",16511.44],["2024-03-28",16541.42],["2024-04-30",17763.03],["2024-05-31",18079.61],["2024-06-28",17718.61],["2024-07-31",17344.6],["2024-08-30",17989.07],["2024-09-30",21133.68],["2024-10-31",20317.33],["2024-11-29",19423.61],["2024-12-31",20059.95],["2025-01-28",20225.11],["2025-02-28",22941.32],["2025-03-31",23119.58],["2025-04-30",22119.41],["2025-05-30",23289.77],["2025-06-30",24072.28],["2025-07-31",24773.33],["2025-08-29",25077.62],["2025-09-30",26855.56],["2025-10-31",25906.65],["2025-11-28",25858.89],["2025-12-31",25630.54],["2026-01-30",27387.11],["2026-02-27",26630.54],["2026-03-31",24788.14],["2026-04-30",25776.53],["2026-05-29",25182.39],["2026-06-30",22881.02],["2026-07-31",25884.43],["2026-08-31",25566.99],["2026-09-30",24613.27],["2026-10-22",22934.68]],"year":[["2025-07-08",24148.07],["2025-07-09",23892.32],["2025-07-10",24028.37],["2025-07-11",24139.57],["2025-07-14",24203.32],["2025-07-15",24590.12],["2025-07-16",24517.76],["2025-07-17",24498.95],["2025-07-18",24825.66],["2025-07-21",24994.14],["2025-07-22",25130.03],["2025-07-23",25538.07],["2025-07-24",25667.18],["2025-07-25",25388.35],["2025-07-28",25562.13],["2025-07-29",25524.45],["2025-07-30",25176.93],["2025-07-31",24773.33],["2025-08-01",24507.81],["2025-08-04",24733.45],["2025-08-05",24902.53],["2025-08-06",24910.63],["2025-08-07",25081.63],["2025-08-08",24858.82],["2025-08-11",24906.81],["2025-08-12",24969.68],["2025-08-13",25613.67],["2025-08-14",25519.32],["2025-08-15",25270.07],["2025-08-18",25176.85],["2025-08-19",25122.9],["2025-08-20",25165.94],["2025-08-21",25104.61],["2025-08-22",25339.14],["2025-08-25",25829.91],["2025-08-26",25524.92],["2025-08-27",25201.76],["2025-08-28",24998.82],["2025-08-29",25077.62],["2025-09-01",25617.42],["2025-09-02",25496.55],["2025-09-03",25343.43],["2025-09-04",25058.51],["2025-09-05",25417.98],["2025-09-08",25633.91],["2025-09-09",25938.13],["2025-09-10",26200.26],["2025-09-11",26086.32],["2025-09-12",26388.16],["2025-09-15",26446.56],["2025-09-16",26438.51],["2025-09-17",26908.39],["2025-09-18",26544.85],["2025-09-19",26545.1],["2025-09-22",26344.14],["2025-09-23",26159.12],["2025-09-24",26518.65],["2025-09-25",26484.68],["2025-09-26",26128.2],["2025-09-29",26622.88],["2025-09-30",26855.56],["2025-10-02",27287.12],["2025-10-03",27140.92],["2025-10-06",26957.77],["2025-10-08",26829.46],["2025-10-09",26752.59],["2025-10-10",26290.32],["2025-10-13",25889.48],["2025-10-14",25441.35],["2025-10-15",25910.6],["2025-10-16",25888.51],["2025-10-17",25247.1],["2025-10-20",25858.83],["2025-10-21",26027.55],["2025-10-22",25781.77],["2025-10-23",25967.98],["2025-10-24",26160.15],["2025-10-27",26433.7],["2025-10-28",26346.14],["2025-10-30",26282.69],["2025-10-31",25906.65],["2025-11-03",26158.36],["2025-11-04",25952.4],["2025-11-05",25935.41],["2025-11-06",26485.9],["2025-11-07",26241.83],["2025-11-10",26649.06],["2025-11-11",26696.41],["2025-11-12",26922.73],["2025-11-13",27073.03],["2025-11-14",26572.46],["2025-11-17",26384.28],["2025-11-18",25930.03],["2025-11-19",25830.65],["2025-11-20",25835.57],["2025-11-21",25220.02],["2025-11-24",25716.5],["2025-11-25",25894.55],["2025-11-26",25928.08],["2025-11-27",25945.93],["2025-11-28",25858.89],["2025-12-01",26033.26],["2025-12-02",26095.05],["2025-12-03",25760.73],["2025-12-04",25935.9],["2025-12-05",26085.08],["2025-12-08",25765.36],["2025-12-09",25434.23],["2025-12-10",25540.78],["2025-12-11",25530.51],["2025-12-12",25976.79],["2025-12-15",25628.88],["2025-12-16",25235.41],["2025-12-17",25468.78],["2025-12-18",25498.13],["2025-12-19",25690.53],["2025-12-22",25801.77],["2025-12-23",25774.14],["2025-12-24",25818.93],["2025-12-29",25635.23],["2025-12-30",25854.6],["2025-12-31",25630.54],["2026-01-02",26338.47],["2026-01-05",26347.24],["2026-01-06",26710.45],["2026-01-07",26458.95],["2026-01-08",26149.31],["2026-01-09",26231.79],["2026-01-12",26608.48],["2026-01-13",26848.47],["2026-01-14",26999.81],["2026-01-15",26923.62],["2026-01-16",26844.96],["2026-01-19",26563.9],["2026-01-20",26487.51],["2026-01-21",26585.06],["2026-01-22",26629.96],["2026-01-23",26749.51],["2026-01-26",26765.52],["2026-01-27",27126.95],["2026-01-28",27826.91],["2026-01-29",27968.09],["2026-01-30",27387.11],["2026-02-02",26775.57],["2026-02-03",26834.77],["2026-02-04",26847.32],["2026-02-05",26885.24],["2026-02-06",26559.95],["2026-02-09",27027.16],["2026-02-10",27183.15],["2026-02-11",27266.38],["2026-02-12",27032.54],["2026-02-13",26567.12],["2026-02-16",26705.94],["2026-02-20",26413.35],["2026-02-23",27081.91],["2026-02-24",26590.32],["2026-02-25",26765.72],["2026-02-26",26381.02],["2026-02-27",26630.54],["2026-03-02",26059.85],["2026-03-03",25768.08],["2026-03-04",25249.48],["2026-03-05",25321.34],["2026-03-06",25757.29],["2026-03-09",25408.46],["2026-03-10",25959.9],["2026-03-11",25898.76],["2026-03-12",25716.76],["2026-03-13",25465.6],["2026-03-16",25834.02],["2026-03-17",25868.54],["2026-03-18",26025.42],["2026-03-19",25500.58],["2026-03-20",25277.32],["2026-03-23",24382.47],["2026-03-24",25063.71],["2026-03-25",25335.95],["2026-03-26",24856.43],["2026-03-27",24951.88],["2026-03-30",24750.79],["2026-03-31",24788.14],["2026-04-01",25294.03],["2026-04-02",25116.53],["2026-04-08",25893.02],["2026-04-09",25752.4],["2026-04-10",25893.54],["2026-04-13",25660.85],["2026-04-14",25872.32],["2026-04-15",25947.32],["2026-04-16",26394.26],["2026-04-17",26160.33],["2026-04-20",26361.07],["2026-04-21",26487.48],["2026-04-22",26163.24],["2026-04-23",25915.2],["2026-04-24",25978.07],["2026-04-27",25925.65],["2026-04-28",25679.78],["2026-04-29",26111.84],["2026-04-30",25776.53],["2026-05-04",26095.88],["2026-05-05",25898.61],["2026-05-06",26213.78],["2026-05-07",26626.28],["2026-05-08",26393.71],["2026-05-11",26406.84],["2026-05-12",26347.91],["2026-05-13",26388.44],["2026-05-14",26389.04],["2026-05-15",25962.73],["2026-05-18",25675.18],["2026-05-19",25797.85],["2026-05-20",25651.12],["2026-05-21",25386.52],["2026-05-22",25606.03],["2026-05-26",25599.45],["2026-05-27",25328.23],["2026-05-28",25006.16],["2026-05-29",25182.39],["2026-06-01",25398.18],["2026-06-02",26038.32],["2026-06-03",25633.21],["2026-06-04",25253.4],["2026-06-05",24961.95],["2026-06-08",24657.06],["2026-06-09",24565.9],["2026-06-10",24407.96],["2026-06-11",24249.29],["2026-06-12",24718.1],["2026-06-15",24842.67],["2026-06-16",24493.95],["2026-06-17",24312.16],["2026-06-18",23924.81],["2026-06-22",23768.52],["2026-06-23",23336.28],["2026-06-24",23412.18],["2026-06-25",23076.91],["2026-06-26",22671.86],["2026-06-29",23026.68],["2026-06-30",22881.02],["2026-07-02",23055.03],["2026-07-03",23350.03],["2026-07-06",23616.32],["2026-07-07",23496.89],["2026-07-08",24199.46],["2026-07-09",24030.18],["2026-07-10",24175.12],["2026-07-13",24213.72],["2026-07-14",24340.73],["2026-07-15",24681.1],["2026-07-16",25008.6],["2026-07-17",24562.24],["2026-07-20",25143.05],["2026-07-21",25132.29],["2026-07-22",24892.66],["2026-07-23",25210.81],["2026-07-24",24963.23],["2026-07-27",25207.18],["2026-07-28",25310.85],["2026-07-29",25807.92],["2026-07-30",25858.88],["2026-07-31",25884.43],["2026-08-03",26009.4],["2026-08-04",25852.92],["2026-08-05",25915.82],["2026-08-06",25530.28],["2026-08-07",25668.03],["2026-08-10",25937.49],["2026-08-11",25652.82],["2026-08-12",25440.17],["2026-08-13",25396.51],["2026-08-14",25116.85],["2026-08-17",25453.23],["2026-08-18",25471.15],["2026-08-19",25495.07],["2026-08-20",25698.49],["2026-08-21",26009.46],["2026-08-24",25517.33],["2026-08-25",25511.1],["2026-08-26",25652.97],["2026-08-27",25565.74],["2026-08-28",25584.79],["2026-08-31",25566.99],["2026-09-01",25329.73],["2026-09-02",25311.21],["2026-09-03",25213.31],["2026-09-04",25650.87],["2026-09-07",25413.12],["2026-09-08",25317.18],["2026-09-09",25274.96],["2026-09-10",24954.47],["2026-09-11",24805.63],["2026-09-14",24917.6],["2026-09-15",24667.24],["2026-09-16",24713.78],["2026-09-17",24604.29],["2026-09-18",24750.78],["2026-09-21",25042.71],["2026-09-22",25087.75],["2026-09-23",24834.12],["2026-09-24",24761.13],["2026-09-25",24510.09],["2026-09-28",24642.51],["2026-09-29",24523.57],["2026-09-30",24613.27],["2026-10-02",23972.29],["2026-10-05",24040.34],["2026-10-06",24280.56],["2026-10-07",24130.5],["2026-10-08",23785.79],["2026-10-09",24211.35],["2026-10-12",24271.2],["2026-10-13",24345.22],["2026-10-14",24314.17],["2026-10-15",24062.72],["2026-10-16",24186.83],["2026-10-20",23867.74],["2026-10-21",23651.87],["2026-10-22",22934.68]],"min":[23513.79,23509.56,23516.69,23512.96,23505.45,23496.7,23490.92,23493.84,23487.54,23485.62,23490.91,23495.02,23479.3,23488.59,23478.08,23467.38,23484.96,23462.65,23469.3,23469.37,23456.52,23461.48,23454.43,23467.41,23444,23455.39,23454.83,23457.63,23434.07,23444.46,23446.85,23442.43,23433.81,23423.31,23440.99,23416.18,23418.5,23418.95,23412.81,23409.67,23405.95,23402.16,23403.93,23403.69,23394.87,23404.53,23408.12,23411.51,23406.45,23403.32,23381.06,23377.16,23388.21,23372.42,23381.89,23373.63,23384.9,23377.37,23358.97,23372.49,23369.64,23374.37,23371.77,23353.51,23370.6,23359.38,23339.64,23362.6,23335.02,23341.86,23351.66,23326.26,23335.39,23340.9,23345.56,23319.71,23339.62,23338.68,23323.26,23314.67,23323.61,23311.17,23309.08,23298.27,23311.55,23292.17,23314.95,23298.89,23286.07,23296.09,23304.68,23276.36,23274.65,23271.03,23289.18,23272.51,23269.62,23290.2,23271.85,23266.46,23278.41,23266.09,23280.99,23245.62,23262.93,23261.73,23244.64,23244.14,23266.68,23258.62,23258.08,23250.25,23251.23,23252.87,23246.27,23245.09,23241.08,23216.15,23219.63,23237.22,23203.09,23222.98,23208.38,23221.4,23226.37,23222.48,23214.17,23221.48,23200.88,23190.28,23196.31,23183.89,23184.75,23188.61,23178.8,23189.85,23191.79,23180.86,23175.24,23167.1,23173.71,23165.85,23154.94,23179.3,23177.18,23162.18,23150.89,23159.41,23141.39,23166.89,23150.59,23151.48,23137.03,23140.42,23136.64,23147.94,23136.47,23132.35,23132.44,23112.85,23117.48,23131.26,23105.59,23125.76,23104.86,23103.6,23119.87,23121.48,23115.54,23094.18,23108.97,23099.23,23102.4,23084.74,23094.96,23093.36,23097.61,23095.26,23067.87,23067.27,23065.67,23061.04,23078.43,23065.74,23064.28,23069.21,23051.45,23060.07,23055.77,23055.03,23064.83,23060.68,23042.72,23039.54,23035.22,23042.79,23033.62,23032.21,23031.34,23032.02,23025.87,23028.58,23018.8,23015.01,23023.64,23011.61,23023.38,23017.43,23016.78,23002.56,23005.91,22994.18,23002.82,23001.17,22998.79,22982.98,22991.11,22977.12,22974.44,22982,22988.41,22983.75,22977.43,22965.11,22971.17,22959.3,22964.73,22962.34,22954.61,22959.74,22953.9,22953.78,22955.59,22955.59,22952.78,22940.41,22942.31,22930.85,22935.6,22934.68]},"sh000001":{"demo":false,"all":[["2000-03-31",1800.22],["2000-04-28",1836.32],["2000-05-31",1894.55],["2000-06-30",1928.11],["2000-07-31",2023.54],["2000-08-31",2021.2],["2000-09-29",1910.16],["2000-10-31",1961.29],["2000-11-30",2070.61],["2000-12-29",2073.48],["2001-01-19",2065.61],["2001-02-28",1959.18],["2001-03-30",2112.77],["2001-04-30",2119.18],["2001-05-31",2214.26],["2001-06-29",2218.03],["2001-07-31",1920.32],["2001-08-31",1834.14],["2001-09-28",1764.87],["2001-10-31",1689.17],["2001-11-30",1747.99],["2001-12-31",1645.97],["2002-01-31",1491.67],["2002-02-28",1524.7],["2002-03-29",1603.91],["2002-04-30",1667.75],["2002-05-31",1515.73],["2002-06-28",1732.76],["2002-07-31",1651.59],["2002-08-30",1666.62],["2002-09-27",1581.62],["2002-10-31",1507.5],["2002-11-29",1434.18],["2002-12-31",1357.65],["2003-01-29",1499.81],["2003-02-28",1511.93],["2003-03-31",1510.58],["2003-04-30",1521.44],["2003-05-30",1576.26],["2003-06-30",1486.02],["2003-07-31",1476.74],["2003-08-29",1421.98],["2003-09-30",1367.16],["2003-10-31",1348.3],["2003-11-28",1397.22],["2003-12-31",1497.04],["2004-01-30",1590.73],["2004-02-27",1675.07],["2004-03-31",1741.62],["2004-04-30",1595.59],["2004-05-31",1555.91],["2004-06-30",1399.16],["2004-07-30",1386.2],["2004-08-31",1342.06],["2004-09-30",1396.7],["2004-10-29",1320.54],["2004-11-30",1340.77],["2004-12-31",1266.5],["2005-01-31",1191.82],["2005-02-28",1306],["2005-03-31",1181.24],["2005-04-29",1159.15],["2005-05-31",1060.74],["2005-06-30",1080.94],["2005-07-29",1083.03],["2005-08-31",1162.8],["2005-09-30",1155.61],["2005-10-31",1092.82],["2005-11-30",1099.26],["2005-12-30",1161.06],["2006-01-25",1258.05],["2006-02-28",1299.03],["2006-03-31",1298.3],["2006-04-28",1440.22],["2006-05-31",1641.3],["2006-06-30",1672.21],["2006-07-31",1612.73],["2006-08-31",1658.64],["2006-09-29",1752.42],["2006-10-31",1837.99],["2006-11-30",2099.29],["2006-12-29",2675.47],["2007-01-31",2786.33],["2007-02-28",2881.07],["2007-03-30",3183.98],["2007-04-30",3841.27],["2007-05-31",4109.65],["2007-06-29",3820.7],["2007-07-31",4471.03],["2007-08-31",5218.83],["2007-09-28",5552.3],["2007-10-31",5954.77],["2007-11-30",4871.78],["2007-12-28",5261.56],["2008-01-31",4383.39],["2008-02-29",4348.54],["2008-03-31",3472.71],["2008-04-30",3693.11],["2008-05-30",3433.35],["2008-06-30",2736.1],["2008-07-31",2775.72],["2008-08-29",2397.37],["2008-09-26",2293.78],["2008-10-31",1728.79],["2008-11-28",1871.16],["2008-12-31",1820.81],["2009-01-23",1990.66],["2009-02-27",2082.85],["2009-03-31",2373.21],["2009-04-30",2477.57],["2009-05-27",2632.93],["2009-06-30",2959.36],["2009-07-31",3412.06],["2009-08-31",2667.75],["2009-09-30",2779.43],["2009-10-30",2995.85],["2009-11-30",3195.3],["2009-12-31",3277.139],["2010-01-29",2989.292],["2010-02-26",3051.943],["2010-03-31",3109.105],["2010-04-30",2870.611],["2010-05-31",2592.147],["2010-06-30",2398.37],["2010-07-30",2637.503],["2010-08-31",2638.8],["2010-09-30",2655.66],["2010-10-29",2978.83],["2010-11-30",2820.18],["2010-12-31",2808.08],["2011-01-31",2790.69],["2011-02-28",2905.05],["2011-03-31",2928.11],["2011-04-29",2911.51],["2011-05-31",2743.47],["2011-06-30",2762.08],["2011-07-29",2701.73],["2011-08-31",2567.34],["2011-09-30",2359.22],["2011-10-31",2468.25],["2011-11-30",2333.41],["2011-12-30",2199.42],["2012-01-31",2292.61],["2012-02-29",2428.49],["2012-03-30",2262.79],["2012-04-27",2396.32],["2012-05-31",2372.23],["2012-06-29",2225.43],["2012-07-31",2103.63],["2012-08-31",2047.52],["2012-09-28",2086.17],["2012-10-31",2068.88],["2012-11-30",1980.12],["2012-12-31",2269.13],["2013-01-31",2385.42],["2013-02-28",2365.59],["2013-03-29",2236.62],["2013-04-26",2177.91],["2013-05-31",2300.59],["2013-06-28",1979.21],["2013-07-31",1993.8],["2013-08-30",2098.38],["2013-09-30",2174.67],["2013-10-31",2141.61],["2013-11-29",2220.5],["2013-12-31",2115.98],["2014-01-30",2033.08],["2014-02-28",2056.3],["2014-03-31",2033.31],["2014-04-30",2026.36],["2014-05-30",2039.21],["2014-06-30",2048.33],["2014-07-31",2201.56],["2014-08-29",2217.2],["2014-09-30",2363.87],["2014-10-31",2420.18],["2014-11-28",2682.83],["2014-12-31",3234.68],["2015-01-30",3210.36],["2015-02-27",3310.3],["2015-03-31",3747.9],["2015-04-30",4441.65],["2015-05-29",4611.74],["2015-06-30",4277.22],["2015-07-31",3663.73],["2015-08-31",3205.99],["2015-09-30",3052.78],["2015-10-30",3382.56],["2015-11-30",3445.41],["2015-12-31",3539.18],["2016-01-29",2737.6],["2016-02-29",2687.98],["2016-03-31",3003.92],["2016-04-29",2938.32],["2016-05-31",2916.62],["2016-06-30",2929.61],["2016-07-29",2979.34],["2016-08-31",3085.49],["2016-09-30",3004.7],["2016-10-31",3100.49],["2016-11-30",3250.03],["2016-12-30",3103.64],["2017-01-26",3159.17],["2017-02-28",3241.73],["2017-03-31",3222.51],["2017-04-28",3154.66],["2017-05-31",3117.18],["2017-06-30",3192.43],["2017-07-31",3273.03],["2017-08-31",3360.81],["2017-09-29",3348.94],["2017-10-31",3393.34],["2017-11-30",3317.19],["2017-12-29",3307.17],["2018-01-31",3480.83],["2018-02-28",3259.41],["2018-03-30",3168.9],["2018-04-27",3082.23],["2018-05-31",3095.47],["2018-06-29",2847.42],["2018-07-31",2876.4],["2018-08-31",2725.25],["2018-09-28",2821.35],["2018-10-31",2602.78],["2018-11-30",2588.19],["2018-12-28",2493.9],["2019-01-31",2584.57],["2019-02-28",2940.95],["2019-03-29",3090.76],["2019-04-30",3078.34],["2019-05-31",2898.7],["2019-06-28",2978.88],["2019-07-31",2932.51],["2019-08-30",2886.24],["2019-09-30",2905.19],["2019-10-31",2929.06],["2019-11-29",2871.98],["2019-12-31",3050.12],["2020-01-23",2976.53],["2020-02-28",2880.3],["2020-03-31",2750.3],["2020-04-30",2860.08],["2020-05-29",2852.35],["2020-06-30",2984.67],["2020-07-31",3310.01],["2020-08-31",3395.68],["2020-09-30",3218.05],["2020-10-30",3224.53],["2020-11-30",3391.76],["2020-12-31",3473.07],["2021-01-29",3483.07],["2021-02-26",3509.08],["2021-03-31",3441.91],["2021-04-30",3446.86],["2021-05-31",3615.48],["2021-06-30",3591.2],["2021-07-30",3397.36],["2021-08-31",3543.94],["2021-09-30",3568.17],["2021-10-29",3547.34],["2021-11-30",3563.89],["2021-12-31",3639.78],["2022-01-28",3361.44],["2022-02-28",3462.31],["2022-03-31",3252.2],["2022-04-29",3047.06],["2022-05-31",3186.43],["2022-06-30",3398.62],["2022-07-29",3253.24],["2022-08-31",3202.14],["2022-09-30",3024.39],["2022-10-31",2893.48],["2022-11-30",3151.34],["2022-12-30",3089.26],["2023-01-31",3255.67],["2023-02-28",3279.61],["2023-03-31",3272.86],["2023-04-28",3323.27],["2023-05-31",3204.56],["2023-06-30",3202.06],["2023-07-31",3291.04],["2023-08-31",3119.88],["2023-09-28",3110.48],["2023-10-31",3018.77],["2023-11-30",3029.67],["2023-12-29",2974.93],["2024-01-31",2788.55],["2024-02-29",3015.17],["2024-03-29",3041.17],["2024-04-30",3104.82],["2024-05-31",3086.81],["2024-06-28",2967.4],["2024-07-31",2938.75],["2024-08-30",2842.21],["2024-09-30",3336.5],["2024-10-31",3279.82],["2024-11-29",3326.46],["2024-12-31",3351.76],["2025-01-27",3250.6],["2025-02-28",3320.9],["2025-03-31",3335.75],["2025-04-30",3279.03],["2025-05-30",3347.49],["2025-06-30",3444.43],["2025-07-31",3573.21],["2025-08-29",3857.93],["2025-09-30",3882.78],["2025-10-31",3954.79],["2025-11-28",3888.6],["2025-12-31",3968.84],["2026-01-30",4117.95],["2026-02-27",4162.88],["2026-03-31",3891.86],["2026-04-30",4112.16],["2026-05-29",4068.57],["2026-06-30",4094.4],["2026-07-31",3832.26],["2026-08-31",3986.3],["2026-09-30",3842.19],["2026-10-22",3658.03]],"year":[["2025-06-27",3424.23],["2025-06-30",3444.43],["2025-07-01",3457.75],["2025-07-02",3454.79],["2025-07-03",3461.15],["2025-07-04",3472.32],["2025-07-07",3473.13],["2025-07-08",3497.48],["2025-07-09",3493.05],["2025-07-10",3509.68],["2025-07-11",3510.18],["2025-07-14",3519.65],["2025-07-15",3505],["2025-07-16",3503.78],["2025-07-17",3516.83],["2025-07-18",3534.48],["2025-07-21",3559.79],["2025-07-22",3581.86],["2025-07-23",3582.3],["2025-07-24",3605.73],["2025-07-25",3593.66],["2025-07-28",3597.94],["2025-07-29",3609.71],["2025-07-30",3615.72],["2025-07-31",3573.21],["2025-08-01",3559.95],["2025-08-04",3583.31],["2025-08-05",3617.6],["2025-08-06",3633.99],["2025-08-07",3639.67],["2025-08-08",3635.13],["2025-08-11",3647.55],["2025-08-12",3665.92],["2025-08-13",3683.46],["2025-08-14",3666.44],["2025-08-15",3696.77],["2025-08-18",3728.03],["2025-08-19",3727.29],["2025-08-20",3766.21],["2025-08-21",3771.1],["2025-08-22",3825.76],["2025-08-25",3883.56],["2025-08-26",3868.38],["2025-08-27",3800.35],["2025-08-28",3843.6],["2025-08-29",3857.93],["2025-09-01",3875.53],["2025-09-02",3858.13],["2025-09-03",3813.56],["2025-09-04",3765.88],["2025-09-05",3812.51],["2025-09-08",3826.84],["2025-09-09",3807.29],["2025-09-10",3812.22],["2025-09-11",3875.31],["2025-09-12",3870.6],["2025-09-15",3860.5],["2025-09-16",3861.87],["2025-09-17",3876.34],["2025-09-18",3831.66],["2025-09-19",3820.09],["2025-09-22",3828.58],["2025-09-23",3821.83],["2025-09-24",3853.64],["2025-09-25",3853.3],["2025-09-26",3828.11],["2025-09-29",3862.53],["2025-09-30",3882.78],["2025-10-09",3933.97],["2025-10-10",3897.03],["2025-10-13",3889.5],["2025-10-14",3865.23],["2025-10-15",3912.21],["2025-10-16",3916.23],["2025-10-17",3839.76],["2025-10-20",3863.89],["2025-10-21",3916.33],["2025-10-22",3913.76],["2025-10-23",3922.41],["2025-10-24",3950.31],["2025-10-27",3996.94],["2025-10-28",3988.22],["2025-10-29",4016.33],["2025-10-30",3986.9],["2025-10-31",3954.79],["2025-11-03",3976.52],["2025-11-04",3960.19],["2025-11-05",3969.25],["2025-11-06",4007.76],["2025-11-07",3997.56],["2025-11-10",4018.6],["2025-11-11",4002.76],["2025-11-12",4000.14],["2025-11-13",4029.5],["2025-11-14",3990.49],["2025-11-17",3972.03],["2025-11-18",3939.81],["2025-11-19",3946.74],["2025-11-20",3931.05],["2025-11-21",3834.89],["2025-11-24",3836.77],["2025-11-25",3870.02],["2025-11-26",3864.18],["2025-11-27",3875.26],["2025-11-28",3888.6],["2025-12-01",3914.01],["2025-12-02",3897.71],["2025-12-03",3878],["2025-12-04",3875.79],["2025-12-05",3902.81],["2025-12-08",3924.08],["2025-12-09",3909.52],["2025-12-10",3900.5],["2025-12-11",3873.32],["2025-12-12",3889.35],["2025-12-15",3867.92],["2025-12-16",3824.81],["2025-12-17",3870.28],["2025-12-18",3876.37],["2025-12-19",3890.45],["2025-12-22",3917.36],["2025-12-23",3919.98],["2025-12-24",3940.95],["2025-12-25",3959.62],["2025-12-26",3963.68],["2025-12-29",3965.28],["2025-12-30",3965.12],["2025-12-31",3968.84],["2026-01-05",4023.42],["2026-01-06",4083.67],["2026-01-07",4085.77],["2026-01-08",4082.98],["2026-01-09",4120.43],["2026-01-12",4165.29],["2026-01-13",4138.76],["2026-01-14",4126.09],["2026-01-15",4112.6],["2026-01-16",4101.91],["2026-01-19",4114],["2026-01-20",4113.65],["2026-01-21",4116.94],["2026-01-22",4122.58],["2026-01-23",4136.16],["2026-01-26",4132.61],["2026-01-27",4139.9],["2026-01-28",4151.24],["2026-01-29",4157.98],["2026-01-30",4117.95],["2026-02-02",4015.75],["2026-02-03",4067.74],["2026-02-04",4102.2],["2026-02-05",4075.92],["2026-02-06",4065.58],["2026-02-09",4123.09],["2026-02-10",4128.37],["2026-02-11",4131.98],["2026-02-12",4134.02],["2026-02-13",4082.07],["2026-02-24",4117.41],["2026-02-25",4147.23],["2026-02-26",4146.63],["2026-02-27",4162.88],["2026-03-02",4182.59],["2026-03-03",4122.68],["2026-03-04",4082.47],["2026-03-05",4108.57],["2026-03-06",4124.19],["2026-03-09",4096.6],["2026-03-10",4123.14],["2026-03-11",4133.43],["2026-03-12",4129.1],["2026-03-13",4095.45],["2026-03-16",4084.79],["2026-03-17",4049.91],["2026-03-18",4062.98],["2026-03-19",4006.55],["2026-03-20",3957.05],["2026-03-23",3813.28],["2026-03-24",3881.28],["2026-03-25",3931.84],["2026-03-26",3889.08],["2026-03-27",3913.72],["2026-03-30",3923.29],["2026-03-31",3891.86],["2026-04-01",3948.55],["2026-04-02",3919.29],["2026-04-03",3880.1],["2026-04-07",3890.16],["2026-04-08",3995],["2026-04-09",3966.17],["2026-04-10",3986.22],["2026-04-13",3988.56],["2026-04-14",4026.63],["2026-04-15",4027.21],["2026-04-16",4055.55],["2026-04-17",4051.43],["2026-04-20",4082.13],["2026-04-21",4085.08],["2026-04-22",4106.26],["2026-04-23",4093.25],["2026-04-24",4079.9],["2026-04-27",4086.34],["2026-04-28",4078.64],["2026-04-29",4107.51],["2026-04-30",4112.16],["2026-05-06",4160.17],["2026-05-07",4180.09],["2026-05-08",4179.95],["2026-05-11",4225.02],["2026-05-12",4214.49],["2026-05-13",4242.57],["2026-05-14",4177.92],["2026-05-15",4135.39],["2026-05-18",4131.53],["2026-05-19",4169.54],["2026-05-20",4162.18],["2026-05-21",4077.28],["2026-05-22",4112.9],["2026-05-25",4152.57],["2026-05-26",4145.37],["2026-05-27",4093.73],["2026-05-28",4098.64],["2026-05-29",4068.57],["2026-06-01",4057.74],["2026-06-02",4075.1],["2026-06-03",4083.97],["2026-06-04",4057.78],["2026-06-05",4027.74],["2026-06-08",3959.34],["2026-06-09",4010.03],["2026-06-10",3993.23],["2026-06-11",3987.01],["2026-06-12",4031.51],["2026-06-15",4096.47],["2026-06-16",4091.89],["2026-06-17",4108.08],["2026-06-18",4090.48],["2026-06-22",4163.1],["2026-06-23",4106.25],["2026-06-24",4110.81],["2026-06-25",4120.28],["2026-06-26",4027.26],["2026-06-29",4073.9],["2026-06-30",4094.4],["2026-07-01",4112.45],["2026-07-02",4028.9],["2026-07-03",4043.64],["2026-07-06",4041.24],["2026-07-07",3990.24],["2026-07-08",3970.88],["2026-07-09",4036.59],["2026-07-10",3996.16],["2026-07-13",3913.79],["2026-07-14",3967.13],["2026-07-15",3955.58],["2026-07-16",3882.41],["2026-07-17",3764.15],["2026-07-20",3796.28],["2026-07-21",3864.37],["2026-07-22",3867.03],["2026-07-23",3876.78],["2026-07-24",3814.2],["2026-07-27",3858.25],["2026-07-28",3813.31],["2026-07-29",3828.47],["2026-07-30",3804.69],["2026-07-31",3832.26],["2026-08-03",3809.66],["2026-08-04",3822.28],["2026-08-05",3878.43],["2026-08-06",3900.35],["2026-08-07",3940.04],["2026-08-10",3966.59],["2026-08-11",3934.09],["2026-08-12",3946.68],["2026-08-13",3926.96],["2026-08-14",3927.18],["2026-08-17",3982.65],["2026-08-18",3990.3],["2026-08-19",3894.42],["2026-08-20",3903.72],["2026-08-21",3905.2],["2026-08-24",3882.01],["2026-08-25",3889.44],["2026-08-26",3912.52],["2026-08-27",3956.57],["2026-08-28",3952.18],["2026-08-31",3986.3],["2026-09-01",3979.89],["2026-09-02",3941.39],["2026-09-03",3942.09],["2026-09-04",3930.12],["2026-09-07",3932.7],["2026-09-08",3940.55],["2026-09-09",3951.51],["2026-09-10",3934.4],["2026-09-11",3888.11],["2026-09-14",3885.33],["2026-09-15",3864.28],["2026-09-16",3891.6],["2026-09-17",3875.6],["2026-09-18",3911.87],["2026-09-21",3949.91],["2026-09-22",3952.13],["2026-09-23",3936.52],["2026-09-24",3888.37],["2026-09-28",3823.62],["2026-09-29",3830.45],["2026-09-30",3842.19],["2026-10-08",3811.9],["2026-10-09",3813.79],["2026-10-12",3797.24],["2026-10-13",3800.86],["2026-10-14",3767.23],["2026-10-15",3707.48],["2026-10-16",3716.28],["2026-10-19",3730.92],["2026-10-20",3735.37],["2026-10-21",3713.03],["2026-10-22",3658.03]],"min":[3714.48,3714.44,3712.69,3714,3714.72,3714.13,3713.43,3714.05,3712.73,3710.74,3711.8,3710.46,3712.99,3712.88,3711.13,3709.64,3710.53,3710.75,3710.68,3708.8,3711.19,3708.81,3710.82,3707.91,3710.09,3707.63,3707.36,3707.73,3708.97,3709.14,3705.96,3706.59,3707.73,3706.04,3704.76,3705.03,3706.78,3705.1,3707.09,3706.98,3703.34,3706.35,3705.46,3704.35,3702.24,3703.56,3705.04,3705.07,3705.03,3703.34,3702.74,3704.05,3702.79,3699.8,3701.97,3702.8,3700.21,3701.49,3702.41,3701.65,3702.18,3698.98,3701.07,3701.65,3700.41,3697.4,3698.6,3696.69,3696.91,3696.42,3699.96,3695.51,3695.04,3698.96,3697.85,3695.8,3698.22,3695.23,3695,3697.83,3696.18,3694.39,3692.86,3695.38,3696.85,3692.4,3694.87,3695.51,3692.98,3694.69,3694.43,3692.8,3692.36,3691.71,3692.83,3693.59,3690.66,3689.53,3693.73,3691.48,3692.36,3691.65,3690.01,3690.44,3687.74,3691.14,3691.03,3686.37,3689,3686.23,3687.88,3688.31,3688.15,3689.79,3688.49,3688.47,3688.89,3688.52,3688.06,3684.81,3686.81,3687.11,3684.42,3684.76,3683.77,3685.45,3683.37,3682.62,3683.29,3686.55,3682.17,3684.13,3683.38,3681.93,3681.66,3683.65,3679.69,3681.56,3684.41,3680.11,3679.85,3681.18,3680.38,3680.3,3677.77,3681.97,3680.96,3677.87,3680.89,3681.38,3679.47,3681.07,3677.23,3678.54,3677.54,3677.53,3676.91,3677.74,3674.95,3678.06,3674.7,3677.38,3677.5,3676.85,3677.7,3677.48,3675.43,3674.97,3672.75,3674.66,3674.44,3674.94,3672.35,3673.95,3671.9,3674.09,3673.52,3671.85,3671.71,3672.06,3673.41,3669.7,3669.31,3671.82,3669.78,3669.62,3669.71,3670.79,3670.94,3668.23,3671.34,3669.09,3667.34,3670.47,3666.7,3669.99,3666.2,3666.82,3667.06,3668.64,3666.74,3668.36,3665.5,3665.36,3666.78,3665.82,3664.87,3666.51,3664.73,3666.28,3665.72,3665.78,3664.62,3663.99,3665.63,3664.86,3662.74,3663.96,3663.58,3661.09,3661.82,3661.38,3661.89,3662.07,3663.19,3661.45,3660.37,3662.14,3660.15,3660.65,3658.58,3659.34,3660.7,3658.09,3660.72,3659.32,3659.7,3658.37,3659.05,3658.03]}};
+
+/* ---------- 全局状态 ---------- */
+var titles = { home: '走势', plan: '定投提醒', notes: '红绿灯', signals: '加减仓', me: '我的' };
+var curTab = 'home';
+var lampDir = 1; // 1 = 红线(禁忌)  -1 = 绿线(可重复)  0 = 案例
+
+/* 指数行情值（初始为快照，启动后由腾讯实时行情覆盖） */
+var INDICES = [
+  { name: '标普500', code: '.INX', price: 7757.17, prev: 7712.42, up: true, tm: '16:00' },
+  { name: '纳斯达克', code: '.IXIC', price: 26702.86, prev: 26425.20, up: true, tm: '16:00' },
+  { name: '恒生指数', code: '.HSI', price: 22934.68, prev: 23650.06, up: false, tm: '16:00' },
+  { name: '上证指数', code: '000001', price: 3658.03, prev: 3713.03, up: false, tm: '15:00' }
+];
+var KL_KEY = { '标普500': 'usINX', '纳斯达克': 'usIXIC', '恒生指数': 'hkHSI', '上证指数': 'sh000001' };
+var QUOTE_CODE = { usINX: 'usINX', usIXIC: 'usIXIC', hkHSI: 'hkHSI', sh000001: 'sh000001' };
+var curDim = 'all';
+var foldState = { usINX: false, usIXIC: false, hkHSI: true, sh000001: true }; // 恒生/上证默认收起
+
+/* ---------- 主题 ---------- */
+var THEME_KEY = 'fuley.theme.v1';
+function applyTheme(t) {
+  document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+  var m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute('content', t === 'dark' ? '#10141d' : '#f3f5f9');
+}
+function toggleTheme() {
+  var cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+  var next = cur === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  lsSet(THEME_KEY, next);
+  if (cfKey) renderChartFull(); // 主题色变化后重绘大图
+}
+
+/* ---------- 走势图：视口缩放/平移 ---------- */
+var MIN_WIN = 8;                    // 最小窗口（数据点数）
+var chartView = {};                 // "key|维度" -> {i0, i1}
+function vk(key) { return key + '|' + curDim; }
+function rawOf(key) { return IDX_KLINES[key][curDim]; }
+function getWin(key) {
+  var n = rawOf(key).length;
+  var v = chartView[vk(key)];
+  if (!v || !(v.i1 - v.i0 >= 1)) return { i0: 0, i1: n - 1 };
+  return v;
+}
+function clampWin(w, n) {
+  var span = Math.round(w.i1 - w.i0);
+  if (span < MIN_WIN) span = MIN_WIN;
+  if (span > n - 1) span = n - 1;
+  var i0 = Math.round(w.i0);
+  if (i0 < 0) i0 = 0;
+  if (i0 > n - 1 - span) i0 = n - 1 - span;
+  return { i0: i0, i1: i0 + span };
+}
+function zoomWin(key, factor, ratio) {   // factor>1 放大；ratio = 锚点比例 0..1
+  var n = rawOf(key).length;
+  var w = getWin(key), span = w.i1 - w.i0;
+  var ai = w.i0 + ratio * span;          // 锚点索引（缩放时保持不动）
+  var ns = span / factor;
+  if (ns < MIN_WIN) ns = MIN_WIN;
+  if (ns > n - 1) ns = n - 1;
+  var i0 = ai - ratio * ns;
+  chartView[vk(key)] = clampWin({ i0: i0, i1: i0 + ns }, n);
+}
+function panWin(key, dIdx) {
+  var n = rawOf(key).length;
+  var w = getWin(key);
+  chartView[vk(key)] = clampWin({ i0: w.i0 + dIdx, i1: w.i1 + dIdx }, n);
+}
+function resetWin(key) { delete chartView[vk(key)]; }
+function ixOf(key) {
+  for (var i = 0; i < INDICES.length; i++) if (KL_KEY[INDICES[i].name] === key) return INDICES[i];
+  return null;
+}
+function dimSeg(btn) {
+  curDim = btn.getAttribute('data-dim');
+  document.querySelectorAll('#dimSeg button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderIndices();
+}
+function foldIdx(key) {
+  foldState[key] = !foldState[key];
+  var el = document.getElementById('ix-' + key);
+  if (el) el.classList.toggle('fold', foldState[key]);
+}
+function tLabel(key, idx) {
+  var raw = rawOf(key), p = raw[idx];
+  if (Array.isArray(p)) return curDim === 'all' ? p[0] : p[0].slice(2);
+  var n = raw.length;
+  var mins = Math.round(570 + (idx / Math.max(1, n - 1)) * 330);   // 分时：09:30 - 15:00
+  return Math.floor(mins / 60) + ':' + String(mins % 60).padStart(2, '0');
+}
+function sparkGeom(key, w, h) {
+  var ix = ixOf(key);
+  var raw = rawOf(key), vp = getWin(key);
+  var vals = raw.slice(vp.i0, vp.i1 + 1).map(function (p) { return Array.isArray(p) ? p[1] : p; });
+  var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+  var pad = (mx - mn || 1) * 0.08;
+  var lo = mn - pad, hi = mx + pad, rng = hi - lo;
+  var pts = vals.map(function (v, i) {
+    return (i / (vals.length - 1) * w).toFixed(1) + ',' + (h - (v - lo) / rng * h).toFixed(1);
+  });
+  var line = pts.join(' ');
+  var area = 'M0,' + h + ' L' + line.split(' ').join(' L') + ' L' + w + ',' + h + ' Z';
+  var zoom = (raw.length - 1) / Math.max(1, vp.i1 - vp.i0);
   return {
-    get state() { return state; },
-    set state(v) { state = v; },
-    STOCK_POOL, DEFAULT_SYMBOLS, SYM, symMeta, activeStocks, validSym, colorFor,
-    defaultState, mergeState, loadState, saveState,
-    calcHoldings, totals, monthRecorded, planTotal, nextPayday, cumByMonth, niceCeil,
-    fmtMoney, fmtUsd, fmtPct, fmtShares, fmtShort, toDisp, pnlClass,
-    seedDemo, parseImport, parseGtimg,
-    sha256Bytes, hmacSha256Bytes, genDeviceId, licenseCodeFor, normalizeCode, verifyCode,
-    dateStr, todayStr, ymOf, monthLabel, monthShort, clamp, round2, round4, esc, trimNum
+    line: line, area: area,
+    endPt: pts[pts.length - 1].split(','),
+    baseY: (h - (ix.prev - lo) / rng * h).toFixed(1),
+    rangeTxt: '区间 ' + fmtK(mn) + ' / ' + fmtK(mx),
+    spanTxt: tLabel(key, vp.i0) + ' ~ ' + tLabel(key, vp.i1) + (zoom > 1.05 ? ' · ' + zoom.toFixed(1) + 'x' : ''),
+    zoom: zoom
   };
-});
+}
+function renderIndices() {
+  var w = 320, h = 88;
+  var html = '';
+  INDICES.forEach(function (ix) {
+    var key = KL_KEY[ix.name];
+    var raw = rawOf(key);
+    var vals = raw.map(function (p) { return Array.isArray(p) ? p[1] : p; });
+    var up = curDim === 'min' ? ix.up : (vals[vals.length - 1] >= vals[0]);
+    var g = sparkGeom(key, w, h);
+    var color = up ? 'var(--up)' : 'var(--down)';
+    var demo = IDX_KLINES[key].demo || curDim === 'min';
+    var chgPct = (ix.up ? '+' : '−') + Math.abs((ix.price - ix.prev) / ix.prev * 100).toFixed(2) + '%';
+    var chgAbs = (ix.up ? '+' : '−') + Math.abs(ix.price - ix.prev).toFixed(2);
+    var folded = foldState[key];
+    html += '<div class="idx-card' + (folded ? ' fold' : '') + '" id="ix-' + key + '">'
+      + '<div class="idx-head" onclick="foldIdx(\'' + key + '\')">'
+      + '<span class="idx-name">' + ix.name + '</span><span class="idx-code">' + ix.code + '</span>'
+      + (demo ? '<span class="demo-chip">演示</span>' : '')
+      + '<span class="idx-p ' + (ix.up ? 'up' : 'down') + '">' + ix.price.toFixed(2) + '</span>'
+      + '<span class="idx-c ' + (ix.up ? 'up' : 'down') + '">' + chgPct + '</span>'
+      + '<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9.5 12 15.5 18 9.5"/></svg>'
+      + '</div>'
+      + '<div class="idx-body">'
+      + '<div class="idx-sub"><span>昨收 ' + ix.prev.toFixed(2) + '</span><span>' + chgAbs + '</span></div>'
+      + '<div class="spark draw"><svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">'
+      + (curDim === 'min' ? '<line class="base" x1="0" y1="' + g.baseY + '" x2="' + w + '" y2="' + g.baseY + '"/>' : '')
+      + '<path class="area" d="' + g.area + '" fill="' + color + '"/>'
+      + '<polyline class="line" points="' + g.line + '" stroke="' + color + '"/>'
+      + '<circle class="dot" cx="' + g.endPt[0] + '" cy="' + g.endPt[1] + '" r="2.6" fill="' + color + '"/>'
+      + '</svg></div>'
+      + '<div class="idx-foot"><span>' + g.rangeTxt + '</span><span>' + g.spanTxt + ' · ' + ix.tm + '</span></div>'
+      + '</div></div>';
+  });
+  document.getElementById('idxList').innerHTML = html;
+}
+function redrawSpark(key) {
+  var el = document.getElementById('ix-' + key);
+  if (!el) return;
+  var g = sparkGeom(key, 320, 88);
+  var svg = el.querySelector('.spark svg');
+  if (!svg) return;
+  svg.querySelector('.area').setAttribute('d', g.area);
+  svg.querySelector('.line').setAttribute('points', g.line);
+  var dot = svg.querySelector('.dot');
+  dot.setAttribute('cx', g.endPt[0]); dot.setAttribute('cy', g.endPt[1]);
+  var base = svg.querySelector('.base');
+  if (base) { base.setAttribute('y1', g.baseY); base.setAttribute('y2', g.baseY); }
+  var foot = el.querySelector('.idx-foot');
+  if (foot) foot.innerHTML = '<span>' + g.rangeTxt + '</span><span>' + g.spanTxt + '</span>';
+}
+
+/* ---------- 行情拉取（腾讯 qt.gtimg.cn，60s 自动刷新） ---------- */
+function fmtTm(raw) {
+  var s = String(raw || '');
+  var mm = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (mm) return Number(mm[1]) + ':' + mm[2];
+  var d = s.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/);   // 20261023112742
+  if (d) return Number(d[4]) + ':' + d[5];
+  return '';
+}
+function parseQuotes(txt) {
+  var out = {};
+  var re = /v_([A-Za-z0-9]+)="([^"]*)"/g, m;
+  while ((m = re.exec(txt))) {
+    var f = m[2].split('~');
+    if (f.length < 33) continue;
+    var price = parseFloat(f[3]), prev = parseFloat(f[4]);
+    if (!isFinite(price) || price <= 0) continue;
+    out[m[1]] = { price: price, prev: (isFinite(prev) && prev > 0) ? prev : price, tm: fmtTm(f[30]) };
+  }
+  return out;
+}
+function fetchQuotes() {
+  var url = 'https://qt.gtimg.cn/q=' + Object.keys(QUOTE_CODE).join(',');
+  return fetch(url, { cache: 'no-store' }).then(function (r) { return r.text(); }).then(parseQuotes);
+}
+function applyQuotes(q) {
+  INDICES.forEach(function (ix) {
+    var qq = q[KL_KEY[ix.name]];
+    if (!qq) return;
+    ix.price = qq.price; ix.prev = qq.prev;
+    if (qq.tm) ix.tm = qq.tm;
+    ix.up = qq.price >= qq.prev;
+    var minArr = IDX_KLINES[KL_KEY[ix.name]].min;   // 分时曲线末点跟随实时价
+    if (minArr && minArr.length) minArr[minArr.length - 1] = qq.price;
+  });
+}
+function refreshQuotes() {
+  return fetchQuotes().then(function (q) {
+    if (q && Object.keys(q).length) { applyQuotes(q); checkSignalTriggers(); }
+    renderIndices();
+  }, function () { renderIndices(); });
+}
+
+/* ---------- 卡片曲线手势：拖动平移 / 滚轮·双指缩放 / 双击重置 / 点击全屏 ---------- */
+(function () {
+  var list = document.getElementById('idxList');
+  if (!list) return;
+  var ptrs = {}, drag = null, pinch = null, suppressClick = false, clickTimer = null;
+  function keyOf(e) {
+    var sp = e.target.closest ? e.target.closest('.spark') : null;
+    if (!sp) return null;
+    var card = sp.closest('.idx-card');
+    return card ? card.id.replace('ix-', '') : null;
+  }
+  function sparkRect(key) {
+    var card = document.getElementById('ix-' + key);
+    return card ? card.querySelector('.spark').getBoundingClientRect() : { left: 0, width: 1 };
+  }
+  list.addEventListener('pointerdown', function (e) {
+    var key = keyOf(e); if (!key) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length === 2) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      pinch = { d0: Math.abs(a.x - b.x) || 1, key: key };
+      drag = null;
+    } else if (ids.length === 1) {
+      drag = { key: key, x: e.clientX, win: getWin(key), moved: false };
+    }
+    try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  list.addEventListener('pointermove', function (e) {
+    if (!(e.pointerId in ptrs)) return;
+    ptrs[e.pointerId].x = e.clientX; ptrs[e.pointerId].y = e.clientY;
+    var ids = Object.keys(ptrs);
+    if (pinch && ids.length >= 2) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      var factor = (Math.abs(a.x - b.x) || 1) / pinch.d0;
+      var r = sparkRect(pinch.key);
+      var ratio = Math.max(0, Math.min(1, ((a.x + b.x) / 2 - r.left) / r.width));
+      zoomWin(pinch.key, factor, ratio);
+      redrawSpark(pinch.key);
+    } else if (drag && ids.length === 1) {
+      var dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 3) drag.moved = true;
+      if (drag.moved) {
+        var rr = sparkRect(drag.key);
+        var span = drag.win.i1 - drag.win.i0;
+        panWin(drag.key, -dx / rr.width * span);
+        redrawSpark(drag.key);
+      }
+    }
+  });
+  function endPtr(e) {
+    delete ptrs[e.pointerId];
+    if (drag && drag.moved) suppressClick = true;
+    var ids = Object.keys(ptrs);
+    if (ids.length < 2) pinch = null;
+    if (ids.length === 0) drag = null;
+    else if (drag) { drag.x = ptrs[ids[0]].x; drag.win = getWin(drag.key); }
+  }
+  list.addEventListener('pointerup', endPtr);
+  list.addEventListener('pointercancel', endPtr);
+  list.addEventListener('wheel', function (e) {
+    var key = keyOf(e); if (!key) return;
+    e.preventDefault();
+    var r = sparkRect(key);
+    var ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    zoomWin(key, e.deltaY < 0 ? 1.25 : 1 / 1.25, ratio);
+    redrawSpark(key);
+  }, { passive: false });
+  list.addEventListener('click', function (e) {
+    var key = keyOf(e); if (!key) return;
+    if (suppressClick) { suppressClick = false; return; }
+    if (clickTimer) return;
+    clickTimer = setTimeout(function () { clickTimer = null; openChartFull(key); }, 220);
+  });
+  list.addEventListener('dblclick', function (e) {
+    var key = keyOf(e); if (!key) return;
+    if (clickTimer) { clearTimeout(clickTimer); clickTimer = null; }
+    resetWin(key); redrawSpark(key);
+  });
+})();
+
+/* ---------- 全屏走势大图 ---------- */
+var cfKey = null, cfX = null;            // cfX = 十字线所在数据索引
+function openChartFull(key) {
+  cfKey = key; cfX = null;
+  document.getElementById('chartFull').classList.add('on');
+  renderChartFull();
+}
+function closeChartFull() {
+  cfKey = null;
+  document.getElementById('chartFull').classList.remove('on');
+}
+function resetChartFull() {
+  if (!cfKey) return;
+  resetWin(cfKey); cfX = null; renderChartFull();
+}
+function renderChartFull() {
+  if (!cfKey) return;
+  var key = cfKey, ix = ixOf(key);
+  var box = document.getElementById('cfCanvas');
+  var W = box.clientWidth || 340, H = box.clientHeight || 420;
+  var padL = 44, padR = 10, padT = 14, padB = 26;
+  var iw = W - padL - padR, ih = H - padT - padB;
+  var raw = rawOf(key), vp = getWin(key);
+  var vals = raw.slice(vp.i0, vp.i1 + 1).map(function (p) { return Array.isArray(p) ? p[1] : p; });
+  var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+  var pad = (mx - mn || 1) * 0.08;
+  var lo = mn - pad, hi = mx + pad, rng = hi - lo;
+  var up = curDim === 'min' ? ix.up : (vals[vals.length - 1] >= vals[0]);
+  var color = up ? 'var(--up)' : 'var(--down)';
+  function X(i) { return padL + (i / (vals.length - 1)) * iw; }
+  function Y(v) { return padT + ih - (v - lo) / rng * ih; }
+  var pts = vals.map(function (v, i) { return X(i).toFixed(1) + ',' + Y(v).toFixed(1); });
+  var line = pts.join(' ');
+  var area = 'M' + padL + ',' + (padT + ih) + ' L' + line.split(' ').join(' L') + ' L' + (padL + iw) + ',' + (padT + ih) + ' Z';
+  var s = '';
+  for (var g = 0; g <= 4; g++) {                       // 横向网格 + 价格刻度
+    var v = lo + rng * g / 4, y = Y(v).toFixed(1);
+    s += '<line class="cf-grid" x1="' + padL + '" y1="' + y + '" x2="' + (padL + iw) + '" y2="' + y + '"/>';
+    s += '<text class="cf-axis" x="' + (padL - 6) + '" y="' + (Number(y) + 3) + '" text-anchor="end">' + fmtK(v) + '</text>';
+  }
+  var nt = Math.min(5, vals.length);                   // 时间刻度
+  for (var t = 0; t < nt; t++) {
+    var i = Math.round(t / (nt - 1) * (vals.length - 1));
+    s += '<text class="cf-axis" x="' + X(i).toFixed(1) + '" y="' + (padT + ih + 16) + '" text-anchor="middle">' + tLabel(key, vp.i0 + i) + '</text>';
+  }
+  if (curDim === 'min') {                              // 分时：昨收虚线
+    var by = Y(ix.prev).toFixed(1);
+    s += '<line class="cf-base" x1="' + padL + '" y1="' + by + '" x2="' + (padL + iw) + '" y2="' + by + '"/>';
+  }
+  s += '<path class="cf-area" d="' + area + '" fill="' + color + '"/>';
+  s += '<polyline class="cf-line" points="' + line + '" stroke="' + color + '"/>';
+  s += '<circle class="cf-dot" cx="' + pts[pts.length - 1].split(',')[0] + '" cy="' + pts[pts.length - 1].split(',')[1] + '" r="3" fill="' + color + '"/>';
+  if (cfX !== null && cfX >= vp.i0 && cfX <= vp.i1) {  // 十字线
+    var ci = cfX - vp.i0, cx = X(ci).toFixed(1), cy = Y(vals[ci]).toFixed(1);
+    s += '<line class="cf-cross" x1="' + cx + '" y1="' + padT + '" x2="' + cx + '" y2="' + (padT + ih) + '"/>';
+    s += '<circle class="cf-crossdot" cx="' + cx + '" cy="' + cy + '" r="3.4"/>';
+  }
+  document.getElementById('cfSvg').setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  document.getElementById('cfSvg').innerHTML = s;
+  var zoom = (raw.length - 1) / Math.max(1, vp.i1 - vp.i0);
+  var dimTxt = curDim === 'min' ? '今日分时' : curDim === 'year' ? '近一年' : '全部至今';
+  var hud = ix.name + ' · ' + dimTxt + ' · ' + tLabel(key, vp.i0) + ' ~ ' + tLabel(key, vp.i1)
+    + ' · ' + (zoom > 1.05 ? zoom.toFixed(1) + 'x' : '1x')
+    + ' · 区间 ' + fmtK(mn) + ' / ' + fmtK(mx);
+  if (cfX !== null && cfX >= vp.i0 && cfX <= vp.i1) hud += ' · ' + tLabel(key, cfX) + ' → ' + fmtK(vals[cfX - vp.i0]);
+  document.getElementById('cfHud').textContent = hud;
+  document.getElementById('cfName').textContent = ix.name;
+  document.getElementById('cfDim').textContent = dimTxt;
+}
+(function () {
+  var box = document.getElementById('cfCanvas');
+  if (!box) return;
+  var ptrs = {}, drag = null, pinch = null;
+  function rect() { return box.getBoundingClientRect(); }
+  box.addEventListener('pointerdown', function (e) {
+    if (!cfKey) return;
+    ptrs[e.pointerId] = { x: e.clientX, y: e.clientY };
+    var ids = Object.keys(ptrs);
+    if (ids.length === 2) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      pinch = { d0: Math.abs(a.x - b.x) || 1 };
+      drag = null;
+    } else {
+      drag = { x: e.clientX, win: getWin(cfKey), moved: false };
+    }
+    try { e.target.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  box.addEventListener('pointermove', function (e) {
+    if (!(e.pointerId in ptrs) || !cfKey) return;
+    ptrs[e.pointerId].x = e.clientX; ptrs[e.pointerId].y = e.clientY;
+    var ids = Object.keys(ptrs);
+    if (pinch && ids.length >= 2) {
+      var a = ptrs[ids[0]], b = ptrs[ids[1]];
+      var factor = (Math.abs(a.x - b.x) || 1) / pinch.d0;
+      var r = rect();
+      var ratio = Math.max(0, Math.min(1, ((a.x + b.x) / 2 - r.left) / r.width));
+      zoomWin(cfKey, factor, ratio);
+      cfX = null;
+      renderChartFull();
+    } else if (drag && ids.length === 1) {
+      var dx = e.clientX - drag.x;
+      if (Math.abs(dx) > 3) drag.moved = true;
+      if (drag.moved) {
+        var rr = rect();
+        var span = drag.win.i1 - drag.win.i0;
+        panWin(cfKey, -dx / rr.width * span);
+        var vp = getWin(cfKey);
+        var ratio2 = (e.clientX - rr.left) / rr.width;
+        cfX = Math.round(vp.i0 + ratio2 * (vp.i1 - vp.i0));
+        renderChartFull();
+      }
+    }
+  });
+  function endPtr(e) {
+    delete ptrs[e.pointerId];
+    var ids = Object.keys(ptrs);
+    if (ids.length < 2) pinch = null;
+    if (ids.length === 0) drag = null;
+    else if (drag && cfKey) { drag.x = ptrs[ids[0]].x; drag.win = getWin(cfKey); }
+  }
+  box.addEventListener('pointerup', endPtr);
+  box.addEventListener('pointercancel', endPtr);
+  box.addEventListener('wheel', function (e) {
+    if (!cfKey) return;
+    e.preventDefault();
+    var r = rect();
+    var ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    zoomWin(cfKey, e.deltaY < 0 ? 1.25 : 1 / 1.25, ratio);
+    renderChartFull();
+  }, { passive: false });
+  box.addEventListener('dblclick', function () { resetChartFull(); });
+  box.addEventListener('mousemove', function (e) {   // 鼠标悬停十字线
+    if (!cfKey || drag || pinch) return;
+    var r = rect(), vp = getWin(cfKey);
+    var ratio = (e.clientX - r.left) / r.width;
+    if (ratio < 0 || ratio > 1) { if (cfX !== null) { cfX = null; renderChartFull(); } return; }
+    cfX = Math.round(vp.i0 + ratio * (vp.i1 - vp.i0));
+    renderChartFull();
+  });
+  box.addEventListener('mouseleave', function () { if (cfKey && cfX !== null) { cfX = null; renderChartFull(); } });
+  window.addEventListener('resize', function () { if (cfKey) renderChartFull(); });
+})();
+
+/* ---------- Tab 切换 ---------- */
+function switchTab(btn) {
+  document.querySelectorAll('#tabbar .tab').forEach(function (t) { t.classList.remove('on', 'active'); });
+  btn.classList.add('on');
+  var id = btn.getAttribute('data-tab');
+  curTab = id;
+  document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('on', 'active'); });
+  document.getElementById('view-' + id).classList.add('active');
+  document.getElementById('tbTitle').textContent = titles[id];
+  // FAB 显隐：定投=添加计划；加减仓=添加提醒(条件页=添加题目，恐慌页隐藏)；走势-日历=标记事件；红绿灯/我的=无
+  var hideFab = id === 'notes' || id === 'me'
+    || (id === 'home' && curHomePane !== 'cal')
+    || (id === 'signals' && curSigPane === 'panic');
+  var fab = document.getElementById('fab');
+  fab.classList.toggle('hide', hideFab);
+  if (id === 'signals') {
+    fab.setAttribute('title', curSigPane === 'quiz' ? '自定义题目' : '添加加减仓提醒');
+  } else if (id === 'home') {
+    fab.setAttribute('title', '标记事件');
+  } else if (id === 'plan') {
+    fab.setAttribute('title', '添加定投提醒');
+  }
+}
+
+/* ---------- 底部弹层 ---------- */
+var sheetMode = 'form';       // plan | signal | auth | quiz | calev | license
+var editPlanId = null;        // 非空 = 编辑中的定投
+var editSigId = null;         // 非空 = 编辑中的加减仓提醒
+var sheetDir = 1;             // 加减仓方向：1 加 / -1 减
+function openSheet() {
+  if (curTab === 'home' && curHomePane === 'cal') { openCalEvent(); return; }
+  if (curTab === 'signals' && curSigPane === 'quiz') { openQuizSheet(); return; }
+  if (curTab === 'plan') { editPlanId = null; openPlanForm(); return; }
+  if (curTab === 'signals') { editSigId = null; openSignalForm(); return; }
+}
+function showSheet() {
+  document.getElementById('backdrop').classList.add('on');
+  document.getElementById('sheet').classList.add('on');
+}
+function closeSheet() {
+  document.getElementById('backdrop').classList.remove('on');
+  document.getElementById('sheet').classList.remove('on');
+}
+function sheetSave() {
+  if (sheetMode === 'auth') { authMode === 'register' ? doRegister() : doSignIn(); return; }
+  if (sheetMode === 'quiz') { addQuizFromSheet(); return; }
+  if (sheetMode === 'calev') { calSave(); return; }
+  if (sheetMode === 'license') { activateLicense(); return; }
+  if (sheetMode === 'plan') { savePlanForm(); return; }
+  if (sheetMode === 'signal') { saveSignalForm(); return; }
+  closeSheet();
+}
+
+/* ---------- 定投计划 ---------- */
+var PLANS_KEY = 'fuley.plans.v1';
+var plans = loadJSON(PLANS_KEY, []);
+if (!Array.isArray(plans)) plans = [];
+function savePlans() { saveJSON(PLANS_KEY, plans); }
+function nextPlanDate(p) {
+  var now = new Date();
+  var day = Math.min(31, Math.max(1, Number(p.day) || 1));
+  var dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  var at = new Date(now.getFullYear(), now.getMonth(), Math.min(day, dim));
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (at.getTime() < today.getTime()) {
+    var dim2 = new Date(now.getFullYear(), now.getMonth() + 2, 0).getDate();
+    at = new Date(now.getFullYear(), now.getMonth() + 1, Math.min(day, dim2));
+  }
+  return at;
+}
+function nextPlanText(p) { var d = nextPlanDate(p); return '下次提醒 ' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function renderPlans() {
+  var box = document.getElementById('planList');
+  if (!box) return;
+  if (!plans.length) {
+    box.innerHTML = '<div class="empty">还没有定投计划<br>点右下角 + 添加第一个</div>';
+    return;
+  }
+  var html = '';
+  plans.forEach(function (p) {
+    html += '<div class="lrow" onclick="editPlan(\'' + p.id + '\')">'
+      + '<div class="daychip"><div><div class="d">' + Math.min(31, Math.max(1, Number(p.day) || 1)) + '</div><div class="m">每月</div></div></div>'
+      + '<div class="linfo"><div class="lname">' + esc(p.name) + '</div><div class="lsub">' + esc(p.code || '—') + '</div></div>'
+      + '<div class="lval"><div class="v1">¥' + fmtAmt(p.amount) + '</div><div class="v2">' + nextPlanText(p) + '</div></div>'
+      + '</div>';
+  });
+  box.innerHTML = html;
+}
+function openPlanForm() {
+  var p = editPlanId ? plans.filter(function (x) { return x.id === editPlanId; })[0] : null;
+  sheetMode = 'plan';
+  document.getElementById('sheetSave').textContent = p ? '保存' : '添加';
+  document.getElementById('sheetTitle').textContent = p ? '编辑定投提醒' : '添加定投提醒';
+  var body = '';
+  if (p) body += '<button class="btn ghost btn-block" style="margin-bottom:12px" onclick="delPlan()">删除此定投</button>';
+  body += '<div class="field"><label>标的名称</label><input type="text" id="pfName" maxlength="30" placeholder="如 英伟达 / 沪深300 ETF" value="' + esc(p ? p.name : '') + '"></div>'
+    + '<div class="field"><label>代码</label><input type="text" id="pfCode" maxlength="20" placeholder="NVDA / 510300 / 00700" value="' + esc(p ? p.code : '') + '"></div>'
+    + '<div class="field"><label>每月定投日</label><input type="number" id="pfDay" min="1" max="31" placeholder="1 - 31" value="' + (p ? p.day : '') + '"></div>'
+    + '<div class="field"><label>每期金额（元）</label><input type="number" id="pfAmt" min="0" placeholder="如 2000" value="' + (p ? p.amount : '') + '"></div>'
+    + '<div class="quick">' + [500, 1000, 2000, 3000, 5000].map(function (v) {
+        return '<span onclick="document.getElementById(\'pfAmt\').value=' + v + '">¥' + v.toLocaleString('zh-CN') + '</span>';
+      }).join('') + '</div>'
+    + '<div class="hintbar" style="margin:0">到定投日当天 9:00 自动推送本地通知</div>';
+  document.getElementById('sheetBody').innerHTML = body;
+  showSheet();
+}
+function editPlan(id) { editPlanId = id; openPlanForm(); }
+function delPlan() {
+  if (!editPlanId) { closeSheet(); return; }
+  var i = plans.findIndex(function (x) { return x.id === editPlanId; });
+  if (i >= 0) {
+    cancelPlanNotify(plans[i]);
+    plans.splice(i, 1);
+    savePlans();
+    renderPlans();
+    toast('已删除该定投');
+  }
+  editPlanId = null;
+  closeSheet();
+}
+function savePlanForm() {
+  var name = (document.getElementById('pfName').value || '').trim();
+  var code = (document.getElementById('pfCode').value || '').trim();
+  var day = Number(document.getElementById('pfDay').value || 0);
+  var amt = Number(document.getElementById('pfAmt').value || 0);
+  if (!name) { toast('请填写标的名称'); return; }
+  if (!(day >= 1 && day <= 31)) { toast('定投日需在 1 - 31 之间'); return; }
+  if (!(amt > 0)) { toast('请填写每期金额'); return; }
+  var p;
+  if (editPlanId) {
+    p = plans.filter(function (x) { return x.id === editPlanId; })[0];
+    if (p) { cancelPlanNotify(p); }
+  }
+  if (!p) { p = { id: genId() }; plans.push(p); }
+  p.name = name; p.code = code; p.day = day; p.amount = amt;
+  savePlans();
+  renderPlans();
+  schedulePlanNotify(p);
+  ensureNotifyPermission();
+  editPlanId = null;
+  closeSheet();
+  toast('已保存定投提醒');
+}
+
+/* ---------- 本地通知（Capacitor LocalNotifications） ---------- */
+function hasLN() {
+  return !!(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications);
+}
+function ensureNotifyPermission() {
+  if (!hasLN()) return Promise.resolve(null);
+  return window.Capacitor.Plugins.LocalNotifications.requestPermissions().catch(function () { return null; });
+}
+function pushNotify(title, body, id) {
+  if (!hasLN()) { toast(title + '：' + body); return; }
+  ensureNotifyPermission().then(function () {
+    window.Capacitor.Plugins.LocalNotifications.schedule({
+      notifications: [{
+        id: id || Math.floor(Math.random() * 1000000),
+        title: title, body: body,
+        schedule: { at: new Date(Date.now() + 1000), allowWhileIdle: true }
+      }]
+    });
+  });
+}
+function cancelPlanNotify(p) {
+  if (!hasLN() || !p) return;
+  window.Capacitor.Plugins.LocalNotifications.cancel({ notifications: [{ id: nid('plan', p.id) }] }).catch(function () {});
+}
+function schedulePlanNotify(p) {
+  if (!p || !hasLN()) return;
+  var at = nextPlanDate(p);
+  at.setHours(9, 0, 0, 0);
+  if (at.getTime() <= Date.now()) at.setMonth(at.getMonth() + 1);   // 今天已过则排到下个月
+  window.Capacitor.Plugins.LocalNotifications.schedule({
+    notifications: [{
+      id: nid('plan', p.id),
+      title: '定投提醒',
+      body: p.name + ' 今日定投 ¥' + fmtAmt(p.amount),
+      schedule: { at: at, allowWhileIdle: true }
+    }]
+  }).catch(function () {});
+}
+
+/* ---------- 加减仓信号 ---------- */
+var SIGNALS_KEY = 'fuley.signals.v1';
+var signals = loadJSON(SIGNALS_KEY, []);
+if (!Array.isArray(signals)) signals = [];
+function saveSignals() { saveJSON(SIGNALS_KEY, signals); }
+function findIndexByName(n) {
+  var s = String(n || '').trim();
+  for (var i = 0; i < INDICES.length; i++) {
+    if (INDICES[i].name === s || INDICES[i].code === s) return INDICES[i];
+  }
+  return null;
+}
+function renderSignals() {
+  var box = document.getElementById('sigList');
+  if (!box) return;
+  if (!signals.length) {
+    box.innerHTML = '<div class="empty">还没有加减仓提醒<br>点右下角 + 添加第一个</div>';
+    return;
+  }
+  var html = '';
+  signals.forEach(function (s) {
+    var cond = s.type === 'price'
+      ? (s.dir > 0 ? '涨到 ' : '跌到 ') + Number(s.price).toFixed(2)
+      : ('定时 ' + (s.time || ''));
+    var state = s.type === 'price' ? (s.fired ? '已触发' : '监控中') : (s.fired ? '已提醒' : '待提醒');
+    html += '<div class="lrow" onclick="editSignal(\'' + s.id + '\')">'
+      + '<div class="dirchip ' + (s.dir > 0 ? 'up' : 'down') + '">' + (s.dir > 0 ? '加' : '减') + '</div>'
+      + '<div class="linfo"><div class="lname">' + esc(s.name) + '</div><div class="lsub">' + esc(cond) + '</div></div>'
+      + '<div class="lval"><div class="v1">' + state + '</div><div class="v2">' + esc(s.note || '') + '</div></div>'
+      + '</div>';
+  });
+  box.innerHTML = html;
+}
+function openSignalForm() {
+  var s = editSigId ? signals.filter(function (x) { return x.id === editSigId; })[0] : null;
+  sheetMode = 'signal';
+  sheetDir = s ? s.dir : 1;
+  document.getElementById('sheetSave').textContent = s ? '保存' : '添加';
+  document.getElementById('sheetTitle').textContent = s ? '编辑加减仓提醒' : '添加加减仓提醒';
+  var body = '';
+  if (s) body += '<button class="btn ghost btn-block" style="margin-bottom:12px" onclick="delSignal()">删除此提醒</button>';
+  body += '<div class="seg" id="dirSeg">'
+    + '<button class="' + (sheetDir > 0 ? 'on up' : '') + '" onclick="segDir(this,1)">加仓</button>'
+    + '<button class="' + (sheetDir < 0 ? 'on down' : '') + '" onclick="segDir(this,-1)">减仓</button></div>'
+    + '<div class="field"><label>标的名称</label><input type="text" id="sfName" maxlength="30" placeholder="标普500 / 恒生指数 / 英伟达" value="' + esc(s ? s.name : '') + '"></div>'
+    + '<div class="field"><label>触发类型</label><select id="sfType">'
+    + '<option value="price"' + (s && s.type === 'price' ? ' selected' : '') + '>价格触发</option>'
+    + '<option value="time"' + (s && s.type === 'time' ? ' selected' : '') + '>定时提醒</option></select></div>'
+    + '<div class="field"><label>触发价（价格触发时填写）</label><input type="number" id="sfPrice" min="0" step="0.01" placeholder="如 205.00" value="' + (s ? s.price : '') + '"></div>'
+    + '<div class="field"><label>定时（定时提醒时填写）</label><input type="text" id="sfTime" maxlength="30" placeholder="如 每周五 14:30" value="' + esc(s ? s.time : '') + '"></div>'
+    + '<div class="hintbar" style="margin:0">价格触发盯四大指数实时行情 · 命名需与指数一致（标普500 / 纳斯达克 / 恒生指数 / 上证指数）</div>';
+  document.getElementById('sheetBody').innerHTML = body;
+  showSheet();
+}
+function segDir(btn, dir) {
+  sheetDir = dir;
+  btn.parentElement.querySelectorAll('button').forEach(function (b) { b.classList.remove('on', 'up', 'down'); });
+  btn.classList.add('on', dir > 0 ? 'up' : 'down');
+}
+function editSignal(id) { editSigId = id; openSignalForm(); }
+function delSignal() {
+  if (!editSigId) { closeSheet(); return; }
+  var i = signals.findIndex(function (x) { return x.id === editSigId; });
+  if (i >= 0) { signals.splice(i, 1); saveSignals(); renderSignals(); toast('已删除该提醒'); }
+  editSigId = null;
+  closeSheet();
+}
+function saveSignalForm() {
+  var name = (document.getElementById('sfName').value || '').trim();
+  var type = document.getElementById('sfType').value || 'price';
+  var price = Number(document.getElementById('sfPrice').value || 0);
+  var time = (document.getElementById('sfTime').value || '').trim();
+  if (!name) { toast('请填写标的名称'); return; }
+  if (type === 'price' && !(price > 0)) { toast('请填写触发价'); return; }
+  if (type === 'time' && !time) { toast('请填写定时'); return; }
+  var s;
+  if (editSigId) s = signals.filter(function (x) { return x.id === editSigId; })[0];
+  if (!s) { s = { id: genId() }; signals.push(s); }
+  s.name = name; s.type = type; s.dir = sheetDir;
+  s.price = price; s.time = time; s.fired = false;
+  saveSignals();
+  renderSignals();
+  checkSignalTriggers();
+  editSigId = null;
+  closeSheet();
+  toast('已保存加减仓提醒');
+}
+function checkSignalTriggers() {
+  signals.forEach(function (s) {
+    if (s.fired || s.type !== 'price') return;
+    var ix = findIndexByName(s.name);
+    if (!ix) return;
+    var p = ix.price;
+    var hit = s.dir > 0 ? p >= Number(s.price) : p <= Number(s.price);
+    if (hit) {
+      s.fired = true;
+      saveSignals();
+      renderSignals();
+      var label = (s.dir > 0 ? '加仓' : '减仓') + '提醒';
+      pushNotify(label, s.name + ' 已到 ' + p.toFixed(2) + '（目标 ' + Number(s.price).toFixed(2) + '）', nid('sig', s.id));
+      toast(s.name + ' 触发' + label);
+    }
+  });
+}
+
+/* ---------- 红绿灯（心得） ---------- */
+var NOTES_KEY = 'fuley.notes.v1';
+var notes = loadJSON(NOTES_KEY, { red: [], green: [], case: [] });
+if (!notes.red) notes.red = [];
+if (!notes.green) notes.green = [];
+if (!notes.case) notes.case = [];
+function saveNotes() { saveJSON(NOTES_KEY, notes); }
+function noteKind() { return lampDir === 1 ? 'red' : lampDir === -1 ? 'green' : 'case'; }
+function noteBoxId(kind) { return kind === 'red' ? 'noteListRed' : kind === 'green' ? 'noteListGreen' : 'noteListCase'; }
+function noteLabel(kind) { return kind === 'red' ? '红线' : kind === 'green' ? '绿线' : '案例'; }
+function noteColor(kind) { return kind === 'red' ? 'var(--up)' : kind === 'green' ? 'var(--down)' : 'var(--accent)'; }
+function renderNoteList(kind) {
+  var box = document.getElementById(noteBoxId(kind));
+  if (!box) return;
+  var arr = notes[kind];
+  if (!arr.length) {
+    box.innerHTML = '<div class="empty">暂无' + noteLabel(kind) + '记录</div>';
+    return;
+  }
+  var html = '';
+  arr.forEach(function (n, i) {
+    html += '<div class="notecard">'
+      + '<div class="nd"><span class="lamprow">'
+      + '<span class="lamp" style="background:' + noteColor(kind) + '"></span>'
+      + '<span class="lt ' + (kind === 'red' ? 'red' : kind === 'green' ? 'green' : '') + '">' + noteLabel(kind) + '</span>'
+      + '<span class="dt">' + esc(n.date) + '</span></span>'
+      + '<button class="del" title="删除" onclick="delNote(\'' + kind + '\',' + i + ')">×</button></div>'
+      + '<div class="nt"></div></div>';
+  });
+  box.innerHTML = html;
+  box.querySelectorAll('.notecard .nt').forEach(function (el, i) { el.textContent = arr[i].text; });
+}
+function renderNotes() { renderNoteList('red'); renderNoteList('green'); renderNoteList('case'); }
+function lampSeg(btn, dir) {
+  lampDir = dir;
+  btn.parentElement.querySelectorAll('button').forEach(function (b) {
+    b.classList.remove('on', 'red', 'green');
+  });
+  if (dir === 0) { btn.classList.add('on'); }
+  else { btn.classList.add('on', dir > 0 ? 'red' : 'green'); }
+  document.getElementById('noteListRed').style.display = dir === 1 ? '' : 'none';
+  document.getElementById('noteListGreen').style.display = dir === -1 ? '' : 'none';
+  document.getElementById('noteListCase').style.display = dir === 0 ? '' : 'none';
+}
+function addNote() {
+  var ta = document.getElementById('noteInput');
+  var v = (ta.value || '').trim();
+  if (!v) { toast('先写点什么再保存'); return; }
+  var kind = noteKind();
+  notes[kind].unshift({ date: dateStr(new Date()), text: v });
+  saveNotes();
+  renderNoteList(kind);
+  // 自动切到刚保存颜色的列表，录入即所见
+  var segBtns = document.querySelectorAll('#lampSeg button');
+  var segIdx = kind === 'red' ? 0 : kind === 'green' ? 1 : 2;
+  if (segBtns[segIdx]) lampSeg(segBtns[segIdx], lampDir);
+  ta.value = '';
+  document.getElementById('noteCount').textContent = '0 / 500';
+  toast('已录入' + noteLabel(kind));
+}
+function delNote(kind, i) {
+  notes[kind].splice(i, 1);
+  saveNotes();
+  renderNoteList(kind);
+  toast('已删除');
+}
+
+/* ---------- 加减仓条件：十题打勾（可自定义 / 可重置 / 不限次数） ---------- */
+var QUIZ_KEY = 'fuley_quiz_v1';
+var QUIZ_DEFAULT = [
+  '这笔操作在计划名单内，不是临时起意？',
+  '触发条件（价格 / 时间）已确认满足？',
+  '加仓后单一标的仓位仍不超过总仓位 20%？',
+  '应急金与日常开支不受这笔钱影响？',
+  '投入的资金 3 年内不需要动用？',
+  '减仓已写明理由（估值过高 / 逻辑破坏 / 再平衡）？',
+  '若反向波动 10%，能按原计划执行、不情绪化操作？',
+  '没有陷入「这次不一样」的追高叙事？',
+  '金额与计划比例一致，没有被情绪放大？',
+  '这笔操作敢不敢被未来的自己复盘？'
+];
+var quizItems = (function () {
+  var a = loadJSON(QUIZ_KEY, null);
+  if (Array.isArray(a) && a.length && a.every(function (q) { return q && typeof q.text === 'string'; })) return a;
+  return QUIZ_DEFAULT.map(function (t) { return { text: t, done: false }; });
+})();
+function saveQuiz() { saveJSON(QUIZ_KEY, quizItems); }
+function renderQuiz() {
+  var html = '';
+  quizItems.forEach(function (q, i) {
+    html += '<div class="qrow' + (q.done ? ' done' : '') + '" onclick="toggleQ(' + i + ')">'
+      + '<span class="qno">' + (i + 1) + '</span>'
+      + '<button class="qcheck" aria-label="打勾"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg></button>'
+      + '<div class="qtext"></div>'
+      + '<button class="qdel" title="删除本题" onclick="event.stopPropagation();delQuizItem(' + i + ')">×</button>'
+      + '</div>';
+  });
+  document.getElementById('quizList').innerHTML = html;
+  document.querySelectorAll('#quizList .qrow').forEach(function (row, i) {
+    row.querySelector('.qtext').textContent = quizItems[i].text;
+  });
+  var done = quizItems.filter(function (q) { return q.done; }).length;
+  document.getElementById('qDone').textContent = done;
+  document.getElementById('qTotal').textContent = quizItems.length;
+  document.getElementById('qFill').style.width = (quizItems.length ? done / quizItems.length * 100 : 0) + '%';
+}
+function toggleQ(i) {
+  quizItems[i].done = !quizItems[i].done;
+  saveQuiz();
+  renderQuiz();
+  if (quizItems.length && quizItems.every(function (q) { return q.done; })) {
+    toast('全部完成，纪律确认通过');
+  }
+}
+function resetQuiz() {
+  quizItems.forEach(function (q) { q.done = false; });
+  saveQuiz();
+  renderQuiz();
+  toast('已重置，可以再来一轮');
+}
+function delQuizItem(i) {
+  quizItems.splice(i, 1);
+  saveQuiz();
+  renderQuiz();
+  toast('已删除该题');
+}
+function addQuizItem() { openQuizSheet(); }
+function openQuizSheet() {
+  sheetMode = 'quiz';
+  document.getElementById('sheetSave').textContent = '添加';
+  document.getElementById('sheetTitle').textContent = '自定义题目';
+  document.getElementById('sheetBody').innerHTML =
+    '<div class="field"><label>题目内容</label><textarea id="quizInput" rows="2" maxlength="80" placeholder="如：是否设置了这笔操作的止损价？"></textarea></div>'
+    + '<div class="hintbar" style="margin:0">题目会追加到加减仓条件列表，可随时删除</div>';
+  showSheet();
+}
+function addQuizFromSheet() {
+  var ta = document.getElementById('quizInput');
+  var v = (ta.value || '').trim();
+  if (!v) { toast('请先输入题目内容'); return; }
+  quizItems.push({ text: v, done: false });
+  saveQuiz();
+  renderQuiz();
+  closeSheet();
+  toast('已添加第 ' + quizItems.length + ' 题');
+}
+var curSigPane = 'sig';
+function sigTab(btn) {
+  var pane = btn.getAttribute('data-pane');
+  document.querySelectorAll('#sigTabs button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  document.getElementById('sigPane').style.display = pane === 'sig' ? '' : 'none';
+  document.getElementById('quizPane').style.display = pane === 'quiz' ? '' : 'none';
+  document.getElementById('panicPane').style.display = pane === 'panic' ? '' : 'none';
+  curSigPane = pane;
+  var fab = document.getElementById('fab');
+  fab.classList.toggle('hide', pane === 'panic');
+  fab.setAttribute('title', pane === 'quiz' ? '自定义题目' : '添加加减仓提醒');
+  if (pane === 'quiz') renderQuiz();
+  if (pane === 'panic') renderPanic();
+}
+
+/* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
+var PANIC_KEY = 'fuley_panic_v1';
+var PANIC_LEVELS = [
+  { n: 1, s: '谈笑风生', f: 'VIX 低位，回调当上车', q: '“正常波动”' },
+  { n: 2, s: '强作镇定', f: '开始看宏观解释', q: '“基本面没变”' },
+  { n: 3, s: '躁动不安', f: '频繁看盘，群聊变多', q: '“是不是要调整了？”' },
+  { n: 4, s: '吐槽咒骂', f: '骂美联储 / 财报 / 庄家', q: '“这市场有病”' },
+  { n: 5, s: '抱头鼠窜', f: '砍仓、降杠杆', q: '“先出来再说”' },
+  { n: 6, s: '鬼哭狼嚎', f: '恐慌指数飙升，相关性趋 1', q: '“全都在跌”' },
+  { n: 7, s: '无言以对', f: '利好不涨，利空暴跌', q: '“……”' },
+  { n: 8, s: '欲哭无泪', f: '深度回撤，麻木', q: '“算了不看账户了”' },
+  { n: 9, s: '心如死灰', f: '成交萎缩 / 流动性差', q: '“股市关了算了”' },
+  { n: 10, s: '就当没买', f: '卸载软件，假装没开户', q: '“我没买过股票”' }
+];
+var KR_STAGES = [
+  { zh: '否认', en: 'Denial', c: '#1a9e5c', d: '“这不是真的”“只是暂时回调”“不看账户就没亏”' },
+  { zh: '愤怒', en: 'Anger', c: '#e04a4a', d: '“都怪美联储”“都怪空头”“都怪财报造假”' },
+  { zh: '讨价还价', en: 'Bargaining', c: '#dfa32a', d: '“反弹到成本价我就卖”“再跌一点我就补仓”' },
+  { zh: '抑郁', en: 'Depression', c: '#8a5fc0', d: '沉默、无力、不想看账户、觉得没救了' },
+  { zh: '接受', en: 'Acceptance', c: '#2a86c8', d: '承认现实，重新评估仓位，该割割、该拿拿' }
+];
+var panicLv = Math.min(10, Math.max(0, Number(lsGet(PANIC_KEY)) || 0)); // 0 = 未自评；1-10 = 当前等级
+function panicTone(lv) { return lv <= 3 ? 'g' : (lv <= 7 ? 'y' : 'r'); }
+function renderPanic() {
+  document.querySelectorAll('#panicPick button').forEach(function (b) {
+    b.classList.toggle('on', Number(b.textContent) === panicLv);
+  });
+  renderPanicCard();
+  var html = '';
+  KR_STAGES.forEach(function (k, i) {
+    html += '<div class="kr-row">'
+      + '<span class="kr-dot" style="background:' + k.c + '">' + (i + 1) + '</span>'
+      + '<div><div class="kr-t">' + k.zh + '<span>' + k.en + '</span></div>'
+      + '<div class="kr-d">' + k.d + '</div></div>'
+      + '</div>';
+  });
+  document.getElementById('krFlow').innerHTML = html;
+}
+function renderPanicCard() {
+  var card = document.getElementById('panicCard');
+  if (!panicLv) {
+    card.innerHTML = '<div class="pc-hint">点击上方数字，评估自己当前的恐慌等级</div>';
+    return;
+  }
+  var lv = PANIC_LEVELS[panicLv - 1];
+  var tone = panicTone(panicLv);
+  card.innerHTML = '<div class="pc-top">'
+    + '<span class="pc-n ' + tone + '">' + lv.n + '</span>'
+    + '<span class="pc-s">' + lv.s + '</span></div>'
+    + '<div class="pc-f">' + lv.f + '</div>'
+    + '<div class="pc-q">' + lv.q + '</div>';
+}
+function panicPick(btn, lv) {
+  panicLv = lv;
+  lsSet(PANIC_KEY, String(lv));
+  document.querySelectorAll('#panicPick button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderPanicCard();
+  toast('当前恐慌等级：' + lv + ' · ' + PANIC_LEVELS[lv - 1].s);
+}
+
+/* ---------- 走势 / 日历 双子 Tab ---------- */
+function homeTab(btn) {
+  var pane = btn.getAttribute('data-pane');
+  document.querySelectorAll('#homeTabs button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  document.getElementById('trendPane').style.display = pane === 'trend' ? '' : 'none';
+  document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
+  curHomePane = pane;
+  var fab = document.getElementById('fab');
+  fab.classList.toggle('hide', pane !== 'cal');
+  fab.setAttribute('title', '标记事件');
+  if (pane === 'cal') renderCal();
+}
+var curHomePane = 'trend';
+
+/* ---------- 事件日历（财报 / 经济指标 / 选举 / 自定义） ---------- */
+var CAL_TYPES = {
+  earnings: { label: '财报', color: '#4a7fd4' },
+  econ: { label: '经济', color: '#dfa32a' },
+  vote: { label: '选举', color: '#8a5fc0' },
+  custom: { label: '自定义', color: '#8a93a6' }
+};
+var CAL_EVENTS = (function () {
+  var ev = [];
+  var FOMC_2026 = ['2026-01-27', '2026-03-17', '2026-04-28', '2026-06-16', '2026-07-28', '2026-09-15', '2026-10-27', '2026-12-08'];
+  FOMC_2026.forEach(function (d) { ev.push({ d: d, t: 'econ', title: '美联储 FOMC 利率决议', note: '官方日程' }); });
+  var y, m;
+  for (y = 2026; y <= 2027; y++) {
+    for (m = 1; m <= 12; m++) {
+      var mm = (m < 10 ? '0' : '') + m;
+      var first = new Date(y, m - 1, 1);
+      var dow = first.getDay(); // 0=周日
+      var offset = (5 - dow + 7) % 7; // 到周五
+      var nfp = new Date(y, m - 1, 1 + offset);
+      var nd = nfp.getFullYear() + '-' + mm + '-' + (nfp.getDate() < 10 ? '0' : '') + nfp.getDate();
+      ev.push({ d: nd, t: 'econ', title: '美国非农就业报告', note: '约每月首个周五' });
+      ev.push({ d: y + '-' + mm + '-13', t: 'econ', title: '美国 CPI 物价指数', note: '约中旬发布' });
+    }
+  }
+  ev.push({ d: '2026-11-03', t: 'vote', title: '美国中期选举', note: '国会改选' });
+  ev.push({ d: '2028-11-07', t: 'vote', title: '美国总统大选', note: '预测日程' });
+  ev.push({ d: '2026-10-21', t: 'earnings', title: '特斯拉 Q3 财报', note: '预计' });
+  ev.push({ d: '2026-10-26', t: 'earnings', title: '科技巨头 Q3 财报周（苹果 / 微软 / 谷歌 / Meta / 亚马逊）', note: '预计' });
+  ev.push({ d: '2026-11-18', t: 'earnings', title: '英伟达 Q3 FY27 财报', note: '预计' });
+  return ev;
+})();
+var calCustom = loadJSON('fuley.cal.v1', []);
+if (!Array.isArray(calCustom)) calCustom = [];
+function saveCalCustom() { saveJSON('fuley.cal.v1', calCustom); }
+var calY = new Date().getFullYear();
+var calM = new Date().getMonth(); // 0-11
+var calSel = (function () { var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1 < 10 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate(); })();
+function eventsOn(ds) {
+  var out = CAL_EVENTS.filter(function (e) { return e.d === ds; });
+  calCustom.forEach(function (c, i) { if (c.d === ds) out.push({ t: c.t, title: c.title, note: '自定义', idx: i }); });
+  return out;
+}
+function renderCal() {
+  document.getElementById('calTitle').textContent = calY + '年' + (calM + 1) + '月';
+  var first = new Date(calY, calM, 1);
+  var startDow = (first.getDay() + 6) % 7; // 周一=0
+  var daysInMonth = new Date(calY, calM + 1, 0).getDate();
+  var today = new Date();
+  var todayStr = today.getFullYear() + '-' + (today.getMonth() + 1 < 10 ? '0' : '') + (today.getMonth() + 1) + '-' + (today.getDate() < 10 ? '0' : '') + today.getDate();
+  var html = ['一', '二', '三', '四', '五', '六', '日'].map(function (w) { return '<div class="cal-wd">' + w + '</div>'; }).join('');
+  var b;
+  for (b = 0; b < startDow; b++) html += '<div class="cal-day blank"></div>';
+  for (var day = 1; day <= daysInMonth; day++) {
+    var ds = calY + '-' + (calM + 1 < 10 ? '0' : '') + (calM + 1) + '-' + (day < 10 ? '0' : '') + day;
+    var evs = eventsOn(ds);
+    var dots = '';
+    var seen = {};
+    evs.forEach(function (e) {
+      if (seen[e.t]) return;
+      seen[e.t] = 1;
+      dots += '<i style="background:' + CAL_TYPES[e.t].color + '"></i>';
+    });
+    html += '<button class="cal-day' + (ds === todayStr ? ' today' : '') + (ds === calSel ? ' sel' : '') + '" onclick="calSelect(\'' + ds + '\')">'
+      + '<span>' + day + '</span>'
+      + (dots ? '<span class="dots">' + dots + '</span>' : '')
+      + '</button>';
+  }
+  document.getElementById('calGrid').innerHTML = html;
+  document.getElementById('calSelTitle').textContent = calSel + ' 事件';
+  renderCalEvents();
+}
+function renderCalEvents() {
+  var evs = eventsOn(calSel);
+  var box = document.getElementById('calEvents');
+  if (!evs.length) {
+    box.innerHTML = '<div class="cal-empty">当天没有日程 · 可点击下方按钮标记</div>';
+    return;
+  }
+  var html = '';
+  evs.forEach(function (e) {
+    var tp = CAL_TYPES[e.t] || CAL_TYPES.custom;
+    html += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '">'
+      + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
+      + '<div class="ct-t"></div>'
+      + '<span class="ct-n">' + esc(e.note || '') + '</span>'
+      + (e.t === 'custom' ? '<button class="ct-del" title="删除" onclick="delCalEvent(' + e.idx + ')">×</button>' : '')
+      + '</div>';
+  });
+  box.innerHTML = html;
+  box.querySelectorAll('.cal-row').forEach(function (row, i) {
+    row.querySelector('.ct-t').textContent = evs[i].title;
+  });
+}
+function calSelect(ds) { calSel = ds; renderCal(); }
+function calMove(delta) {
+  calM += delta;
+  if (calM < 0) { calM = 11; calY--; }
+  if (calM > 11) { calM = 0; calY++; }
+  renderCal();
+}
+function openCalEvent() {
+  sheetMode = 'calev';
+  document.getElementById('sheetSave').textContent = '标记';
+  document.getElementById('sheetTitle').textContent = '标记事件';
+  document.getElementById('sheetBody').innerHTML =
+    '<div class="field"><label>日期</label><input type="date" id="calDate" value="' + calSel + '"></div>'
+    + '<div class="field"><label>事件标题</label><input type="text" id="calTitleInput" maxlength="60" placeholder="如：NVDA 回调到 180 复盘"></div>'
+    + '<div class="field"><label>类型</label><select id="calType">'
+    + '<option value="custom">自定义</option><option value="earnings">财报</option>'
+    + '<option value="econ">经济</option><option value="vote">选举</option></select></div>';
+  showSheet();
+}
+function calSave() {
+  var d = document.getElementById('calDate').value || '';
+  var title = (document.getElementById('calTitleInput').value || '').trim();
+  var t = document.getElementById('calType').value || 'custom';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { toast('请选择日期'); return; }
+  if (!title) { toast('请填写事件标题'); return; }
+  calCustom.push({ d: d, t: t, title: title });
+  saveCalCustom();
+  calSel = d;
+  calY = Number(d.slice(0, 4));
+  calM = Number(d.slice(5, 7)) - 1;
+  renderCal();
+  closeSheet();
+  toast('已标记 ' + d);
+}
+function delCalEvent(i) {
+  calCustom.splice(i, 1);
+  saveCalCustom();
+  renderCal();
+  toast('已删除');
+}
+
+/* ---------- 授权许可（试用一个月 / 激活码） ---------- */
+function licStateText(st) {
+  if (st.status === 'licensed') return '已授权 · 永久';
+  if (st.status === 'trial') return '试用中 · 剩 ' + st.daysLeft + ' 天';
+  return '已过期 · 点击激活';
+}
+function renderLicenseState() {
+  var row = document.getElementById('licState');
+  if (row) row.textContent = licStateText(window.FuleyLicense.state());
+  var st = window.FuleyLicense.state();
+  if (st.status === 'expired') showLicLock(); else hideLicLock();
+}
+function showLicLock() {
+  document.getElementById('llDev').textContent = window.FuleyLicense.getDeviceId();
+  document.getElementById('licLock').classList.add('on');
+}
+function hideLicLock() {
+  document.getElementById('licLock').classList.remove('on');
+}
+function openLicense() {
+  sheetMode = 'license';
+  var st = window.FuleyLicense.state();
+  var pct = st.status === 'licensed' ? 100 : Math.round((window.FuleyLicense.TRIAL_DAYS - st.daysLeft) / window.FuleyLicense.TRIAL_DAYS * 100);
+  document.getElementById('sheetSave').textContent = '激活';
+  document.getElementById('sheetTitle').textContent = '授权许可';
+  document.getElementById('sheetBody').innerHTML =
+    '<div class="lic-state' + (st.status === 'expired' ? ' locked' : '') + '">'
+    + '<div class="ls-t">' + (st.status === 'licensed' ? '已授权' : '试用期') + '<span>' + licStateText(st) + '</span></div>'
+    + '<div class="lic-bar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div>'
+    + '</div>'
+    + '<div class="field"><label>设备识别码（长按复制，发给作者获取激活码）</label>'
+    + '<div class="lic-dev">' + window.FuleyLicense.getDeviceId() + '</div></div>'
+    + '<div class="field"><label>激活码</label><input type="text" id="licInput" placeholder="FULEY-XXXX-XXXX-XXXX-XXXX" autocomplete="off"></div>'
+    + '<div class="hintbar" style="margin:0">激活后永久使用 · 试用 ' + window.FuleyLicense.TRIAL_DAYS + ' 天，到期将锁定功能</div>';
+  showSheet();
+}
+function activateLicense() {
+  var v = (document.getElementById('licInput').value || '').trim();
+  if (!v) { toast('请输入激活码'); return; }
+  window.FuleyLicense.activate(v).then(function (r) {
+    toast(r.msg);
+    if (r.ok) { hideLicLock(); renderLicenseState(); closeSheet(); }
+  });
+}
+function llActivate() {
+  var v = (document.getElementById('llCode').value || '').trim();
+  if (!v) { toast('请输入激活码'); return; }
+  window.FuleyLicense.activate(v).then(function (r) {
+    toast(r.msg);
+    if (r.ok) { hideLicLock(); renderLicenseState(); }
+  });
+}
+
+/* ---------- 我的页：导出 / 备份 / 恢复 / 账号 ---------- */
+var meUser = null;            // null = 未登录；{ account, name } = 已登录
+var ACCOUNT_KEY = 'fuley.account.v1';
+var SESSION_KEY = 'fuley.session.v1';
+var authMode = 'login';       // register | login
+function loadAccount() { return loadJSON(ACCOUNT_KEY, null); }
+function loadSession() { return loadJSON(SESSION_KEY, null); }
+function djb2(s) { var h = 5381; for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return ('00000000' + h.toString(16)).slice(-8); }
+function hashPass(p) {
+  var s = 'fuley.salt.' + p;
+  var c = window.crypto || (typeof crypto !== 'undefined' ? crypto : null);
+  if (c && c.subtle && c.subtle.digest) {
+    return c.subtle.digest('SHA-256', strBytes(s)).then(function (buf) {
+      return 's2:' + toHex(new Uint8Array(buf));
+    }, function () { return 's1:' + djb2(s); });
+  }
+  return Promise.resolve('s1:' + djb2(s));
+}
+function meAuth() {
+  if (meUser) { logout(); return; }
+  authMode = loadAccount() ? 'login' : 'register';
+  openAuthSheet();
+}
+function renderMe() {
+  document.getElementById('meUname').textContent = meUser ? meUser.name : '未登录';
+  document.getElementById('meUsub').textContent = meUser ? '账号 ' + meUser.account + ' · 数据仅保存在本机' : '注册账号后可多设备云端同步';
+  document.getElementById('meAuthBtn').textContent = meUser ? '登出' : (loadAccount() ? '登录' : '注册');
+  document.getElementById('meAvatar').textContent = meUser ? meUser.name.charAt(0) : '浮';
+}
+function openAuthSheet() {
+  var isReg = authMode === 'register';
+  sheetMode = 'auth';
+  document.getElementById('sheetSave').textContent = isReg ? '注册' : '登录';
+  document.getElementById('sheetTitle').textContent = isReg ? '注册浮乐账号' : '登录浮乐';
+  var body = '';
+  if (isReg) {
+    body += '<div class="field"><label>账号（3-20 位字母 / 数字 / 下划线）</label><input type="text" id="auAccount" maxlength="20" placeholder="如 fuley2026" autocomplete="off"></div>'
+      + '<div class="field"><label>昵称</label><input type="text" id="auName" maxlength="20" placeholder="怎么称呼你"></div>';
+  } else {
+    body += '<div class="field"><label>账号</label><input type="text" id="auAccount" maxlength="20" placeholder="请输入账号" autocomplete="off"></div>';
+  }
+  body += '<div class="field"><label>密码（至少 6 位）</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
+  if (isReg) {
+    body += '<div class="field"><label>确认密码</label><input type="password" id="auPass2" maxlength="32" placeholder="再输一次"></div>';
+  }
+  body += '<div class="field"><button class="btn ghost btn-block" onclick="authMode=\'' + (isReg ? 'login' : 'register') + '\';openAuthSheet()">'
+    + (isReg ? '已有账号？去登录' : '没有账号？去注册') + '</button></div>';
+  document.getElementById('sheetBody').innerHTML = body;
+  showSheet();
+}
+function doRegister() {
+  var account = (document.getElementById('auAccount').value || '').trim();
+  var name = (document.getElementById('auName').value || '').trim();
+  var p1 = document.getElementById('auPass').value || '';
+  var p2 = document.getElementById('auPass2').value || '';
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(account)) { toast('账号需 3-20 位字母 / 数字 / 下划线'); return; }
+  if (!name) { toast('请填写昵称'); return; }
+  if (p1.length < 6) { toast('密码至少 6 位'); return; }
+  if (p1 !== p2) { toast('两次密码不一致'); return; }
+  var exist = loadAccount();
+  if (exist && exist.account === account) { toast('该账号已注册，请直接登录'); authMode = 'login'; openAuthSheet(); return; }
+  hashPass(p1).then(function (h) {
+    var acc = { account: account, name: name, algo: h.slice(0, 2), hash: h.slice(3) };
+    saveJSON(ACCOUNT_KEY, acc);
+    saveJSON(SESSION_KEY, { account: account, name: name });
+    meUser = { account: account, name: name };
+    renderMe();
+    closeSheet();
+    toast('注册成功，已登录');
+  });
+}
+function doSignIn() {
+  var account = (document.getElementById('auAccount').value || '').trim();
+  var p1 = document.getElementById('auPass').value || '';
+  var acc = loadAccount();
+  if (!acc || acc.account !== account) { toast('账号不存在，请先注册'); return; }
+  hashPass(p1).then(function (h) {
+    if ((acc.algo + ':' + acc.hash) !== h && acc.hash !== h) { toast('密码不正确'); return; }
+    saveJSON(SESSION_KEY, { account: account, name: acc.name });
+    meUser = { account: account, name: acc.name };
+    renderMe();
+    closeSheet();
+    toast('登录成功');
+  });
+}
+function logout() {
+  meUser = null;
+  lsDel(SESSION_KEY);
+  renderMe();
+  toast('已退出登录');
+}
+function collectData() {
+  return {
+    app: 'fuley', version: 'v1.3.0', exportedAt: new Date().toISOString(),
+    plans: plans, signals: signals, notes: notes,
+    quiz: quizItems, panic: panicLv, cal: calCustom
+  };
+}
+function exportData() {
+  var data = collectData();
+  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'fuley-export-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  var cnt = plans.length + signals.length + notes.red.length + notes.green.length + notes.case.length;
+  toast('已导出 ' + cnt + ' 条数据');
+}
+function backupData() {
+  try {
+    lsSet('fuley_backup', JSON.stringify(collectData()));
+    document.getElementById('backupState').textContent = '刚刚已备份';
+    toast('备份成功，保存在本机');
+  } catch (e) {
+    toast('备份失败：' + e.message);
+  }
+}
+function pickRestoreFile() {
+  document.getElementById('restoreFile').click();
+}
+function restoreData(input) {
+  var f = input.files && input.files[0];
+  if (!f) return;
+  if (!window.confirm('恢复将用备份文件覆盖当前数据，确定继续？')) { input.value = ''; return; }
+  var r = new FileReader();
+  r.onload = function () {
+    try {
+      var d = JSON.parse(r.result);
+      if (!d || typeof d !== 'object') throw new Error('格式不符');
+      if (Array.isArray(d.plans)) { plans = d.plans; savePlans(); }
+      if (Array.isArray(d.signals)) { signals = d.signals; saveSignals(); }
+      if (d.notes && typeof d.notes === 'object') {
+        notes = { red: d.notes.red || [], green: d.notes.green || [], case: d.notes.case || [] };
+        saveNotes();
+      }
+      if (Array.isArray(d.quiz) && d.quiz.length) { quizItems = d.quiz; saveQuiz(); }
+      if (d.panic != null) { panicLv = Math.min(10, Math.max(0, Number(d.panic) || 0)); lsSet(PANIC_KEY, String(panicLv)); }
+      if (Array.isArray(d.cal)) { calCustom = d.cal; saveCalCustom(); }
+      renderPlans(); renderSignals(); renderNotes(); renderQuiz(); renderPanic(); renderCal();
+      var cnt = plans.length + signals.length + notes.red.length + notes.green.length + notes.case.length;
+      toast('恢复成功，共 ' + cnt + ' 条');
+    } catch (e) {
+      toast('备份文件无效，恢复失败');
+    }
+    input.value = '';
+  };
+  r.readAsText(f);
+}
+
+/* ---------- Toast ---------- */
+function toast(msg) {
+  var root = document.getElementById('toastRoot');
+  if (!root) { return; }
+  var t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  root.appendChild(t);
+  setTimeout(function () {
+    t.classList.add('out');
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 280);
+  }, 1800);
+}
+
+/* ---------- 启动 ---------- */
+(function init() {
+  applyTheme(lsGet(THEME_KEY) === 'dark' ? 'dark' : 'light');
+
+  // 授权（deviceId / 试用记录 / 到期锁定）
+  if (window.FuleyLicense) {
+    window.FuleyLicense.init();
+    renderLicenseState();
+  }
+
+  // 事件绑定
+  document.querySelectorAll('#tabbar .tab').forEach(function (t) {
+    t.addEventListener('click', function () { switchTab(t); });
+  });
+  document.getElementById('fab').addEventListener('click', openSheet);
+  document.getElementById('themeBtn').addEventListener('click', toggleTheme);
+  document.getElementById('refreshBtn').addEventListener('click', function () {
+    var b = this;
+    b.classList.add('spin');
+    refreshQuotes().then(function () { b.classList.remove('spin'); }, function () { b.classList.remove('spin'); });
+  });
+  document.getElementById('cfClose').addEventListener('click', closeChartFull);
+  document.getElementById('cfReset').addEventListener('click', resetChartFull);
+  document.getElementById('backdrop').addEventListener('click', closeSheet);
+  document.getElementById('restoreFile').addEventListener('change', function () { restoreData(this); });
+  document.getElementById('noteInput').addEventListener('input', function () {
+    document.getElementById('noteCount').textContent = this.value.length + ' / 500';
+  });
+
+  // 恢复登录会话
+  var s = loadSession();
+  if (s && s.account) meUser = s;
+
+  // 初始渲染
+  renderMe();
+  renderIndices();
+  renderPlans();
+  renderSignals();
+  renderNotes();
+  renderQuiz();
+  renderPanic();
+  renderCal();
+  if (curTab === 'signals') { renderQuiz(); }
+
+  // 定投通知重排（重启 / 数据恢复后）
+  if (hasLN()) {
+    ensureNotifyPermission().then(function () {
+      plans.forEach(function (p) { schedulePlanNotify(p); });
+    });
+  }
+
+  // 行情：立即拉一次 + 60s 自动刷新
+  refreshQuotes();
+  setInterval(refreshQuotes, 60000);
+
+  // Service Worker（PWA 离线可用；Capacitor 原生环境无 SW 时静默跳过）
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('sw.js').catch(function () { /*  ignore */ });
+  }
+})();
