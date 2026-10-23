@@ -675,6 +675,14 @@ input, select, textarea { font-family: inherit; }
 .mrow > svg { width: 17px; height: 17px; color: var(--sub); flex: none; }
 .mrow-l { flex: 1; font-size: 13.5px; font-weight: 600; }
 .mrow-v { font-size: 11px; color: var(--sub); text-align: right; }
+/* 语言切换 */
+.lang-seg { display: flex; gap: 6px; flex: none; }
+.lang-seg button {
+  border: 1.5px solid var(--line); background: var(--card); color: var(--sub);
+  border-radius: 9px; padding: 5px 11px; font-size: 12px; font-weight: 650; cursor: pointer;
+  font-family: inherit; line-height: 1.3;
+}
+.lang-seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* ---------- Toast ---------- */
 #toastRoot {
