@@ -1169,48 +1169,88 @@ function kwStageOf(name) {
   for (var i = 0; i < KW_STAGES.length; i++) if (KW_STAGES[i].name === name) return KW_STAGES[i];
   return KW_STAGES[0];
 }
-/* 五次长波：起止 + 四阶段（阶段年份为学术参考划分；第五波含预计段） */
+/* 长波划分：主流学术版本——第一波 1782—1845 / 第二波 1845—1892 / 第三波 1892—1948 /
+   第四波 1948—1991 / 第五波 1991—预测2035 / 第六波畅想（预测2035—） */
+var KW_CN = ['一', '二', '三', '四', '五', '六'];
 var KW_WAVES = [
-  { a: 1782, b: 1845, tech: '纺织机 · 蒸汽机', ev: '英国工业革命',
-    st: [[1782, 1802, '回升'], [1802, 1815, '繁荣'], [1815, 1835, '衰退'], [1835, 1845, '萧条']] },
-  { a: 1845, b: 1895, tech: '铁路 · 钢铁 · 煤炭', ev: '蒸汽铁路与重工业扩张',
-    st: [[1845, 1866, '回升'], [1866, 1872, '繁荣'], [1872, 1883, '衰退'], [1883, 1895, '萧条']] },
-  { a: 1895, b: 1945, tech: '电力 · 内燃机 · 化工', ev: '电气化与大生产时代',
-    st: [[1895, 1913, '回升'], [1913, 1920, '繁荣'], [1920, 1930, '衰退'], [1930, 1945, '萧条']] },
-  { a: 1945, b: 1991, tech: '石油 · 汽车 · 航空 · 电子', ev: '战后黄金三十年',
-    st: [[1945, 1966, '回升'], [1966, 1973, '繁荣'], [1973, 1982, '衰退'], [1982, 1991, '萧条']] },
-  { a: 1982, b: 2029, tech: '信息技术 · 互联网 · AI', ev: '信息化革命与智能化萌芽',
-    st: [[1982, 1991, '回升'], [1991, 2004, '繁荣'], [2004, 2015, '衰退'], [2015, 2025, '萧条'], [2025, 2029, '回升']] }
+  { a: 1782, b: 1845, name: '纺织和蒸汽周期', note: ['第一次工业革命', '确立英国霸主地位'], tech: '纺织机 · 蒸汽机',
+    st: [[1782, 1797, '回升'], [1797, 1817, '繁荣'], [1817, 1830, '衰退'], [1830, 1845, '萧条']] },
+  { a: 1845, b: 1892, name: '钢铁和铁路周期', note: ['第二次工业革命中', '德国、美国崛起'], tech: '铁路 · 钢铁 · 煤炭',
+    st: [[1845, 1857, '回升'], [1857, 1873, '繁荣'], [1873, 1882, '衰退'], [1882, 1892, '萧条']] },
+  { a: 1892, b: 1948, name: '电力和汽车周期', note: ['日本、苏联崛起'], tech: '电力 · 内燃机 · 化工',
+    st: [[1892, 1913, '回升'], [1913, 1929, '繁荣'], [1929, 1940, '衰退'], [1940, 1948, '萧条']] },
+  { a: 1948, b: 1991, name: '半导体、计算机周期', note: ['“亚洲四小龙”崛起'], tech: '石油 · 汽车 · 航空 · 电子',
+    st: [[1948, 1966, '回升'], [1966, 1980, '繁荣'], [1980, 1985, '衰退'], [1985, 1991, '萧条']] },
+  { a: 1991, b: 2035, name: '信息技术周期', note: ['处于萧条期'], tech: '信息技术 · 互联网 · AI', bPred: true,
+    st: [[1991, 2004, '回升'], [2004, 2015, '繁荣'], [2015, 2026, '衰退'], [2026, 2035, '萧条']] },
+  { a: 2035, b: 2050, name: '？周期', note: ['第六康波猜想'], tech: '新技术周期孕育中', future: true, open: true,
+    st: [[2035, 2042, '回升'], [2042, 2050, '繁荣']] }
 ];
 var KW_NOW = 2026;
-function kwTlSvg(now) {
-  var X0 = 1780, X1 = 2030, W = 340, PL = 36, PR = 8, Y0 = 20, RH = 24, GAP = 4;
-  function X(y) { return PL + (W - PL - PR) * (y - X0) / (X1 - X0); }
-  var H = Y0 + KW_WAVES.length * (RH + GAP) + 20;
-  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
-  KW_WAVES.forEach(function (w, i) {
-    var y = Y0 + i * (RH + GAP);
-    w.st.forEach(function (sg, j) {
-      var x0 = X(sg[0]), x1 = X(sg[1]);
-      var stg = kwStageOf(sg[2]);
-      var future = sg[0] >= 2025;
-      s += '<rect x="' + x0.toFixed(1) + '" y="' + y + '" width="' + Math.max(1, x1 - x0 - 1).toFixed(1) + '" height="' + RH + '" rx="4" fill="' + stg.color + '" opacity="' + (future ? .38 : .88) + '">' +
-        '<title>' + sg[2] + ' ' + sg[0] + '–' + sg[1] + '</title></rect>';
-      if (j === 0) {
-        s += '<text x="0" y="' + (y + RH / 2 + 3.5) + '" font-size="8.5" font-weight="700" fill="var(--sub)">' + w.a + '</text>';
+var KW_CURVE = '#4a7fd4'; // 曲线蓝：呼应经典康波图，与红涨绿跌语义区隔
+function kwStageAt(year) {
+  for (var i = 0; i < KW_WAVES.length; i++) {
+    var w = KW_WAVES[i];
+    if (year < w.a || year > w.b) continue;
+    for (var j = 0; j < w.st.length; j++) {
+      if (year < w.st[j][1] || j === w.st.length - 1) {
+        return { wave: i + 1, stage: w.st[j][2], from: w.st[j][0], to: w.st[j][1] };
       }
-    });
-    s += '<text x="' + W + '" y="' + (y + RH / 2 + 3.5) + '" text-anchor="end" font-size="8.5" font-weight="700" fill="var(--sub)">' + w.b + '</text>';
+    }
+  }
+  return { wave: 5, stage: '萧条', from: 2026, to: 2035 };
+}
+/* 波浪曲线：每波一个完整正弦周期（谷=萧条 → 峰=繁荣 → 谷），波间连续；第六波虚线畅想 */
+function kwTlSvg(now) {
+  var W = 680, H = 238, X0 = 1782, X1 = 2050, xL = 26, xR = 654;
+  var midY = 88, amp = 34, yTop = 48, yBot = 128;
+  function X(y) { return xL + (xR - xL) * (y - X0) / (X1 - X0); }
+  function wavePts(w) {
+    var pts = [];
+    for (var y = w.a; y <= w.b; y++) {
+      var t = (y - w.a) / (w.b - w.a);
+      pts.push(X(y).toFixed(1) + ',' + (midY + amp * Math.cos(2 * Math.PI * t)).toFixed(1));
+    }
+    return pts;
+  }
+  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg">';
+  // 顶部：各波名称
+  KW_WAVES.forEach(function (w) {
+    var mx = (X(w.a) + X(w.b)) / 2;
+    s += '<text x="' + mx.toFixed(1) + '" y="14" text-anchor="middle" font-size="10.5" font-weight="800" fill="var(--ink)">' + w.name + '</text>';
   });
-  // 当前年标记线
-  var nx = X(now);
-  s += '<line x1="' + nx.toFixed(1) + '" y1="' + (Y0 - 8) + '" x2="' + nx.toFixed(1) + '" y2="' + (H - 14) + '" stroke="var(--ink)" stroke-width="1.4" stroke-dasharray="3 2.5"/>';
-  s += '<text x="' + nx.toFixed(1) + '" y="' + (Y0 - 11) + '" text-anchor="middle" font-size="9" font-weight="800" fill="var(--ink)">今 ' + now + '</text>';
-  // 底部百年刻度
-  [1800, 1850, 1900, 1950, 2000].forEach(function (t) {
-    var tx = X(t);
-    s += '<line x1="' + tx.toFixed(1) + '" y1="' + (H - 13) + '" x2="' + tx.toFixed(1) + '" y2="' + (H - 9) + '" stroke="var(--sub)" stroke-width="1"/>';
-    s += '<text x="' + tx.toFixed(1) + '" y="' + (H - 1.5) + '" text-anchor="middle" font-size="8" font-weight="600" fill="var(--sub)">' + t + '</text>';
+  // 实线曲线：第一至第五波
+  var pts = [];
+  for (var i = 0; i < 5; i++) pts = pts.concat(wavePts(KW_WAVES[i]));
+  s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + KW_CURVE + '" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>';
+  // 第六波：虚线畅想
+  var p6 = wavePts(KW_WAVES[5]);
+  s += '<polyline points="' + p6.join(' ') + '" fill="none" stroke="' + KW_CURVE + '" stroke-width="2" stroke-dasharray="5 4" opacity=".55" stroke-linejoin="round"/>';
+  // 分波虚线
+  for (var i = 1; i < KW_WAVES.length; i++) {
+    var dx = X(KW_WAVES[i].a).toFixed(1);
+    s += '<line x1="' + dx + '" y1="' + yTop + '" x2="' + dx + '" y2="' + yBot + '" stroke="var(--line)" stroke-width="1" stroke-dasharray="3 3"/>';
+  }
+  // 当前年标记
+  var nx = X(now).toFixed(1);
+  s += '<line x1="' + nx + '" y1="' + (yTop - 2) + '" x2="' + nx + '" y2="' + (yBot + 2) + '" stroke="var(--ink)" stroke-width="1.3" stroke-dasharray="3 2.5"/>';
+  s += '<text x="' + nx + '" y="32" text-anchor="middle" font-size="9" font-weight="800" fill="var(--ink)">今 ' + now + '</text>';
+  // 底部：注释 + 康波编号年数 + 起止
+  KW_WAVES.forEach(function (w, i) {
+    var mx = (X(w.a) + X(w.b)) / 2;
+    var ny = 150;
+    (w.note || []).forEach(function (ln) {
+      s += '<text x="' + mx.toFixed(1) + '" y="' + ny + '" text-anchor="middle" font-size="8.5" fill="var(--sub)">' + ln + '</text>';
+      ny += 11;
+    });
+    if (w.future) {
+      s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">第六康波 · 畅想</text>';
+      s += '<text x="' + mx.toFixed(1) + '" y="189" text-anchor="middle" font-size="8" fill="var(--sub)">（预测 ' + w.a + ' – ）</text>';
+    } else {
+      s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">第' + KW_CN[i] + '康波 · ' + (w.b - w.a) + '年</text>';
+      var yr = w.bPred ? '（' + w.a + ' – 预测' + w.b + '年）' : '（' + w.a + ' – ' + w.b + '年）';
+      s += '<text x="' + mx.toFixed(1) + '" y="189" text-anchor="middle" font-size="8" fill="var(--sub)">' + yr + '</text>';
+    }
   });
   return s + '</svg>';
 }
@@ -1230,11 +1270,12 @@ function renderEconCycle() {
   var wh = '';
   KW_WAVES.forEach(function (w, i) {
     var cur = w.a <= KW_NOW && KW_NOW <= w.b;
-    wh += '<div class="kw-wave' + (cur ? ' cur' : '') + '">' +
+    var yr = w.a + ' – ' + (w.bPred ? '预测' + w.b : w.b);
+    wh += '<div class="kw-wave' + (cur ? ' cur' : '') + (w.future ? ' future' : '') + '">' +
       '<div class="kw-wave-l"><div class="kw-wave-i">' + (i + 1) + '</div></div>' +
-      '<div class="kw-wave-m"><div class="kw-wave-y">' + w.a + ' – ' + w.b + '</div>' +
-      '<div class="kw-wave-tech">' + w.tech + '</div></div>' +
-      '<div class="kw-wave-r"><div class="kw-wave-ev">' + w.ev + '</div>' +
+      '<div class="kw-wave-m"><div class="kw-wave-y">' + yr + '</div>' +
+      '<div class="kw-wave-tech">' + w.name + '</div></div>' +
+      '<div class="kw-wave-r"><div class="kw-wave-ev">' + w.note.join('') + '</div>' +
       '<div class="kw-wave-st">' + w.st.map(function (sg) { return sg[2] + ' ' + sg[0] + '–' + sg[1]; }).join(' · ') + '</div></div>' +
       '</div>';
   });
