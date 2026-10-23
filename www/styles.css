@@ -133,6 +133,62 @@ input, select, textarea { font-family: inherit; }
 
 .hintbar { font-size: 11px; color: var(--sub); text-align: center; padding: 4px 0 10px; line-height: 1.6; }
 
+/* ---------- 股票详情：指数切换 ---------- */
+.idx-tabs { display: flex; gap: 6px; margin: 2px 0 10px; }
+.idx-tabs .it {
+  flex: 1; min-width: 0; border: 1px solid transparent; border-radius: 12px;
+  background: var(--card); box-shadow: var(--shadow);
+  padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  color: var(--ink); font-family: inherit; cursor: pointer; transition: border-color .16s;
+}
+.idx-tabs .it.on { border-color: var(--accent); }
+.idx-tabs .it-n { font-size: 10.5px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.idx-tabs .it-p { font-size: 13px; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--ink); }
+.idx-tabs .it-c { font-size: 10.5px; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* ---------- 报价头部（大数字 + 已收盘） ---------- */
+.stk-hero { padding: 2px 2px 12px; }
+.stk-hero .sh-top { display: flex; align-items: baseline; gap: 7px; }
+.stk-hero .sh-n { font-size: 15px; font-weight: 800; color: var(--ink); }
+.stk-hero .sh-c { font-size: 11.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+.stk-hero .sh-p { font-size: 40px; font-weight: 800; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.5px; }
+.stk-hero .sh-d { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; }
+.stk-hero .sh-st { font-size: 11px; color: var(--sub); margin-top: 5px; }
+.up { color: var(--up); }
+.down { color: var(--down); }
+
+/* ---------- 周期切换（分时/五日/日K/…） ---------- */
+.stk-dims { display: flex; gap: 5px; margin-bottom: 8px; flex-wrap: nowrap; overflow-x: auto; }
+.stk-dims::-webkit-scrollbar { display: none; }
+.stk-dims button { flex: 0 0 auto; padding: 5px 11px; font-size: 12px; white-space: nowrap; }
+
+/* ---------- 主图 ---------- */
+.stk-chart { margin: 0 0 10px; }
+.stk-chart .spark { margin: 0; }
+.stk-chart .spark svg { display: block; width: 100%; height: auto; }
+.stk-chart .spark .grid { stroke: var(--line); stroke-width: 1; opacity: .6; }
+.stk-chart .spark .base { stroke: var(--sub); stroke-width: 1; stroke-dasharray: 3 4; opacity: .6; }
+.stk-chart .spark .area { opacity: .15; }
+.stk-chart .spark .line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.stk-chart .spark .dot { stroke: var(--card); stroke-width: 1.8; }
+.stk-chart .axis-l { font-size: 9.5px; fill: var(--sub); text-anchor: start; font-variant-numeric: tabular-nums; }
+.stk-chart .axis-r { font-size: 9.5px; fill: var(--sub); text-anchor: end; font-variant-numeric: tabular-nums; }
+.stk-chart .axis-r.up { fill: var(--up); }
+.stk-chart .axis-r.down { fill: var(--down); }
+.stk-chart .axis-l.base-txt, .stk-chart .axis-r.base-txt { opacity: .85; }
+.stk-axis { display: flex; justify-content: space-between; font-size: 10px; color: var(--sub); margin-top: 3px; font-variant-numeric: tabular-nums; }
+
+/* ---------- 九宫格统计 ---------- */
+.stk-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px;
+}
+.stk-grid .sg-cell {
+  background: var(--card); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 9px 6px; display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.stk-grid .sg-k { font-size: 10.5px; color: var(--sub); }
+.stk-grid .sg-v { font-size: 13px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
 /* ---------- 走势维度切换 ---------- */
 .dimseg { display: flex; gap: 6px; margin-bottom: 10px; }
 .dimseg button {
@@ -434,6 +490,21 @@ input, select, textarea { font-family: inherit; }
   width: 100%; border: none; border-radius: 14px; background: var(--chip); color: var(--ink);
   padding: 11px 0; font-size: 13px; font-weight: 650; cursor: pointer;
 }
+/* 加仓 / 减仓 子 tab */
+.dimseg.quiz-sub { margin-bottom: 10px; }
+/* 判定结果卡：≥8 分绿底、否则中性底 */
+.quiz-verdict {
+  display: none; border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
+  background: var(--card); box-shadow: var(--shadow); border-left: 4px solid var(--line);
+}
+.quiz-verdict.ok, .quiz-verdict.no { display: block; }
+.quiz-verdict .qr-t { font-size: 17px; font-weight: 800; letter-spacing: .2px; }
+.quiz-verdict .qr-s { font-size: 11.5px; color: var(--sub); margin-top: 3px; }
+.quiz-verdict .qr-s b { color: var(--ink); font-size: 13px; }
+.quiz-verdict.ok { border-left-color: var(--up); }
+.quiz-verdict.ok .qr-t { color: var(--up); }
+.quiz-verdict.no { border-left-color: var(--sub); }
+.quiz-verdict.no .qr-t { color: var(--sub); }
 
 /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
 .panic-pick { display: flex; gap: 4px; margin-bottom: 8px; }
@@ -476,6 +547,7 @@ input, select, textarea { font-family: inherit; }
 .lic-state.locked .ls-t span { color: var(--up); }
 .lic-bar { height: 7px; border-radius: 999px; background: var(--chip); overflow: hidden; margin-top: 9px; }
 .lic-bar i { display: block; height: 100%; border-radius: 999px; background: var(--down); }
+.lic-state .ls-d { font-size: 11.5px; color: var(--sub); margin-top: 7px; }
 .lic-state.locked .lic-bar i { background: var(--up); }
 .lic-dev {
   font-family: ui-monospace, Consolas, monospace; font-size: 13px; letter-spacing: 1px;
@@ -697,6 +769,49 @@ input, select, textarea { font-family: inherit; }
 .ll-f { font-size: 11px; color: var(--sub); margin-top: 14px; line-height: 1.6; }
 #licLock .field { text-align: left; }
 #licLock .btn { width: 100%; margin-top: 2px; padding: 11px 0; font-size: 14px; border-radius: 12px; }
+
+/* ---------- 首次打开注册门 ---------- */
+#regGate {
+  position: fixed; inset: 0; z-index: 95;
+  background: var(--bg);
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 24px; overflow-y: auto;
+}
+#regGate.on { display: flex; animation: fadein .25s ease; }
+.rl-card { width: min(340px, 100%); text-align: center; }
+.rl-logo {
+  width: 76px; height: 56px; border-radius: 17px; margin: 0 auto 14px;
+  background: linear-gradient(135deg, var(--accent), #e08a5b); color: #fff;
+  display: grid; place-items: center; font-size: 24px; font-weight: 800; letter-spacing: 2px;
+}
+#regGate .field { text-align: left; margin-top: 14px; }
+#regGate .field label { display: block; font-size: 12px; font-weight: 650; color: var(--sub); margin-bottom: 6px; }
+#regGate .btn { width: 100%; margin-top: 18px; }
+.rl-switch { margin-top: 14px; font-size: 12px; color: var(--sub); }
+.rl-switch a { color: var(--accent); font-weight: 700; cursor: pointer; }
+
+/* ---------- 试用提示（注册成功）/ 最后一周每日提醒 ---------- */
+.tn-mask {
+  position: fixed; inset: 0; z-index: 100;
+  background: rgba(15, 20, 30, .5);
+  display: none; align-items: center; justify-content: center;
+  padding: 28px;
+}
+.tn-mask.on { display: flex; animation: fadein .2s ease; }
+.tn-card {
+  width: min(300px, 100%);
+  background: var(--card); border-radius: 18px;
+  padding: 22px 20px 18px; text-align: center;
+  box-shadow: 0 14px 40px rgba(10, 15, 25, .25);
+  animation: pop .22s cubic-bezier(.32, .72, .35, 1);
+}
+.tn-t { font-size: 17px; font-weight: 800; }
+.tn-s { font-size: 12.5px; color: var(--sub); margin-top: 8px; line-height: 1.7; }
+.tn-s b { color: var(--accent); }
+.tn-btns { display: flex; gap: 10px; margin-top: 16px; }
+.tn-btns .btn { flex: 1; margin: 0; }
+@keyframes pop { from { transform: scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ---------- 桌面预览时手机框居中 ---------- */
 @media (min-width: 520px) {

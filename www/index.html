@@ -32,7 +32,7 @@
     <!-- ============ 走势页 ============ -->
     <section class="view active" id="view-home">
       <div class="ntabs plain" id="homeTabs">
-        <button class="on" data-pane="trend" onclick="homeTab(this)">走势</button>
+        <button class="on" data-pane="trend" onclick="homeTab(this)">股票</button>
         <button data-pane="cycle" onclick="homeTab(this)">周期</button>
         <button data-pane="gold" onclick="homeTab(this)">黄金</button>
         <button data-pane="vix" onclick="homeTab(this)">VIX</button>
@@ -40,13 +40,12 @@
       </div>
 
       <div id="trendPane">
-        <div id="idxList"></div>
-        <div class="dimseg" id="dimSeg">
-          <button class="on" data-dim="all" onclick="dimSeg(this)">全部至今</button>
-          <button data-dim="year" onclick="dimSeg(this)">近一年</button>
-          <button data-dim="min" onclick="dimSeg(this)">今日分时</button>
-        </div>
-        <div class="hintbar">行情每 60 秒自动刷新 · 曲线可拖动平移、滚轮/双指缩放、双击重置 · 点击曲线看全屏大图</div>
+        <div class="idx-tabs" id="idxTabs"></div>
+        <div class="stk-hero" id="stkHero"></div>
+        <div class="dimseg stk-dims" id="stkDims"></div>
+        <div class="stk-chart" id="stkChart"></div>
+        <div class="stk-grid" id="stkGrid"></div>
+        <div class="hintbar">行情每 60 秒自动刷新 · 曲线可左右拖动平移、滚轮缩放、双击重置、单击看全屏大图</div>
       </div>
 
       <div id="goldPane" style="display:none">
@@ -165,14 +164,19 @@
       </div>
 
       <div id="quizPane" style="display:none">
+        <div class="dimseg quiz-sub" id="quizSubTabs">
+          <button class="on" data-side="buy" onclick="quizSub(this)">加仓</button>
+          <button data-side="sell" onclick="quizSub(this)">减仓</button>
+        </div>
         <div class="quiz-head">
           <div class="qh-l">已完成 <b id="qDone">0</b> / <span id="qTotal">10</span></div>
           <div class="qbar"><i id="qFill"></i></div>
         </div>
+        <div class="quiz-verdict" id="quizVerdict"></div>
         <div id="quizList"></div>
         <button class="qadd" onclick="addQuizItem()">+ 自定义题目</button>
         <button class="qreset" onclick="resetQuiz()">重置，再来一轮</button>
-        <div class="hintbar">每笔操作前过一遍这十道题 · 全部打勾 = 纪律确认完成 · 可自定义题目，不限次数重做</div>
+        <div class="hintbar">加仓 / 减仓各十道题 · 打勾计分，得 8 分及以上判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」</div>
       </div>
 
       <div id="panicPane" style="display:none">
@@ -309,16 +313,39 @@
   </div>
 </div>
 
-<!-- 试用到期锁定遮罩 -->
+<!-- 到期锁定遮罩（试用到期 / 授权到期） -->
 <div id="licLock">
   <div class="ll-card">
     <div class="ll-logo">浮</div>
-    <div class="ll-t">试用期已结束</div>
-    <div class="ll-s">输入激活码继续使用浮乐 · 激活后永久有效</div>
+    <div class="ll-t" id="llTitle">试用期已结束</div>
+    <div class="ll-s" id="llSub">输入激活码继续使用浮乐 · 激活后授权 1 年</div>
     <div class="ll-dev"><label>设备识别码（长按复制，发给作者获取激活码）</label><div class="lic-dev" id="llDev"></div></div>
     <div class="field"><label>激活码</label><input type="text" id="llCode" placeholder="FULEY-XXXX-XXXX-XXXX-XXXX" autocomplete="off"></div>
     <button class="btn" id="llActivate" onclick="llActivate()">激活</button>
     <div class="ll-f">购买 / 咨询：联系作者获取激活码</div>
+  </div>
+</div>
+
+<!-- 首次打开注册门（无会话时阻塞，注册/登录后才能使用） -->
+<div id="regGate">
+  <div class="rl-card">
+    <div class="rl-logo">浮乐</div>
+    <div class="ll-t" id="rgTitle">欢迎使用浮乐</div>
+    <div class="ll-s" id="rgSub">注册账号后即可使用 · 数据仅保存在本机</div>
+    <div id="rgForm"></div>
+    <div class="rl-switch" id="rgSwitch"></div>
+  </div>
+</div>
+
+<!-- 试用提示（注册成功）/ 最后一周每日提醒 -->
+<div class="tn-mask" id="trialNotice">
+  <div class="tn-card">
+    <div class="tn-t" id="tnT">试用期 30 天</div>
+    <div class="tn-s" id="tnS"></div>
+    <div class="tn-btns">
+      <button class="btn btn-ghost" id="tnLater" style="display:none" onclick="closeTrialNotice()">以后再说</button>
+      <button class="btn" id="tnOk" onclick="tnOkAct()">知道了</button>
+    </div>
   </div>
 </div>
 

@@ -47,8 +47,18 @@ var INDICES = [
 ];
 var KL_KEY = { '标普500': 'usINX', '纳斯达克': 'usIXIC', '恒生指数': 'hkHSI', '上证指数': 'sh000001' };
 var QUOTE_CODE = { usINX: 'usINX', usIXIC: 'usIXIC', hkHSI: 'hkHSI', sh000001: 'sh000001' };
-var curDim = 'all';
+var curDim = 'min';
 var foldState = { usINX: false, usIXIC: false, hkHSI: true, sh000001: true }; // 恒生/上证默认收起
+/* 周期维度：分时 / 五日 / 日K / 周K / 月K / 季K / 年K / 更多 */
+var DIM_LIST = [
+  { dim: 'min', label: '分时' }, { dim: 'day5', label: '五日' }, { dim: 'day', label: '日K' },
+  { dim: 'week', label: '周K' }, { dim: 'month', label: '月K' }, { dim: 'quarter', label: '季K' },
+  { dim: 'yearK', label: '年K' }, { dim: 'all', label: '更多' }
+];
+function dimLabel(d) {
+  for (var i = 0; i < DIM_LIST.length; i++) if (DIM_LIST[i].dim === d) return DIM_LIST[i].label;
+  return d;
+}
 
 /* ---------- 主题 ---------- */
 var THEME_KEY = 'fuley.theme.v1';
@@ -69,7 +79,51 @@ function toggleTheme() {
 var MIN_WIN = 8;                    // 最小窗口（数据点数）
 var chartView = {};                 // "key|维度" -> {i0, i1}
 function vk(key) { return key + '|' + curDim; }
-function rawOf(key) { return IDX_KLINES[key][curDim]; }
+
+/* ---------- 序列：日/周/月/季/年 由日K、月K聚合得出（末值代表） ---------- */
+var _serCache = {};
+function weekKey(d) {
+  var dt = new Date(d.length === 7 ? d + '-01' : d);
+  var n = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+  var dayNum = n.getUTCDay() || 7;
+  n.setUTCDate(n.getUTCDate() + 4 - dayNum);                 // ISO 周：定周四
+  var y0 = new Date(Date.UTC(n.getUTCFullYear(), 0, 1));
+  var wk = Math.ceil(((n - y0) / 86400000 + 1) / 7);
+  return n.getUTCFullYear() + '-W' + wk;
+}
+function aggSeries(raw, mode) {
+  var out = [], curKey = null, lastV = null, lastLbl = '';
+  for (var i = 0; i < raw.length; i++) {
+    var p = raw[i], d = String(p[0]), v = p[1], k;
+    if (mode === 'week') k = weekKey(d);
+    else if (mode === 'quarter') k = d.slice(0, 4) + '-Q' + (Math.floor((parseInt(d.slice(5, 7), 10) - 1) / 3) + 1);
+    else k = d.slice(0, 4);                                   // year
+    if (k !== curKey) {
+      if (curKey !== null) out.push([lastLbl, lastV]);
+      curKey = k;
+      lastLbl = (mode === 'quarter' || mode === 'year') ? k : d.slice(5);
+    } else {
+      lastLbl = (mode === 'quarter' || mode === 'year') ? k : d.slice(5);
+    }
+    lastV = v;
+  }
+  if (curKey !== null) out.push([lastLbl, lastV]);
+  return out;
+}
+function seriesFor(key, dim) {
+  var d = IDX_KLINES[key];
+  if (!d) return [];
+  var daily = d.year || [], monthly = d.all || [];
+  if (dim === 'min') return d.min || [];
+  if (dim === 'day') return daily;
+  if (dim === 'day5') return daily.slice(-5);
+  if (dim === 'month') return monthly;
+  if (dim === 'week') return (_serCache[key + ':w'] || (_serCache[key + ':w'] = aggSeries(daily, 'week')));
+  if (dim === 'quarter') return (_serCache[key + ':q'] || (_serCache[key + ':q'] = aggSeries(monthly, 'quarter')));
+  if (dim === 'yearK') return (_serCache[key + ':y'] || (_serCache[key + ':y'] = aggSeries(monthly, 'year')));
+  return monthly;                                            // all / 更多
+}
+function rawOf(key) { return seriesFor(key, curDim); }
 function getWin(key) {
   var n = rawOf(key).length;
   var v = chartView[vk(key)];
@@ -107,9 +161,9 @@ function ixOf(key) {
 }
 function dimSeg(btn) {
   curDim = btn.getAttribute('data-dim');
-  document.querySelectorAll('#dimSeg button').forEach(function (b) { b.classList.remove('on'); });
-  btn.classList.add('on');
-  renderIndices();
+  if (document.getElementById('stkDims')) {
+    renderStkDims(); renderStkChart(); renderStkGrid();
+  }
 }
 function foldIdx(key) {
   foldState[key] = !foldState[key];
@@ -118,10 +172,18 @@ function foldIdx(key) {
 }
 function tLabel(key, idx) {
   var raw = rawOf(key), p = raw[idx];
-  if (Array.isArray(p)) return curDim === 'all' ? p[0] : p[0].slice(2);
-  var n = raw.length;
-  var mins = Math.round(570 + (idx / Math.max(1, n - 1)) * 330);   // 分时：09:30 - 15:00
-  return Math.floor(mins / 60) + ':' + String(mins % 60).padStart(2, '0');
+  if (!Array.isArray(p)) {
+    var n = raw.length;
+    var mins = Math.round(570 + (idx / Math.max(1, n - 1)) * 330);   // 分时：09:30 - 15:00
+    return Math.floor(mins / 60) + ':' + String(mins % 60).padStart(2, '0');
+  }
+  var s = p[0];
+  if (/^\d{4}$/.test(s)) return s;                    // 年K → 2026
+  if (/Q\d$/.test(s)) return s;                       // 季K → 2026-Q4
+  if (/^\d{4}-\d{2}$/.test(s)) return s.slice(2);     // 月K → 26-10
+  if (/^\d{2}-\d{2}$/.test(s)) return s;              // 周K/月内已是 MM-DD 短标签
+  if (s.length >= 10) return s.slice(5);              // 完整日期 YYYY-MM-DD → MM-DD
+  return s;                                  // 日K/周K → 10-23
 }
 function sparkGeom(key, w, h) {
   var ix = ixOf(key);
@@ -145,55 +207,143 @@ function sparkGeom(key, w, h) {
     zoom: zoom
   };
 }
-function renderIndices() {
-  var w = 320, h = 88;
+/* ---------- 股票详情页：指数切换 + 报价头部 + 周期 + 主图 + 九宫格统计 ---------- */
+var curIdxKey = 'sh000001';
+function fmtNum(v) {
+  return Math.abs(v) >= 1000
+    ? Number(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : Number(v).toFixed(2);
+}
+function pctOf(v, prev) { return (v - prev) / prev * 100; }
+function signedPct(p) { return (p >= 0 ? '+' : '−') + Math.abs(p).toFixed(2) + '%'; }
+function signedAbs(d) { return (d >= 0 ? '+' : '−') + Math.abs(d).toFixed(2); }
+function todayStr() {
+  var d = new Date();
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return (d.getMonth() + 1) + '-' + p(d.getDate());
+}
+/* 主图几何：面积线 + 昨收基准线 + 量程（昨收强制可见） */
+function stkGeom(key, w, h) {
+  var ix = ixOf(key);
+  var raw = rawOf(key), vp = getWin(key);
+  var vals = [], idxs = [];
+  for (var i = vp.i0; i <= vp.i1; i++) {
+    var p = raw[i];
+    vals.push(Array.isArray(p) ? p[1] : p);
+    idxs.push(i);
+  }
+  var prev = ix.prev;
+  var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals);
+  mn = Math.min(mn, prev); mx = Math.max(mx, prev);
+  var pad = (mx - mn || 1) * 0.14;
+  var lo = mn - pad, hi = mx + pad, rng = hi - lo;
+  var pts = vals.map(function (v, i) {
+    return (i / (vals.length - 1) * w).toFixed(1) + ',' + (h - (v - lo) / rng * h).toFixed(1);
+  });
+  var line = pts.join(' ');
+  return {
+    vals: vals, idxs: idxs, line: line, w: w, h: h, lo: lo, hi: hi, prev: prev, maxV: mx, minV: mn,
+    area: 'M0,' + h + ' L' + line.split(' ').join(' L') + ' L' + w + ',' + h + ' Z',
+    baseY: (h - (prev - lo) / rng * h).toFixed(1),
+    endPt: pts[pts.length - 1].split(','),
+    topPct: pctOf(hi, prev), botPct: pctOf(lo, prev)
+  };
+}
+function renderIdxTabs() {
   var html = '';
   INDICES.forEach(function (ix) {
     var key = KL_KEY[ix.name];
-    var raw = rawOf(key);
-    var vals = raw.map(function (p) { return Array.isArray(p) ? p[1] : p; });
-    var up = curDim === 'min' ? ix.up : (vals[vals.length - 1] >= vals[0]);
-    var g = sparkGeom(key, w, h);
-    var color = up ? 'var(--up)' : 'var(--down)';
-    var demo = IDX_KLINES[key].demo || curDim === 'min';
-    var chgPct = (ix.up ? '+' : '−') + Math.abs((ix.price - ix.prev) / ix.prev * 100).toFixed(2) + '%';
-    var chgAbs = (ix.up ? '+' : '−') + Math.abs(ix.price - ix.prev).toFixed(2);
-    var folded = foldState[key];
-    html += '<div class="idx-card' + (folded ? ' fold' : '') + '" id="ix-' + key + '">'
-      + '<div class="idx-head" onclick="foldIdx(\'' + key + '\')">'
-      + '<span class="idx-name">' + ix.name + '</span><span class="idx-code">' + ix.code + '</span>'
-      + (demo ? '<span class="demo-chip">演示</span>' : '')
-      + '<span class="idx-p ' + (ix.up ? 'up' : 'down') + '">' + ix.price.toFixed(2) + '</span>'
-      + '<span class="idx-c ' + (ix.up ? 'up' : 'down') + '">' + chgPct + '</span>'
-      + '<svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9.5 12 15.5 18 9.5"/></svg>'
-      + '</div>'
-      + '<div class="idx-body">'
-      + '<div class="idx-sub"><span>昨收 ' + ix.prev.toFixed(2) + '</span><span>' + chgAbs + '</span></div>'
-      + '<div class="spark draw"><svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">'
-      + (curDim === 'min' ? '<line class="base" x1="0" y1="' + g.baseY + '" x2="' + w + '" y2="' + g.baseY + '"/>' : '')
-      + '<path class="area" d="' + g.area + '" fill="' + color + '"/>'
-      + '<polyline class="line" points="' + g.line + '" stroke="' + color + '"/>'
-      + '<circle class="dot" cx="' + g.endPt[0] + '" cy="' + g.endPt[1] + '" r="2.6" fill="' + color + '"/>'
-      + '</svg></div>'
-      + '<div class="idx-foot"><span>' + g.rangeTxt + '</span><span>' + g.spanTxt + ' · ' + ix.tm + '</span></div>'
-      + '</div></div>';
+    var pct = pctOf(ix.price, ix.prev);
+    html += '<button class="it' + (key === curIdxKey ? ' on' : '') + '" onclick="pickIdx(\'' + key + '\')">'
+      + '<span class="it-n">' + ix.name + '</span>'
+      + '<span class="it-p ' + (ix.up ? 'up' : 'down') + '">' + fmtNum(ix.price) + '</span>'
+      + '<span class="it-c ' + (ix.up ? 'up' : 'down') + '">' + signedPct(pct) + '</span>'
+      + '</button>';
   });
-  document.getElementById('idxList').innerHTML = html;
+  document.getElementById('idxTabs').innerHTML = html;
 }
+function renderStkHero() {
+  var ix = ixOf(curIdxKey);
+  var d = ix.price - ix.prev, pct = pctOf(ix.price, ix.prev);
+  document.getElementById('stkHero').innerHTML =
+    '<div class="sh-top"><span class="sh-n">' + ix.name + '</span><span class="sh-c">' + ix.code + '</span></div>'
+    + '<div class="sh-p ' + (ix.up ? 'up' : 'down') + '">' + fmtNum(ix.price) + '</div>'
+    + '<div class="sh-d ' + (ix.up ? 'up' : 'down') + '">' + signedAbs(d) + '　' + signedPct(pct) + '</div>'
+    + '<div class="sh-st">已收盘 ' + todayStr() + ' ' + (ix.tm ? ix.tm + ':00' : '') + '</div>';
+}
+function renderStkDims() {
+  var html = '';
+  DIM_LIST.forEach(function (item) {
+    html += '<button class="' + (curDim === item.dim ? 'on' : '') + '" data-dim="' + item.dim
+      + '" onclick="dimSeg(this)">' + item.label + '</button>';
+  });
+  document.getElementById('stkDims').innerHTML = html;
+}
+function renderStkChart() {
+  var key = curIdxKey, w = 340, h = 176;
+  var g = stkGeom(key, w, h);
+  var last = g.vals[g.vals.length - 1];
+  var up = last >= g.prev;
+  var color = up ? 'var(--up)' : 'var(--down)';
+  var n = g.idxs.length;
+  var t0 = tLabel(key, g.idxs[0]);
+  var t1 = tLabel(key, g.idxs[n - 1]);
+  var tm = n > 2 ? tLabel(key, g.idxs[Math.floor(n / 2)]) : '';
+  document.getElementById('stkChart').innerHTML =
+    '<div class="spark"><svg viewBox="0 0 ' + w + ' ' + h + '">'
+    + '<line class="grid" x1="0" y1="1" x2="' + w + '" y2="1"/>'
+    + '<line class="grid" x1="0" y1="' + h + '" x2="' + w + '" y2="' + h + '"/>'
+    + '<text class="axis-l" x="2" y="12">' + fmtNum(g.hi) + '</text>'
+    + '<text class="axis-l base-txt" x="2" y="' + (Number(g.baseY) - 4).toFixed(1) + '">' + fmtNum(g.prev) + '</text>'
+    + '<text class="axis-l" x="2" y="' + (h - 4) + '">' + fmtNum(g.lo) + '</text>'
+    + '<text class="axis-r ' + (g.topPct >= 0 ? 'up' : 'down') + '" x="' + (w - 2) + '" y="12">' + signedPct(g.topPct) + '</text>'
+    + '<text class="axis-r base-txt" x="' + (w - 2) + '" y="' + (Number(g.baseY) - 4).toFixed(1) + '">0.00%</text>'
+    + '<text class="axis-r ' + (g.botPct >= 0 ? 'up' : 'down') + '" x="' + (w - 2) + '" y="' + (h - 4) + '">' + signedPct(g.botPct) + '</text>'
+    + '<line class="base" x1="0" y1="' + g.baseY + '" x2="' + w + '" y2="' + g.baseY + '"/>'
+    + '<path class="area" d="' + g.area + '" fill="' + color + '"/>'
+    + '<polyline class="line" points="' + g.line + '" stroke="' + color + '"/>'
+    + '<circle class="dot" cx="' + g.endPt[0] + '" cy="' + g.endPt[1] + '" r="3.2" fill="' + color + '"/>'
+    + '</svg></div>'
+    + '<div class="stk-axis"><span>' + t0 + '</span><span>' + tm + '</span><span>' + t1 + '</span></div>';
+}
+function renderStkGrid() {
+  var key = curIdxKey, ix = ixOf(key);
+  var g = stkGeom(key, 340, 176);
+  var last = g.vals[g.vals.length - 1], first = g.vals[0];
+  var sum = g.vals.reduce(function (a, b) { return a + b; }, 0);
+  var avg = sum / g.vals.length;
+  var amp = (g.maxV - g.minV) / g.prev * 100;
+  var cells = [
+    ['今开', fmtNum(first)],
+    ['昨收', fmtNum(g.prev)],
+    ['最新', fmtNum(last)],
+    ['最高', fmtNum(g.maxV)],
+    ['最低', fmtNum(g.minV)],
+    ['均价', fmtNum(avg)],
+    ['振幅', amp.toFixed(2) + '%'],
+    ['涨跌', signedPct(pctOf(last, g.prev))],
+    ['样本', g.vals.length + ' 点']
+  ];
+  var html = '';
+  cells.forEach(function (c) {
+    html += '<div class="sg-cell"><span class="sg-k">' + c[0] + '</span><span class="sg-v">' + c[1] + '</span></div>';
+  });
+  document.getElementById('stkGrid').innerHTML = html;
+}
+/* 保持旧调用点（refreshQuotes / init）可用 */
+function renderIndices() {
+  if (!document.getElementById('stkChart')) return;
+  renderIdxTabs(); renderStkHero(); renderStkDims(); renderStkChart(); renderStkGrid();
+}
+function pickIdx(key) {
+  curIdxKey = key;
+  resetWin(key);
+  renderIndices();
+}
+/* 手势/刷新时的增量重绘 */
 function redrawSpark(key) {
-  var el = document.getElementById('ix-' + key);
-  if (!el) return;
-  var g = sparkGeom(key, 320, 88);
-  var svg = el.querySelector('.spark svg');
-  if (!svg) return;
-  svg.querySelector('.area').setAttribute('d', g.area);
-  svg.querySelector('.line').setAttribute('points', g.line);
-  var dot = svg.querySelector('.dot');
-  dot.setAttribute('cx', g.endPt[0]); dot.setAttribute('cy', g.endPt[1]);
-  var base = svg.querySelector('.base');
-  if (base) { base.setAttribute('y1', g.baseY); base.setAttribute('y2', g.baseY); }
-  var foot = el.querySelector('.idx-foot');
-  if (foot) foot.innerHTML = '<span>' + g.rangeTxt + '</span><span>' + g.spanTxt + '</span>';
+  if (key !== curIdxKey) return;
+  renderStkChart(); renderStkGrid();
 }
 
 /* ---------- 行情拉取（腾讯 qt.gtimg.cn，60s 自动刷新） ---------- */
@@ -242,18 +392,16 @@ function refreshQuotes() {
 
 /* ---------- 卡片曲线手势：拖动平移 / 滚轮·双指缩放 / 双击重置 / 点击全屏 ---------- */
 (function () {
-  var list = document.getElementById('idxList');
+  var list = document.getElementById('stkChart');
   if (!list) return;
   var ptrs = {}, drag = null, pinch = null, suppressClick = false, clickTimer = null;
   function keyOf(e) {
     var sp = e.target.closest ? e.target.closest('.spark') : null;
-    if (!sp) return null;
-    var card = sp.closest('.idx-card');
-    return card ? card.id.replace('ix-', '') : null;
+    return sp ? curIdxKey : null;
   }
   function sparkRect(key) {
-    var card = document.getElementById('ix-' + key);
-    return card ? card.querySelector('.spark').getBoundingClientRect() : { left: 0, width: 1 };
+    var el = document.querySelector('#stkChart .spark');
+    return el ? el.getBoundingClientRect() : { left: 0, width: 1 };
   }
   list.addEventListener('pointerdown', function (e) {
     var key = keyOf(e); if (!key) return;
@@ -381,7 +529,7 @@ function renderChartFull() {
   document.getElementById('cfSvg').setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   document.getElementById('cfSvg').innerHTML = s;
   var zoom = (raw.length - 1) / Math.max(1, vp.i1 - vp.i0);
-  var dimTxt = curDim === 'min' ? '今日分时' : curDim === 'year' ? '近一年' : '全部至今';
+  var dimTxt = dimLabel(curDim);
   var hud = ix.name + ' · ' + dimTxt + ' · ' + tLabel(key, vp.i0) + ' ~ ' + tLabel(key, vp.i1)
     + ' · ' + (zoom > 1.05 ? zoom.toFixed(1) + 'x' : '1x')
     + ' · 区间 ' + fmtK(mn) + ' / ' + fmtK(mx);
@@ -493,6 +641,7 @@ var sheetMode = 'form';       // plan | signal | auth | quiz | calev | license
 var editPlanId = null;        // 非空 = 编辑中的定投
 var editSigId = null;         // 非空 = 编辑中的加减仓提醒
 var sheetDir = 1;             // 加减仓方向：1 加 / -1 减
+var sheetPeOp = 'lte';        // 市盈率条件方向：lte = ≤ / gte = ≥
 function openSheet() {
   if (curTab === 'home' && curHomePane === 'cal') { openCalEvent(); return; }
   if (curTab === 'signals' && curSigPane === 'quiz') { openQuizSheet(); return; }
@@ -652,6 +801,16 @@ var SIGNALS_KEY = 'fuley.signals.v1';
 var signals = loadJSON(SIGNALS_KEY, []);
 if (!Array.isArray(signals)) signals = [];
 function saveSignals() { saveJSON(SIGNALS_KEY, signals); }
+/* 市盈率（P/E）条件：附加在价格/定时之后显示，≤ 便宜 / ≥ 贵 */
+function sigCondText(s) {
+  var base = s.type === 'price'
+    ? (s.dir > 0 ? '涨到 ' : '跌到 ') + Number(s.price).toFixed(2)
+    : ('定时 ' + (s.time || ''));
+  if (s.peVal && s.peVal > 0) {
+    base += ' · P/E ' + (s.peOp === 'gte' ? '≥' : '≤') + ' ' + Number(s.peVal);
+  }
+  return base;
+}
 function findIndexByName(n) {
   var s = String(n || '').trim();
   for (var i = 0; i < INDICES.length; i++) {
@@ -668,9 +827,7 @@ function renderSignals() {
   }
   var html = '';
   signals.forEach(function (s) {
-    var cond = s.type === 'price'
-      ? (s.dir > 0 ? '涨到 ' : '跌到 ') + Number(s.price).toFixed(2)
-      : ('定时 ' + (s.time || ''));
+    var cond = sigCondText(s);
     var state = s.type === 'price' ? (s.fired ? '已触发' : '监控中') : (s.fired ? '已提醒' : '待提醒');
     html += '<div class="lrow" onclick="editSignal(\'' + s.id + '\')">'
       + '<div class="dirchip ' + (s.dir > 0 ? 'up' : 'down') + '">' + (s.dir > 0 ? '加' : '减') + '</div>'
@@ -684,6 +841,8 @@ function openSignalForm() {
   var s = editSigId ? signals.filter(function (x) { return x.id === editSigId; })[0] : null;
   sheetMode = 'signal';
   sheetDir = s ? s.dir : 1;
+  var peOpSel = s ? (s.peOp || 'lte') : 'lte';   // lte=≤ / gte=≥
+  sheetPeOp = peOpSel;
   document.getElementById('sheetSave').textContent = s ? '保存' : '添加';
   document.getElementById('sheetTitle').textContent = s ? '编辑加减仓提醒' : '添加加减仓提醒';
   var body = '';
@@ -696,10 +855,23 @@ function openSignalForm() {
     + '<option value="price"' + (s && s.type === 'price' ? ' selected' : '') + '>价格触发</option>'
     + '<option value="time"' + (s && s.type === 'time' ? ' selected' : '') + '>定时提醒</option></select></div>'
     + '<div class="field"><label>触发价（价格触发时填写）</label><input type="number" id="sfPrice" min="0" step="0.01" placeholder="如 205.00" value="' + (s ? s.price : '') + '"></div>'
+    + '<div class="field"><label>市盈率 P/E 条件（可选，显示在价格后）</label>'
+    + '<div class="seg" id="peSeg" style="margin-bottom:7px">'
+    + '<button class="' + (peOpSel === 'lte' ? 'on' : '') + '" onclick="segPeOp(this,0)">≤ 低于</button>'
+    + '<button class="' + (peOpSel === 'gte' ? 'on' : '') + '" onclick="segPeOp(this,1)">≥ 高于</button></div>'
+    + '<input type="number" id="sfPe" min="0" step="0.1" placeholder="如 12（留空 = 不限市盈率）" value="' + (s && s.peVal ? s.peVal : '') + '">'
+    + '</div>'
     + '<div class="field"><label>定时（定时提醒时填写）</label><input type="text" id="sfTime" maxlength="30" placeholder="如 每周五 14:30" value="' + esc(s ? s.time : '') + '"></div>'
-    + '<div class="hintbar" style="margin:0">价格触发盯四大指数实时行情 · 命名需与指数一致（标普500 / 纳斯达克 / 恒生指数 / 上证指数）</div>';
+    + '<div class="hintbar" style="margin:0">价格触发盯四大指数实时行情 · 命名需与指数一致（标普500 / 纳斯达克 / 恒生指数 / 上证指数）· P/E 条件记录在提醒中，触发时一并提示</div>';
   document.getElementById('sheetBody').innerHTML = body;
   showSheet();
+}
+/* 市盈率比较方向：0 = ≤ 低于（便宜） / 1 = ≥ 高于（贵） */
+function segPeOp(btn, op) {
+  sheetPeOp = op === 1 ? 'gte' : 'lte';
+  var box = document.getElementById('peSeg');
+  if (box) box.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
 }
 function segDir(btn, dir) {
   sheetDir = dir;
@@ -719,6 +891,7 @@ function saveSignalForm() {
   var type = document.getElementById('sfType').value || 'price';
   var price = Number(document.getElementById('sfPrice').value || 0);
   var time = (document.getElementById('sfTime').value || '').trim();
+  var peVal = Number(document.getElementById('sfPe').value || 0);
   if (!name) { toast('请填写标的名称'); return; }
   if (type === 'price' && !(price > 0)) { toast('请填写触发价'); return; }
   if (type === 'time' && !time) { toast('请填写定时'); return; }
@@ -727,6 +900,8 @@ function saveSignalForm() {
   if (!s) { s = { id: genId() }; signals.push(s); }
   s.name = name; s.type = type; s.dir = sheetDir;
   s.price = price; s.time = time; s.fired = false;
+  s.peOp = (peVal > 0) ? sheetPeOp : '';
+  s.peVal = (peVal > 0) ? peVal : 0;
   saveSignals();
   renderSignals();
   checkSignalTriggers();
@@ -746,8 +921,11 @@ function checkSignalTriggers() {
       saveSignals();
       renderSignals();
       var label = (s.dir > 0 ? '加仓' : '减仓') + '提醒';
-      pushNotify(label, s.name + ' 已到 ' + p.toFixed(2) + '（目标 ' + Number(s.price).toFixed(2) + '）', nid('sig', s.id));
-      toast(s.name + ' 触发' + label);
+      var peTxt = (s.peVal > 0)
+        ? '　市盈率 ' + (s.peOp === 'gte' ? '≥' : '≤') + ' ' + Number(s.peVal)
+        : '';
+      pushNotify(label, s.name + ' 已到 ' + p.toFixed(2) + '（目标 ' + Number(s.price).toFixed(2) + '）' + peTxt, nid('sig', s.id));
+      toast(s.name + ' 触发' + label + peTxt);
     }
   });
 }
@@ -819,29 +997,62 @@ function delNote(kind, i) {
   toast('已删除');
 }
 
-/* ---------- 加减仓条件：十题打勾（可自定义 / 可重置 / 不限次数） ---------- */
-var QUIZ_KEY = 'fuley_quiz_v1';
-var QUIZ_DEFAULT = [
+/* ---------- 加减仓条件：加仓 / 减仓两套十题，得分 ≥ 8（含）得出结论 ---------- */
+var QUIZ_BUY_KEY = 'fuley_quiz_buy_v1';
+var QUIZ_SELL_KEY = 'fuley_quiz_sell_v1';
+var QUIZ_BUY_DEFAULT = [
   '这笔操作在计划名单内，不是临时起意？',
-  '触发条件（价格 / 时间）已确认满足？',
+  '加仓触发条件（价格 / 市盈率 / 时间）已确认满足？',
   '加仓后单一标的仓位仍不超过总仓位 20%？',
   '应急金与日常开支不受这笔钱影响？',
   '投入的资金 3 年内不需要动用？',
-  '减仓已写明理由（估值过高 / 逻辑破坏 / 再平衡）？',
+  '当前估值相对历史分位仍处于偏低区间？',
   '若反向波动 10%，能按原计划执行、不情绪化操作？',
   '没有陷入「这次不一样」的追高叙事？',
   '金额与计划比例一致，没有被情绪放大？',
   '这笔操作敢不敢被未来的自己复盘？'
 ];
-var quizItems = (function () {
-  var a = loadJSON(QUIZ_KEY, null);
+var QUIZ_SELL_DEFAULT = [
+  '这笔卖出在计划名单内，不是临时起意？',
+  '减仓触发条件（价格 / 市盈率 / 时间）已确认满足？',
+  '卖出理由属于计划内动作（估值过高 / 逻辑破坏 / 再平衡）？',
+  '卖出后现有持仓仍能覆盖原定的配置目标？',
+  '不依赖这笔资金应付已知的近期开支？',
+  '当前估值相对历史分位已进入偏高区间？',
+  '若继续上涨 10%，不会因为卖飞而追回？',
+  '没有陷入「再等等能卖更高」的贪婪叙事？',
+  '卖出比例与计划一致，没有被情绪放大？',
+  '这笔操作敢不敢被未来的自己复盘？'
+];
+var curQuizSide = 'buy';                 // buy = 加仓 / sell = 减仓
+function quizKey() { return curQuizSide === 'sell' ? QUIZ_SELL_KEY : QUIZ_BUY_KEY; }
+function quizItemsFor(side) { return side === 'sell' ? quizSellItems : quizItems; }
+function loadQuizSide(key, defaults) {
+  var a = loadJSON(key, null);
   if (Array.isArray(a) && a.length && a.every(function (q) { return q && typeof q.text === 'string'; })) return a;
-  return QUIZ_DEFAULT.map(function (t) { return { text: t, done: false }; });
-})();
-function saveQuiz() { saveJSON(QUIZ_KEY, quizItems); }
+  return defaults.map(function (t) { return { text: t, done: false }; });
+}
+var quizItems = loadQuizSide(QUIZ_BUY_KEY, QUIZ_BUY_DEFAULT);        // 加仓十题
+var quizSellItems = loadQuizSide(QUIZ_SELL_KEY, QUIZ_SELL_DEFAULT);  // 减仓十题
+function saveQuiz() { saveJSON(quizKey(), quizItemsFor(curQuizSide)); }
+function quizPassLine(items) { return Math.ceil(items.length * 0.8); }   // 10 题 → 8 分通过
+function renderQuizVerdict(items) {
+  var box = document.getElementById('quizVerdict');
+  if (!box) return;
+  var score = items.filter(function (q) { return q.done; }).length;
+  var line = quizPassLine(items);
+  var pass = items.length > 0 && score >= line;
+  var sideTxt = curQuizSide === 'sell' ? '减仓' : '加仓';
+  var resTxt = pass ? sideTxt : '不建议' + sideTxt;
+  var sub = '得分 <b>' + score + '</b> / ' + items.length + ' · 通过线 ' + line + ' 分　'
+    + (pass ? '纪律确认达标' : '未达标，暂缓操作');
+  box.className = 'quiz-verdict' + (pass ? ' ok' : ' no');
+  box.innerHTML = '<div class="qr-t">' + resTxt + '</div><div class="qr-s">' + sub + '</div>';
+}
 function renderQuiz() {
+  var items = quizItemsFor(curQuizSide);
   var html = '';
-  quizItems.forEach(function (q, i) {
+  items.forEach(function (q, i) {
     html += '<div class="qrow' + (q.done ? ' done' : '') + '" onclick="toggleQ(' + i + ')">'
       + '<span class="qno">' + (i + 1) + '</span>'
       + '<button class="qcheck" aria-label="打勾"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 10 18 19.5 6.5"/></svg></button>'
@@ -851,29 +1062,40 @@ function renderQuiz() {
   });
   document.getElementById('quizList').innerHTML = html;
   document.querySelectorAll('#quizList .qrow').forEach(function (row, i) {
-    row.querySelector('.qtext').textContent = quizItems[i].text;
+    row.querySelector('.qtext').textContent = items[i].text;
   });
-  var done = quizItems.filter(function (q) { return q.done; }).length;
+  var done = items.filter(function (q) { return q.done; }).length;
   document.getElementById('qDone').textContent = done;
-  document.getElementById('qTotal').textContent = quizItems.length;
-  document.getElementById('qFill').style.width = (quizItems.length ? done / quizItems.length * 100 : 0) + '%';
+  document.getElementById('qTotal').textContent = items.length;
+  document.getElementById('qFill').style.width = (items.length ? done / items.length * 100 : 0) + '%';
+  renderQuizVerdict(items);
+}
+/* 子 tab 切换：加仓 / 减仓 各一套十题 */
+function quizSub(btn) {
+  curQuizSide = btn.getAttribute('data-side') === 'sell' ? 'sell' : 'buy';
+  document.querySelectorAll('#quizSubTabs button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderQuiz();
 }
 function toggleQ(i) {
-  quizItems[i].done = !quizItems[i].done;
+  var items = quizItemsFor(curQuizSide);
+  items[i].done = !items[i].done;
   saveQuiz();
   renderQuiz();
-  if (quizItems.length && quizItems.every(function (q) { return q.done; })) {
-    toast('全部完成，纪律确认通过');
+  if (items.length && items.every(function (q) { return q.done; })) {
+    toast('十题全部完成，纪律确认通过');
   }
 }
 function resetQuiz() {
-  quizItems.forEach(function (q) { q.done = false; });
+  var items = quizItemsFor(curQuizSide);
+  items.forEach(function (q) { q.done = false; });
   saveQuiz();
   renderQuiz();
-  toast('已重置，可以再来一轮');
+  toast((curQuizSide === 'sell' ? '减仓' : '加仓') + '题已重置，可以再来一轮');
 }
 function delQuizItem(i) {
-  quizItems.splice(i, 1);
+  var items = quizItemsFor(curQuizSide);
+  items.splice(i, 1);
   saveQuiz();
   renderQuiz();
   toast('已删除该题');
@@ -882,21 +1104,22 @@ function addQuizItem() { openQuizSheet(); }
 function openQuizSheet() {
   sheetMode = 'quiz';
   document.getElementById('sheetSave').textContent = '添加';
-  document.getElementById('sheetTitle').textContent = '自定义题目';
+  document.getElementById('sheetTitle').textContent = curQuizSide === 'sell' ? '自定义减仓题目' : '自定义加仓题目';
   document.getElementById('sheetBody').innerHTML =
     '<div class="field"><label>题目内容</label><textarea id="quizInput" rows="2" maxlength="80" placeholder="如：是否设置了这笔操作的止损价？"></textarea></div>'
-    + '<div class="hintbar" style="margin:0">题目会追加到加减仓条件列表，可随时删除</div>';
+    + '<div class="hintbar" style="margin:0">题目会追加到当前（' + (curQuizSide === 'sell' ? '减仓' : '加仓') + '）条件列表，可随时删除</div>';
   showSheet();
 }
 function addQuizFromSheet() {
   var ta = document.getElementById('quizInput');
   var v = (ta.value || '').trim();
   if (!v) { toast('请先输入题目内容'); return; }
-  quizItems.push({ text: v, done: false });
+  var items = quizItemsFor(curQuizSide);
+  items.push({ text: v, done: false });
   saveQuiz();
   renderQuiz();
   closeSheet();
-  toast('已添加第 ' + quizItems.length + ' 题');
+  toast('已添加第 ' + items.length + ' 题');
 }
 var curSigPane = 'sig';
 function sigTab(btn) {
@@ -1724,11 +1947,11 @@ function delCalEvent(i) {
   toast('已删除');
 }
 
-/* ---------- 授权许可（试用一个月 / 激活码） ---------- */
+/* ---------- 授权许可（试用期 / 一年期授权） ---------- */
 function licStateText(st) {
-  if (st.status === 'licensed') return '已授权 · 永久';
+  if (st.status === 'licensed') return '已授权 · 剩 ' + st.daysLeft + ' 天';
   if (st.status === 'trial') return '试用中 · 剩 ' + st.daysLeft + ' 天';
-  return '已过期 · 点击激活';
+  return '已过期 · 点击续签';
 }
 function renderLicenseState() {
   var row = document.getElementById('licState');
@@ -1737,7 +1960,13 @@ function renderLicenseState() {
   if (st.status === 'expired') showLicLock(); else hideLicLock();
 }
 function showLicLock() {
+  var st = window.FuleyLicense.state();
   document.getElementById('llDev').textContent = window.FuleyLicense.getDeviceId();
+  var t = document.getElementById('llTitle');
+  var s = document.getElementById('llSub');
+  if (t) t.textContent = (st.trial ? '试用期已结束' : '授权已到期');
+  if (s) s.textContent = (st.trial ? '输入激活码继续使用浮乐 · 激活后授权 1 年'
+    : '一年一签，请续签后继续使用（' + (st.expireDate || '') + ' 已到期）');
   document.getElementById('licLock').classList.add('on');
 }
 function hideLicLock() {
@@ -1746,18 +1975,20 @@ function hideLicLock() {
 function openLicense() {
   sheetMode = 'license';
   var st = window.FuleyLicense.state();
-  var pct = st.status === 'licensed' ? 100 : Math.round((window.FuleyLicense.TRIAL_DAYS - st.daysLeft) / window.FuleyLicense.TRIAL_DAYS * 100);
+  var totalDays = (st.status === 'trial') ? window.FuleyLicense.TRIAL_DAYS : window.FuleyLicense.LIC_DAYS;
+  var pct = Math.round((totalDays - st.daysLeft) / totalDays * 100);
   document.getElementById('sheetSave').textContent = '激活';
   document.getElementById('sheetTitle').textContent = '授权许可';
   document.getElementById('sheetBody').innerHTML =
     '<div class="lic-state' + (st.status === 'expired' ? ' locked' : '') + '">'
-    + '<div class="ls-t">' + (st.status === 'licensed' ? '已授权' : '试用期') + '<span>' + licStateText(st) + '</span></div>'
+    + '<div class="ls-t">' + (st.status === 'trial' ? '试用期' : '正式授权') + '<span>' + licStateText(st) + '</span></div>'
     + '<div class="lic-bar"><i style="width:' + Math.max(0, Math.min(100, pct)) + '%"></i></div>'
+    + '<div class="ls-d">' + (st.expireDate ? '到期日 ' + st.expireDate : '') + '</div>'
     + '</div>'
     + '<div class="field"><label>设备识别码（长按复制，发给作者获取激活码）</label>'
     + '<div class="lic-dev">' + window.FuleyLicense.getDeviceId() + '</div></div>'
     + '<div class="field"><label>激活码</label><input type="text" id="licInput" placeholder="FULEY-XXXX-XXXX-XXXX-XXXX" autocomplete="off"></div>'
-    + '<div class="hintbar" style="margin:0">激活后永久使用 · 试用 ' + window.FuleyLicense.TRIAL_DAYS + ' 天，到期将锁定功能</div>';
+    + '<div class="hintbar" style="margin:0">激活即授权 1 年（一年一签）· 到期前 15 天会提醒续签</div>';
   showSheet();
 }
 function activateLicense() {
@@ -1818,7 +2049,7 @@ function openAuthSheet() {
   } else {
     body += '<div class="field"><label>账号</label><input type="text" id="auAccount" maxlength="20" placeholder="请输入账号" autocomplete="off"></div>';
   }
-  body += '<div class="field"><label>密码（至少 6 位）</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
+  body += '<div class="field"><label>密码（6-32 位，仅字母 / 数字）</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
   if (isReg) {
     body += '<div class="field"><label>确认密码</label><input type="password" id="auPass2" maxlength="32" placeholder="再输一次"></div>';
   }
@@ -1834,7 +2065,7 @@ function doRegister() {
   var p2 = document.getElementById('auPass2').value || '';
   if (!/^[a-zA-Z0-9_]{3,20}$/.test(account)) { toast('账号需 3-20 位字母 / 数字 / 下划线'); return; }
   if (!name) { toast('请填写昵称'); return; }
-  if (p1.length < 6) { toast('密码至少 6 位'); return; }
+  if (!/^[a-zA-Z0-9]{6,32}$/.test(p1)) { toast('密码需 6-32 位，仅含字母和数字'); return; }
   if (p1 !== p2) { toast('两次密码不一致'); return; }
   var exist = loadAccount();
   if (exist && exist.account === account) { toast('该账号已注册，请直接登录'); authMode = 'login'; openAuthSheet(); return; }
@@ -1846,6 +2077,8 @@ function doRegister() {
     renderMe();
     closeSheet();
     toast('注册成功，已登录');
+    hideRegGate();
+    showTrialWelcome();
   });
 }
 function doSignIn() {
@@ -1860,6 +2093,7 @@ function doSignIn() {
     renderMe();
     closeSheet();
     toast('登录成功');
+    hideRegGate();
   });
 }
 function logout() {
@@ -1867,6 +2101,85 @@ function logout() {
   lsDel(SESSION_KEY);
   renderMe();
   toast('已退出登录');
+}
+
+/* ---------- 首次打开注册门 + 试用提示 + 最后一周每日提醒 ---------- */
+var TRIAL_NOTICE_KEY = 'fuley.trialNotice.v1';
+var tnActivateFlag = false;
+function licState() {
+  if (window.FuleyLicense && window.FuleyLicense.state) return window.FuleyLicense.state();
+  return { status: 'trial', daysLeft: 27, expireDate: '', trial: true, licensed: false, valid: true };   // license.js 缺失时的兜底（仅模型）
+}
+function todayKey() { var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function showRegGate() {
+  authMode = loadAccount() ? 'login' : 'register';
+  renderRegGate();
+  var tb = document.getElementById('topbar');
+  if (tb) tb.style.display = 'none';   // 登录页不显示顶栏
+  document.getElementById('regGate').classList.add('on');
+}
+function hideRegGate() {
+  document.getElementById('regGate').classList.remove('on');
+  var tb = document.getElementById('topbar');
+  if (tb) tb.style.display = '';   // 恢复顶栏
+}
+function renderRegGate() {
+  var isReg = authMode === 'register';
+  document.getElementById('rgTitle').textContent = isReg ? '欢迎使用浮乐' : '登录浮乐';
+  document.getElementById('rgSub').textContent = isReg ? '注册账号后即可使用 · 数据仅保存在本机' : '欢迎回来，登录后继续使用';
+  var f = '';
+  if (isReg) {
+    f += '<div class="field"><label>账号（3-20 位字母 / 数字 / 下划线）</label><input type="text" id="auAccount" maxlength="20" placeholder="如 fuley2026" autocomplete="off"></div>'
+      + '<div class="field"><label>昵称</label><input type="text" id="auName" maxlength="20" placeholder="怎么称呼你"></div>';
+  } else {
+    f += '<div class="field"><label>账号</label><input type="text" id="auAccount" maxlength="20" placeholder="请输入账号" autocomplete="off"></div>';
+  }
+  f += '<div class="field"><label>密码（6-32 位，仅字母 / 数字）</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
+  if (isReg) f += '<div class="field"><label>确认密码</label><input type="password" id="auPass2" maxlength="32" placeholder="再输一次"></div>';
+  f += '<button class="btn" onclick="rgSubmit()">' + (isReg ? '注册并开始' : '登录') + '</button>';
+  document.getElementById('rgForm').innerHTML = f;
+  document.getElementById('rgSwitch').innerHTML = isReg
+    ? '已有账号？<a onclick="authMode=\'login\';renderRegGate()">去登录</a>'
+    : '没有账号？<a onclick="authMode=\'register\';renderRegGate()">去注册</a>';
+}
+function rgSubmit() { if (authMode === 'register') doRegister(); else doSignIn(); }
+function showTrialNotice(opt) {
+  opt = opt || {};
+  document.getElementById('tnT').textContent = opt.title || '试用期 30 天';
+  document.getElementById('tnS').innerHTML = opt.body || '注册成功，欢迎加入浮乐！<br>当前为试用版，有效期 30 天，功能全部开放；到期后输入激活码可授权使用 1 年。';
+  document.getElementById('tnLater').style.display = opt.later ? '' : 'none';
+  document.getElementById('tnOk').textContent = opt.okText || '知道了';
+  document.getElementById('trialNotice').classList.add('on');
+}
+function closeTrialNotice() { document.getElementById('trialNotice').classList.remove('on'); }
+function tnOkAct() {
+  closeTrialNotice();
+  if (tnActivateFlag) { tnActivateFlag = false; openLicense(); }
+}
+function showTrialWelcome() { tnActivateFlag = false; showTrialNotice({}); }
+/* 授权到期提醒：试用剩 ≤7 天、或正式授权剩 ≤15 天，每天提醒一次（按自然日去重） */
+function checkTrialDaily() {
+  var st = licState();
+  if (!st || st.daysLeft <= 0) return;
+  var isTrial = st.status === 'trial';
+  var warnDays = (window.FuleyLicense && window.FuleyLicense.WARN_DAYS) || 15;
+  if (isTrial ? st.daysLeft > 7 : st.daysLeft > warnDays) return;
+  if (loadJSON(TRIAL_NOTICE_KEY, '') === todayKey()) return;
+  saveJSON(TRIAL_NOTICE_KEY, todayKey());
+  tnActivateFlag = true;
+  if (isTrial) {
+    showTrialNotice({
+      title: '试用期剩余 ' + st.daysLeft + ' 天',
+      body: '试用期还剩 <b>' + st.daysLeft + ' 天</b>，到期后将锁定功能。<br>在「我的 - 授权许可」发送设备识别码给作者，获取激活码激活后使用 1 年。',
+      okText: '去激活', later: true
+    });
+  } else {
+    showTrialNotice({
+      title: '授权还有 ' + st.daysLeft + ' 天到期',
+      body: '当前授权将于 <b>' + (st.expireDate || '') + '</b> 到期，还剩 <b>' + st.daysLeft + ' 天</b>。<br>一年一签，请及时续签以免功能被锁定。',
+      okText: '去续签', later: true
+    });
+  }
 }
 function collectData() {
   return {
@@ -1972,9 +2285,10 @@ function toast(msg) {
     document.getElementById('noteCount').textContent = this.value.length + ' / 500';
   });
 
-  // 恢复登录会话
+  // 恢复登录会话：无会话 → 首次打开注册门（阻塞）；有会话 → 试用最后一周每日提醒
   var s = loadSession();
-  if (s && s.account) meUser = s;
+  if (s && s.account) { meUser = s; checkTrialDaily(); } else { showRegGate(); }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) checkTrialDaily(); });
 
   // 初始渲染
   renderMe();
