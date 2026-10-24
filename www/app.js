@@ -2038,7 +2038,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.4.1';
+var APP_VERSION = 'v1.4.2';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
