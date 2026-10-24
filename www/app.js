@@ -2038,7 +2038,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.4.0';
+var APP_VERSION = 'v1.4.1';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -2339,6 +2339,15 @@ function toast(msg) {
   // 行情：立即拉一次 + 60s 自动刷新
   refreshQuotes();
   setInterval(refreshQuotes, 60000);
+  // 从后台切回时立即刷新一次（10s 节流）：回到 App 即可看到最新行情，不受网络类型影响
+  var lastVisRefresh = 0;
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    var now = Date.now();
+    if (now - lastVisRefresh < 10000) return;
+    lastVisRefresh = now;
+    refreshQuotes();
+  });
 
   // VIX 仪表盘：恢复缓存 → 渲染 → 原生环境增量拉取 FRED
   vixRestore();
