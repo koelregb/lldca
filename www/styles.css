@@ -826,3 +826,38 @@ input, select, textarea { font-family: inherit; }
   body { padding: 24px 0; }
   #app { min-height: calc(100dvh - 48px); border-radius: 28px; overflow: hidden; }
 }
+
+/* ---------- 定投仓位比 ---------- */
+.pos-card {
+  background: var(--card); border-radius: 14px; padding: 15px 16px 14px;
+  box-shadow: var(--shadow); margin-bottom: 10px;
+}
+.pos-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.pos-label { font-size: 12px; color: var(--sub); }
+.pos-big { font-size: 38px; font-weight: 750; line-height: 1.05; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.pos-badge {
+  font-size: 11px; padding: 3px 9px; border-radius: 999px;
+  background: var(--chip); color: var(--sub); white-space: nowrap;
+}
+.pos-badge.manual { background: rgba(208, 91, 91, .12); color: var(--accent); }
+.pos-bar { height: 10px; border-radius: 6px; background: var(--chip); margin: 13px 0 5px; overflow: hidden; }
+.pos-fill { height: 100%; width: 0; border-radius: 6px; background: var(--accent); transition: width .35s ease; }
+.pos-fill.buy { background: var(--up); }
+.pos-fill.mid { background: #e0a13a; }
+.pos-fill.sell { background: #9aa3b2; }
+.pos-scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--sub); }
+.pos-verdict { font-size: 15px; font-weight: 700; margin-top: 11px; }
+.pos-act { font-size: 12px; color: var(--sub); margin-top: 3px; line-height: 1.5; }
+.pos-why { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.pos-chip {
+  font-size: 11px; padding: 3px 8px; border-radius: 6px;
+  background: var(--chip); color: var(--sub); font-variant-numeric: tabular-nums;
+}
+.pos-sum { display: flex; gap: 8px; margin-bottom: 9px; }
+.pos-sum .ps { flex: 1; min-width: 0; background: var(--card); border-radius: 12px; padding: 9px 10px; box-shadow: var(--shadow); }
+.pos-sum .ps-k { font-size: 10px; color: var(--sub); white-space: nowrap; }
+.pos-sum .ps-v { font-size: 14.5px; font-weight: 700; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.pos-sum .ps-v.accent { color: var(--accent); }
+.pos-row .v2 { font-size: 10px; }
+.pos-tune { margin-top: 12px; }
+.pos-tune-t { font-size: 12px; color: var(--sub); margin-bottom: 7px; }

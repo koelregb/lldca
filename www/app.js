@@ -390,6 +390,7 @@ function refreshQuotes() {
     if (q && Object.keys(q).length) { applyQuotes(q); checkSignalTriggers(); }
     refreshGold();
     renderIndices();
+    if (curTab === 'plan' && curPlanPane === 'pos') renderPosRatio();
   }, function () { renderIndices(); });
 }
 
@@ -627,6 +628,7 @@ function switchTab(btn) {
   // FAB 显隐：定投=添加计划；加减仓=添加提醒(条件页=添加题目，恐慌页隐藏)；走势-日历=标记事件；红绿灯/我的=无
   var hideFab = id === 'notes' || id === 'me'
     || (id === 'home' && curHomePane !== 'cal')
+    || (id === 'plan' && curPlanPane === 'pos')
     || (id === 'signals' && curSigPane === 'panic');
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', hideFab);
@@ -648,7 +650,10 @@ var sheetPeOp = 'lte';        // 市盈率条件方向：lte = ≤ / gte = ≥
 function openSheet() {
   if (curTab === 'home' && curHomePane === 'cal') { openCalEvent(); return; }
   if (curTab === 'signals' && curSigPane === 'quiz') { openQuizSheet(); return; }
-  if (curTab === 'plan') { editPlanId = null; openPlanForm(); return; }
+  if (curTab === 'plan') {
+    if (curPlanPane === 'pos') return;      // 仓位比页无新增动作
+    editPlanId = null; openPlanForm(); return;
+  }
   if (curTab === 'signals') { editSigId = null; openSignalForm(); return; }
 }
 function showSheet() {
@@ -731,6 +736,7 @@ function delPlan() {
     plans.splice(i, 1);
     savePlans();
     renderPlans();
+    renderPosRatio();
     toast('已删除该定投');
   }
   editPlanId = null;
@@ -753,11 +759,150 @@ function savePlanForm() {
   p.name = name; p.code = code; p.day = day; p.amount = amt;
   savePlans();
   renderPlans();
+  renderPosRatio();
   schedulePlanNotify(p);
   ensureNotifyPermission();
   editPlanId = null;
   closeSheet();
   toast('已保存定投提醒');
+}
+
+/* ---------- 定投仓位比：按市场温度给出本期建议投入比例 ---------- */
+var POS_KEY = 'fuley.posRatio.v1';
+var posCfg = loadJSON(POS_KEY, null) || {};
+if (!posCfg || typeof posCfg !== 'object') posCfg = {};
+if (posCfg.override != null && !(posCfg.override >= 20 && posCfg.override <= 100)) posCfg.override = null;
+function savePosCfg() { saveJSON(POS_KEY, posCfg); }
+
+/* 分位：小于等于 v 的样本占比（0-100） */
+function pctRank(vals, v) {
+  if (!vals || !vals.length || !isFinite(v)) return null;
+  var c = 0;
+  for (var i = 0; i < vals.length; i++) if (vals[i] <= v) c++;
+  return c / vals.length * 100;
+}
+/* 市场温度 = 0.6×上证位置分位 + 0.4×VIX 分位；仓位比 = 100 - 温度，钳制 20%～100% */
+function dcaPosModel() {
+  var day = (IDX_KLINES.sh000001 && IDX_KLINES.sh000001.year) || [];
+  var closes = [];
+  for (var i = Math.max(0, day.length - 250); i < day.length; i++) {
+    var v = Number(day[i][1]);
+    if (isFinite(v) && v > 0) closes.push(v);
+  }
+  var lastC = closes.length ? closes[closes.length - 1] : null;
+  var idxPct = lastC != null ? pctRank(closes, lastC) : null;
+
+  var vixArr = [];
+  if (typeof VIX_DATA !== 'undefined' && VIX_DATA.length) {
+    for (var j = Math.max(0, VIX_DATA.length - 252); j < VIX_DATA.length; j++) {
+      var vv = Number(VIX_DATA[j][1]);
+      if (isFinite(vv)) vixArr.push(vv);
+    }
+  }
+  var vixNow = vixArr.length ? vixArr[vixArr.length - 1] : null;
+  var vixPct = vixNow != null ? pctRank(vixArr, vixNow) : null;
+
+  var temp = (idxPct != null && vixPct != null) ? (idxPct * 0.6 + vixPct * 0.4)
+           : (idxPct != null ? idxPct : 50);
+  var auto = Math.max(20, Math.min(100, Math.round((100 - temp) / 10) * 10));
+  var manual = posCfg.override != null;
+  return {
+    idxPct: idxPct, vixPct: vixPct, vix: vixNow, temp: temp,
+    auto: auto, use: manual ? posCfg.override : auto, manual: manual, ok: idxPct != null
+  };
+}
+function posBand(r) {
+  if (r >= 90) return { zh: '低位区 · 加码定投', en: 'Cheap · add more', actZh: '位置与情绪都在低位，可加倍投入', actEn: 'Valuation and sentiment are both low — double up', cls: 'buy' };
+  if (r >= 70) return { zh: '偏低区 · 适度加码', en: 'Below average · add a bit', actZh: '仍低于中枢，可在计划上小幅加码', actEn: 'Still below the mid-line — add a little', cls: 'buy' };
+  if (r >= 50) return { zh: '中性区 · 按计划投', en: 'Neutral · stay on plan', actZh: '不高不低，按原计划执行，不额外加码', actEn: 'Neither cheap nor rich — stick to the plan', cls: 'mid' };
+  if (r >= 30) return { zh: '偏高区 · 降低投入', en: 'Above average · trim', actZh: '位置偏高，减少本期投入，留出现金', actEn: 'Getting expensive — invest less, hold cash', cls: 'sell' };
+  return { zh: '高位区 · 少投多留', en: 'Expensive · mostly cash', actZh: '估值与情绪双双偏热，只投底仓，多留现金', actEn: 'Rich valuation and hot sentiment — minimum only', cls: 'sell' };
+}
+function renderPosRatio() {
+  var big = document.getElementById('posBig');
+  if (!big) return;
+  var m = dcaPosModel(), band = posBand(m.use);
+  big.textContent = m.use + '%';
+  var badge = document.getElementById('posBadge');
+  badge.textContent = m.manual ? L('手动', 'Manual') : L('自动', 'Auto');
+  badge.className = 'pos-badge' + (m.manual ? ' manual' : '');
+  var fill = document.getElementById('posFill');
+  fill.style.width = Math.max(0, Math.min(100, (m.use - 20) / 80 * 100)) + '%';
+  fill.className = 'pos-fill ' + band.cls;
+  var ver = document.getElementById('posVerdict');
+  ver.textContent = L(band.zh, band.en);
+  ver.className = 'pos-verdict ' + band.cls;
+  document.getElementById('posAct').textContent = L(band.actZh, band.actEn);
+
+  var why = [];
+  if (m.idxPct != null) why.push(L('上证位置分位 ' + Math.round(m.idxPct) + '%', 'SSE percentile ' + Math.round(m.idxPct) + '%'));
+  if (m.vix != null && m.vixPct != null) why.push('VIX ' + m.vix.toFixed(1) + L(' · 分位 ' + Math.round(m.vixPct) + '%', ' · pct ' + Math.round(m.vixPct) + '%'));
+  why.push(L('市场温度 ' + Math.round(m.temp) + '°', 'Heat ' + Math.round(m.temp) + '°'));
+  if (!m.ok) why.push(L('指数数据不足，按中性处理', 'Not enough index data — neutral'));
+  document.getElementById('posWhy').innerHTML = why.map(function (t) {
+    return '<span class="pos-chip">' + t + '</span>';
+  }).join('');
+
+  /* 各计划分配 */
+  var box = document.getElementById('posAlloc');
+  var total = 0;
+  plans.forEach(function (p) { total += Number(p.amount) || 0; });
+  var invest = total * m.use / 100, cash = total - invest;
+  if (!plans.length) {
+    box.innerHTML = '<div class="listcard"><div class="empty">' + L('还没有定投计划<br>先到「定投计划」添加一个', 'No plans yet<br>Add one in Plans') + '</div></div>';
+    return;
+  }
+  var h = '<div class="pos-sum">'
+    + '<div class="ps"><div class="ps-k">' + L('每月定投总额', 'Monthly total') + '</div><div class="ps-v">¥' + fmtAmt(total) + '</div></div>'
+    + '<div class="ps"><div class="ps-k">' + L('本期建议投入', 'Invest this period') + '</div><div class="ps-v accent">¥' + fmtAmt(Math.round(invest)) + '</div></div>'
+    + '<div class="ps"><div class="ps-k">' + L('留存现金', 'Cash left') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(cash)) + '</div></div>'
+    + '</div>';
+  h += '<div class="listcard">';
+  plans.forEach(function (p) {
+    var amt = Number(p.amount) || 0;
+    var share = total > 0 ? amt / total * 100 : 0;
+    var put = Math.round(amt * m.use / 100);
+    h += '<div class="lrow pos-row" onclick="editPlan(\'' + p.id + '\')">'
+      + '<div class="linfo"><div class="lname">' + esc(p.name) + '</div>'
+      + '<div class="lsub">' + esc(p.code || '—') + ' · ' + L('占比', 'Weight') + ' ' + share.toFixed(0) + '%</div></div>'
+      + '<div class="lval"><div class="v1">¥' + fmtAmt(put) + '</div>'
+      + '<div class="v2">' + L('计划 ¥' + fmtAmt(amt), 'Plan ¥' + fmtAmt(amt)) + '</div></div>'
+      + '</div>';
+  });
+  h += '</div>';
+  h += '<div class="hintbar" style="margin-top:4px">' + L('按仓位比折算后的本期投入 · 点击条目可编辑计划', 'Amounts scaled by the ratio · tap a row to edit') + '</div>';
+  box.innerHTML = h;
+}
+function posSet(btn) {
+  var r = btn.getAttribute('data-r');
+  posCfg.override = r === 'auto' ? null : Number(r);
+  savePosCfg();
+  document.querySelectorAll('#posTune button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderPosRatio();
+  toast(posCfg.override == null ? L('已恢复自动仓位比', 'Back to auto ratio') : L('已设为手动 ' + posCfg.override + '%', 'Manual ' + posCfg.override + '%'));
+}
+function syncPosTune() {
+  var wrap = document.getElementById('posTune');
+  if (!wrap) return;
+  var cur = posCfg.override == null ? 'auto' : String(posCfg.override);
+  wrap.querySelectorAll('button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-r') === cur);
+  });
+}
+var curPlanPane = 'list';
+function planTab(btn) {
+  var pane = btn.getAttribute('data-pane');
+  document.querySelectorAll('#planTabs button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  document.getElementById('planPane').style.display = pane === 'list' ? '' : 'none';
+  document.getElementById('posPane').style.display = pane === 'pos' ? '' : 'none';
+  curPlanPane = pane;
+  var fab = document.getElementById('fab');
+  fab.classList.toggle('hide', pane === 'pos');
+  fab.setAttribute('title', '添加定投提醒');
+  if (pane === 'pos') { syncPosTune(); renderPosRatio(); }
+  else renderPlans();
 }
 
 /* ---------- 本地通知（Capacitor LocalNotifications） ---------- */
@@ -1784,6 +1929,7 @@ function vixFetchUpdate() {
         if (changed) {
           lsSet('fuley.vix.v1', JSON.stringify(VIX_DATA.slice(-400)));
           if (curHomePane === 'vix') renderVix();
+          if (curTab === 'plan' && curPlanPane === 'pos') renderPosRatio();
         }
       }).catch(function () {});
   } catch (e) {}
@@ -2038,7 +2184,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.4.2';
+var APP_VERSION = 'v1.4.3';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -2215,19 +2361,57 @@ function collectData() {
     quiz: quizItems, panic: panicLv, cal: calCustom
   };
 }
-function exportData() {
-  var data = collectData();
-  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+var lastExportUri = null;
+function exportFileName() { return 'fuley-export-' + new Date().toISOString().slice(0, 10) + '.json'; }
+function exportCount() { return plans.length + signals.length + notes.red.length + notes.green.length + notes.case.length; }
+function b64ofJson(s) {
+  try { return btoa(unescape(encodeURIComponent(s))); } catch (e) { return btoa(s); }
+}
+function webDownload(json, name, cnt) {
+  var blob = new Blob([json], { type: 'application/json' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'fuley-export-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-  var cnt = plans.length + signals.length + notes.red.length + notes.green.length + notes.case.length;
-  toast('已导出 ' + cnt + ' 条数据');
+  toast(L('已导出 ' + cnt + ' 条 · 已保存到浏览器下载目录', 'Exported ' + cnt + ' items · saved to browser downloads'));
 }
+/* 原生 App：写进「文档」目录（文件管理器可见），并打开分享面板可直接保存/发送 */
+function exportData() {
+  var data = collectData();
+  var json = JSON.stringify(data, null, 2);
+  var name = exportFileName();
+  var cnt = exportCount();
+  var nat = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var FS = nat && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+  if (FS && FS.writeFile) {
+    FS.writeFile({ path: name, data: b64ofJson(json), directory: 'DOCUMENTS', recursive: true })
+      .then(function (res) {
+        lastExportUri = res && res.uri ? res.uri : null;
+        var row = document.getElementById('shareExportRow');
+        if (row && lastExportUri) row.style.display = '';
+        var shown = lastExportUri ? String(lastExportUri).replace(/^file:\/\//, '') : name;
+        toast(L('已导出 ' + cnt + ' 条 · 保存在「文档」目录：' + shown, 'Exported ' + cnt + ' items · Documents/' + shown));
+        var SH = window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+        if (SH && SH.share && lastExportUri) {
+          SH.share({ title: name, text: '浮乐数据导出', url: lastExportUri, dialogTitle: L('导出文件 · 可保存或发送', 'Export file · save or send') })
+            .catch(function () { /* 用户取消 */ });
+        }
+      })
+      .catch(function () { webDownload(json, name, cnt); });
+    return;
+  }
+  webDownload(json, name, cnt);
+}
+function shareExport() {
+  var SH = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+  if (!lastExportUri || !SH || !SH.share) { toast(L('还没有可分享的导出文件', 'No export to share')); return; }
+  SH.share({ title: exportFileName(), text: '浮乐数据导出', url: lastExportUri, dialogTitle: L('导出文件 · 可保存或发送', 'Export file · save or send') })
+    .catch(function () {});
+}
+
 function backupData() {
   try {
     lsSet('fuley_backup', JSON.stringify(collectData()));
@@ -2322,6 +2506,8 @@ function toast(msg) {
   renderLangSeg();
   renderIndices();
   renderPlans();
+  syncPosTune();
+  renderPosRatio();
   renderSignals();
   renderNotes();
   renderQuiz();

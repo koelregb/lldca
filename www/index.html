@@ -126,8 +126,47 @@
 
     <!-- ============ 定投页 ============ -->
     <section class="view" id="view-plan">
-      <div class="listcard" id="planList"></div>
-      <div class="hintbar">到定投日自动推送本地通知 · 点击条目可编辑</div>
+      <div class="ntabs plain" id="planTabs">
+        <button class="on" data-pane="list" onclick="planTab(this)">定投计划</button>
+        <button data-pane="pos" onclick="planTab(this)">定投仓位比</button>
+      </div>
+
+      <div id="planPane">
+        <div class="listcard" id="planList"></div>
+        <div class="hintbar">到定投日自动推送本地通知 · 点击条目可编辑</div>
+      </div>
+
+      <div id="posPane" style="display:none">
+        <div class="pos-card">
+          <div class="pos-head">
+            <div class="pos-hl">
+              <div class="pos-label">本期建议仓位比</div>
+              <div class="pos-big" id="posBig">—</div>
+            </div>
+            <div class="pos-badge" id="posBadge">自动</div>
+          </div>
+          <div class="pos-bar">
+            <div class="pos-fill" id="posFill"></div>
+          </div>
+          <div class="pos-scale"><span>20%</span><span>60%</span><span>100%</span></div>
+          <div class="pos-verdict" id="posVerdict">—</div>
+          <div class="pos-act" id="posAct">—</div>
+          <div class="pos-why" id="posWhy"></div>
+        </div>
+
+        <div id="posAlloc"></div>
+
+        <div class="pos-tune">
+          <div class="pos-tune-t">手动微调</div>
+          <div class="dimseg" id="posTune">
+            <button class="on" data-r="auto" onclick="posSet(this)">自动</button>
+            <button data-r="50" onclick="posSet(this)">50%</button>
+            <button data-r="70" onclick="posSet(this)">70%</button>
+            <button data-r="100" onclick="posSet(this)">100%</button>
+          </div>
+          <div class="hintbar">仓位比 = 本期实际投入 ÷ 每月计划金额 · 剩余留作现金 · 依据上证位置分位与 VIX 情绪</div>
+        </div>
+      </div>
     </section>
 
     <!-- ============ 红绿灯页 ============ -->
@@ -228,6 +267,11 @@
           <div class="mrow-l">恢复数据</div>
           <span class="mrow-v">选择备份文件</span>
         </div>
+        <div class="mrow" id="shareExportRow" style="display:none" onclick="shareExport()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12.5v8M7.5 16.5 12 20.5l4.5-4"/><path d="M4.5 9.5a7.5 7.5 0 0 1 15 0v.5"/><path d="M12 3v4.5"/></svg>
+          <div class="mrow-l">分享导出文件</div>
+          <span class="mrow-v">可保存到文件管理或发送</span>
+        </div>
         <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
       </div>
 
@@ -254,7 +298,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.4.2</span>
+          <span class="mrow-v" id="appVer">v1.4.3</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
