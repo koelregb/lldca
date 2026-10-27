@@ -31,6 +31,7 @@
   <main id="main">
     <!-- ============ 走势页 ============ -->
     <section class="view active" id="view-home">
+      <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="homeTabs">
         <button class="on" data-pane="trend" onclick="homeTab(this)">股票</button>
         <button data-pane="cycle" onclick="homeTab(this)">周期</button>
@@ -126,9 +127,12 @@
 
     <!-- ============ 定投页 ============ -->
     <section class="view" id="view-plan">
-      <div class="ntabs plain" id="planTabs">
+      <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
+      <div class="ntabs plain t4" id="planTabs">
         <button class="on" data-pane="list" onclick="planTab(this)">定投计划</button>
         <button data-pane="pos" onclick="planTab(this)">定投仓位比</button>
+        <button data-pane="inv" onclick="planTab(this)">已定投</button>
+        <button data-pane="pnl" onclick="planTab(this)">收益</button>
       </div>
 
       <div id="planPane">
@@ -167,10 +171,24 @@
           <div class="hintbar">仓位比 = 本期实际投入 ÷ 每月计划金额 · 剩余留作现金 · 依据上证位置分位与 VIX 情绪</div>
         </div>
       </div>
+
+      <div id="invPane" style="display:none">
+        <div id="invSum"></div>
+        <div id="invList"></div>
+        <div class="hintbar">记录每笔定投的股票名称 / 数量 / 定投股价 · 现价自动联网更新 · 红 = 浮盈，绿 = 浮亏</div>
+      </div>
+
+      <div id="pnlPane" style="display:none">
+        <div id="pnlSum"></div>
+        <div id="pnlRank"></div>
+        <div id="pnlMonths"></div>
+        <div class="hintbar">收益 = 当前市值 − 累计投入 · 现价自动联网更新 · 红 = 盈利，绿 = 亏损 · 数据来自「已定投」记录</div>
+      </div>
     </section>
 
     <!-- ============ 红绿灯页 ============ -->
     <section class="view" id="view-notes">
+      <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="editor">
         <div class="lampseg" id="lampSeg">
           <button class="on red" onclick="lampSeg(this, 1)"><span class="lamp"></span>红线 · 禁忌</button>
@@ -191,6 +209,7 @@
 
     <!-- ============ 加减仓页 ============ -->
     <section class="view" id="view-signals">
+      <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
         <button class="on" data-pane="sig" onclick="sigTab(this)">信号提醒</button>
         <button data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
@@ -199,7 +218,7 @@
 
       <div id="sigPane">
         <div class="listcard" id="sigList"></div>
-        <div class="hintbar">支持价格触发与定时提醒 · 触发时推送本地通知</div>
+        <div class="hintbar">支持价格触发与定时提醒 · 价格触发可关联四大指数或任意股票代码，现价与距触发幅度实时刷新 · 到价推送本地通知</div>
       </div>
 
       <div id="quizPane" style="display:none">
@@ -241,6 +260,7 @@
 
     <!-- ============ 我的页 ============ -->
     <section class="view" id="view-me">
+      <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="me-user">
         <div class="me-avatar" id="meAvatar">浮</div>
         <div class="me-uinfo">
@@ -298,7 +318,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.4.3</span>
+          <span class="mrow-v" id="appVer">v1.4.4</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>

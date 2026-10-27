@@ -861,3 +861,87 @@ input, select, textarea { font-family: inherit; }
 .pos-row .v2 { font-size: 10px; }
 .pos-tune { margin-top: 12px; }
 .pos-tune-t { font-size: 12px; color: var(--sub); margin-bottom: 7px; }
+
+/* ---------- 已定投：定投记录 / 浮盈浮亏 ---------- */
+.inv-card {
+  background: var(--card); border-radius: 14px; padding: 12px 14px 6px;
+  box-shadow: var(--shadow); margin-bottom: 10px;
+}
+.inv-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 8px; }
+.inv-name { font-size: 14.5px; font-weight: 700; min-width: 0; }
+.inv-code {
+  font-size: 10.5px; font-weight: 400; color: var(--sub);
+  margin-left: 6px; padding: 1px 5px; border-radius: 5px; background: var(--chip);
+}
+.inv-rate { font-size: 13px; font-weight: 700; color: var(--sub); font-variant-numeric: tabular-nums; }
+.inv-rate.up { color: var(--up); }
+.inv-rate.down { color: var(--down); }
+.inv-g {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  padding: 8px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.inv-gi { min-width: 0; }
+.inv-gi span { display: block; font-size: 10px; color: var(--sub); }
+.inv-gi b { display: block; font-size: 13px; font-weight: 650; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.inv-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 0;
+  font-size: 12px; color: var(--sub); cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.inv-row + .inv-row { border-top: 1px dashed var(--line); }
+.inv-row .ir-d { flex: 1; min-width: 0; color: var(--ink); font-weight: 600; }
+.inv-row .ir-p { white-space: nowrap; }
+.inv-row .ir-q { white-space: nowrap; color: var(--ink); }
+.inv-row .ir-a { white-space: nowrap; }
+
+/* 加减仓：关联行情第二行（现价 + 距触发） */
+.lsub2 {
+  font-size: 10.5px; color: var(--sub); margin-top: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 背景水印：耐心 · 信心 · 恒心（每个 tab 通用） ---------- */
+.wmark {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  writing-mode: vertical-rl;
+  font-size: 44px; font-weight: 800; letter-spacing: 16px;
+  color: var(--ink); opacity: .05;
+  pointer-events: none; user-select: none; -webkit-user-select: none;
+  white-space: nowrap; line-height: 1.6; z-index: 0;
+}
+@media (max-height: 700px) {
+  .wmark { font-size: 36px; letter-spacing: 12px; }
+}
+
+/* ---------- 定投页 4 子 tab：字号略收，避免挤压 ---------- */
+.ntabs.t4 button { font-size: 12px; }
+
+/* ---------- 收益：汇总 / 排行 / 按月投入 ---------- */
+.pnl-t { font-size: 12px; color: var(--sub); margin: 12px 0 7px; }
+.pnl-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card); border-radius: 12px; padding: 10px 12px;
+  box-shadow: var(--shadow); margin-bottom: 7px;
+}
+.pnl-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 650; }
+.pnl-rate {
+  font-size: 13px; font-weight: 700; color: var(--sub);
+  font-variant-numeric: tabular-nums; min-width: 64px; text-align: right;
+}
+.pnl-pnl {
+  font-size: 11.5px; color: var(--sub);
+  font-variant-numeric: tabular-nums; min-width: 82px; text-align: right;
+}
+.pnl-rate.up, .pnl-pnl.up { color: var(--up); }
+.pnl-rate.down, .pnl-pnl.down { color: var(--down); }
+.pnl-mon {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+  font-size: 11.5px; color: var(--sub);
+}
+.pnl-mon .pm-m {
+  width: 44px; flex: none; color: var(--ink); font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pnl-mon .pm-bar { flex: 1; height: 8px; border-radius: 4px; background: var(--chip); overflow: hidden; }
+.pnl-mon .pm-bar i { display: block; height: 100%; border-radius: 4px; background: var(--accent); }
+.pnl-mon .pm-a { min-width: 108px; text-align: right; font-variant-numeric: tabular-nums; }
+.pnl-mon .pm-a em { font-style: normal; margin-left: 5px; opacity: .7; }

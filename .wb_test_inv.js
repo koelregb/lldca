@@ -1,0 +1,316 @@
+/* 冒烟测试：已定投子tab（quoteCodeFor / invHoldings / fetchInvestQuotes / renderInvests / 表单校验） */
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const www = path.join(__dirname, 'www');
+const appSrc = fs.readFileSync(path.join(www, 'app.js'), 'utf8');
+const i18nSrc = fs.readFileSync(path.join(www, 'i18n.js'), 'utf8');
+
+/* ---------- 最小 DOM / 存储 / fetch stub ---------- */
+function mkEl(id) {
+  return {
+    id: id, innerHTML: '', textContent: '', value: '', style: {},
+    attrs: {},
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    setAttribute(k, v) { this.attrs[k] = v; },
+    getAttribute(k) { return this.attrs[k] != null ? this.attrs[k] : null; },
+    addEventListener() {}, removeEventListener() {},
+    appendChild() {}, removeChild() {}, querySelectorAll() { return []; },
+  };
+}
+const els = {};
+function el(id) { if (!els[id]) els[id] = mkEl(id); return els[id]; }
+const documentStub = {
+  getElementById(id) { return el(id); },
+  querySelectorAll() { return []; },
+  querySelector() { return null; },
+  createTreeWalker() { return { nextNode() { return null; } }; },
+  createElement() { return mkEl('tmp'); },
+  addEventListener() {},
+  readyState: 'complete',
+  documentElement: mkEl('html'),
+  body: mkEl('body'),
+};
+const localStorageStub = {
+  store: {},
+  getItem(k) { return Object.prototype.hasOwnProperty.call(this.store, k) ? this.store[k] : null; },
+  setItem(k, v) { this.store[k] = String(v); },
+  removeItem(k) { delete this.store[k]; },
+};
+/* 腾讯行情假响应：f[3]=现价 f[30]=时间 */
+function quoteResp(code, price, tm) {
+  const f = [];
+  for (let i = 0; i < 34; i++) f.push(i === 3 ? String(price) : i === 30 ? tm : 'x' + i);
+  f[1] = '测试标的'; f[2] = code;
+  return 'v_' + code + '="' + f.join('~') + '";\n';
+}
+const fetchLog = [];
+const fetchStub = function (url) {
+  fetchLog.push(url);
+  let body = '';
+  if (url.indexOf('sh510300') >= 0) body += quoteResp('sh510300', 4.123, '20261023112742');
+  if (url.indexOf('usNVDA') >= 0) body += quoteResp('usNVDA', 182.5, '20261023112742');
+  return Promise.resolve({ text: function () { return Promise.resolve(body); } });
+};
+const windowStub = {
+  navigator: { language: 'zh-CN' },
+  localStorage: localStorageStub,
+  document: documentStub,
+  location: { reload() {} },
+  addEventListener() {},
+};
+const sandbox = {
+  window: windowStub,
+  document: documentStub,
+  localStorage: localStorageStub,
+  navigator: windowStub.navigator,
+  location: windowStub.location,
+  fetch: fetchStub,
+  console: console,
+  setTimeout: setTimeout, clearTimeout: clearTimeout,
+  setInterval: function () { return 0; }, clearInterval: function () {},
+};
+sandbox.global = sandbox;
+vm.createContext(sandbox);
+vm.runInContext(i18nSrc, sandbox);
+vm.runInContext(appSrc, sandbox);
+
+/* ---------- 断言 ---------- */
+let pass = 0, fail = 0;
+const toasts = [];          // 供多个 then 段共用
+function eq(label, got, want) {
+  const ok = got === want;
+  if (ok) pass++; else fail++;
+  console.log((ok ? 'PASS' : 'FAIL') + '  ' + label + (ok ? '' : '  got=' + JSON.stringify(got) + ' want=' + JSON.stringify(want)));
+}
+function ok(label, cond, detail) {
+  if (cond) pass++; else fail++;
+  console.log((cond ? 'PASS' : 'FAIL') + '  ' + label + (cond ? '' : '  ' + (detail || '')));
+}
+
+const A = sandbox;   // app.js 顶层 var 挂在 context 上
+
+/* 1) 代码转换规则（沪 6/5/9 · 深 0/1/2/3 · 北 4/8/92） */
+eq('quoteCodeFor A股6位(6开头)', A.quoteCodeFor('600519'), 'sh600519');
+eq('quoteCodeFor 沪ETF(5开头)', A.quoteCodeFor('510300'), 'sh510300');
+eq('quoteCodeFor 科创板(688)', A.quoteCodeFor('688981'), 'sh688981');
+eq('quoteCodeFor 深市A股', A.quoteCodeFor('000001'), 'sz000001');
+eq('quoteCodeFor 创业板(300)', A.quoteCodeFor('300750'), 'sz300750');
+eq('quoteCodeFor 北交所(430)', A.quoteCodeFor('430047'), 'bj430047');
+eq('quoteCodeFor 北交所(920)', A.quoteCodeFor('920819'), 'bj920819');
+eq('quoteCodeFor 港股5位', A.quoteCodeFor('00700'), 'hk00700');
+eq('quoteCodeFor 美股字母', A.quoteCodeFor('NVDA'), 'usNVDA');
+eq('quoteCodeFor 带前缀原样', A.quoteCodeFor('sh000001'), 'sh000001');
+eq('quoteCodeFor 空串', A.quoteCodeFor(''), '');
+
+/* 2) 格式化 */
+eq('fmtQty 整数', A.fmtQty(500), '500');
+eq('fmtQty 小数', A.fmtQty(100.5), '100.50');
+eq('fmtPx <100 三位', A.fmtPx(3.85), '3.850');
+eq('fmtPx >=100 两位', A.fmtPx(182.5), '182.50');
+
+/* 3) 聚合统计：同名同码两笔 → 加权均价 */
+A.invests.length = 0;
+A.invests.push({ id: 'a', name: '沪深300ETF', code: '510300', ts: '2026-09-01', price: 3.8, qty: 500 });
+A.invests.push({ id: 'b', name: '沪深300ETF', code: '510300', ts: '2026-10-01', price: 3.9, qty: 500 });
+A.invests.push({ id: 'c', name: '英伟达', code: 'NVDA', ts: '2026-10-02', price: 180, qty: 2 });
+const hs = A.invHoldings();
+eq('聚合成 2 个头寸', hs.length, 2);
+const hEtf = hs.filter(function (h) { return h.name === '沪深300ETF'; })[0];
+eq('ETF 数量合计', hEtf.qty, 1000);
+ok('ETF 加权均价≈3.85', Math.abs(hEtf.avg - 3.85) < 1e-9, 'avg=' + hEtf.avg);
+eq('ETF 行明细 2 条', hEtf.rows.length, 2);
+eq('行按日期升序', hEtf.rows[0].ts, '2026-09-01');
+ok('未取价前 cur=null', hEtf.cur === null && hEtf.pnl === null && hEtf.rate === null);
+
+/* 4) 联网取价 */
+return A.fetchInvestQuotes().then(function (changed) {
+  ok('fetchInvestQuotes 价格有更新', changed === true, 'changed=' + changed);
+  const invUrl = fetchLog.filter(function (u) { return u.indexOf('q=sh510300') >= 0; })[0];
+  ok('请求为腾讯行情批量接口', invUrl === 'https://qt.gtimg.cn/q=sh510300,usNVDA', invUrl);
+  eq('A股价入缓存', A.invQuotes['510300'].price, 4.123);
+  eq('美股价入缓存', A.invQuotes['NVDA'].price, 182.5);
+
+  /* 5) 渲染（含浮盈：现价 4.123 > 均价 3.85 → up 红） */
+  A.renderInvests();
+  const listHtml = els['invList'].innerHTML, sumHtml = els['invSum'].innerHTML;
+  ok('列表含标的名', listHtml.indexOf('沪深300ETF') >= 0);
+  ok('列表含代码徽章', listHtml.indexOf('>510300<') >= 0);
+  ok('列表含加权均价 3.850', listHtml.indexOf('¥3.850') >= 0);
+  ok('列表含现价 4.123', listHtml.indexOf('¥4.123') >= 0);
+  ok('列表含单笔定投价 3.900', listHtml.indexOf('¥3.900') >= 0);
+  ok('汇总含累计投入 ¥4,210', sumHtml.indexOf('4,210') >= 0, sumHtml);
+  ok('浮盈用 up 红（涨）', listHtml.indexOf('inv-rate up') >= 0);
+  ok('汇总浮动盈亏带 +', sumHtml.indexOf('+¥') >= 0);
+  ok('单笔行可点编辑', listHtml.indexOf("editInv('a')") >= 0);
+
+  /* 6) 表单校验：空名称 / 空价 / 空量 */
+  A.toast = function (m) { toasts.push(m); };
+  el('ifName').value = ''; el('ifCode').value = '510300';
+  el('ifTs').value = '2026-10-20'; el('ifPrice').value = ''; el('ifQty').value = '100';
+  A.saveInvForm();
+  eq('缺名称 → 提示', toasts[toasts.length - 1], '请填写股票名称');
+  el('ifName').value = '测试';
+  A.saveInvForm();
+  eq('缺价格 → 提示', toasts[toasts.length - 1], '请填写定投股价');
+  el('ifPrice').value = '0';
+  A.saveInvForm();
+  eq('价格为0 → 提示', toasts[toasts.length - 1], '请填写定投股价');
+  el('ifPrice').value = '4';
+  el('ifQty').value = '';
+  A.saveInvForm();
+  eq('缺数量 → 提示', toasts[toasts.length - 1], '请填写定投数量');
+
+  /* 7) 合法保存 → 新增一条并落库 */
+  const before = A.invests.length;
+  el('ifName').value = '中证500'; el('ifCode').value = '510500';
+  el('ifTs').value = '2026-10-15'; el('ifPrice').value = '6.423'; el('ifQty').value = '300';
+  A.saveInvForm();
+  eq('新增一条记录', A.invests.length, before + 1);
+  const r = A.invests[A.invests.length - 1];
+  eq('记录字段-名称', r.name, '中证500');
+  eq('记录字段-代码', r.code, '510500');
+  eq('记录字段-股价', r.price, 6.423);
+  eq('记录字段-数量', r.qty, 300);
+  ok('localStorage 已写入', (localStorageStub.store['fuley.invests.v1'] || '').indexOf('中证500') >= 0);
+  ok('保存 toast', toasts.indexOf('已保存定投记录') >= 0);
+
+  /* 8) 删除 */
+  A.editInv(r.id);
+  eq('editInv 置编辑 id', A.editInvId, r.id);
+  A.delInv();
+  eq('删除后条数还原', A.invests.length, before);
+  ok('删除 toast', toasts.indexOf('已删除该定投记录') >= 0);
+
+  /* 9) 空态 */
+  A.invests.length = 0;
+  A.renderInvests();
+  ok('空态提示', els['invList'].innerHTML.indexOf('还没有定投记录') >= 0);
+  eq('空态汇总清空', els['invSum'].innerHTML, '');
+
+  /* 10) 仅无代码记录 → 不触发取价请求 */
+  A.invests.length = 0;
+  const n0 = fetchLog.length;
+  A.invests.push({ id: 'd', name: '无代码标的', code: '', ts: '2026-10-01', price: 10, qty: 1 });
+  return A.fetchInvestQuotes().then(function () {
+    eq('无代码不发请求', fetchLog.length, n0);
+    A.renderInvests();
+    ok('无代码也渲染', els['invList'].innerHTML.indexOf('无代码标的') >= 0);
+    ok('无代码无现价占位', els['invList'].innerHTML.indexOf('¥—') < 0);
+  });
+}).then(function () {
+  /* ============ 收益子 tab ============ */
+  A.invests.length = 0;
+  A.invests.push({ id: 'a', name: '沪深300ETF', code: '510300', ts: '2026-09-01', price: 3.8, qty: 500 });
+  A.invests.push({ id: 'b', name: '沪深300ETF', code: '510300', ts: '2026-10-01', price: 3.9, qty: 500 });
+  A.invests.push({ id: 'c', name: '英伟达', code: 'NVDA', ts: '2026-10-02', price: 180, qty: 2 });
+  return A.fetchInvestQuotes().then(function () {
+    A.renderPnl();
+    const sumHtml = els['pnlSum'].innerHTML, rankHtml = els['pnlRank'].innerHTML, monHtml = els['pnlMonths'].innerHTML;
+    ok('汇总含总收益率', sumHtml.indexOf('总收益率') >= 0);
+    ok('总收益率 +6.60%', sumHtml.indexOf('+6.60%') >= 0, sumHtml);
+    ok('汇总浮动盈亏 +¥278', sumHtml.indexOf('+¥278') >= 0);
+    ok('排行标题', rankHtml.indexOf('收益排行') >= 0);
+    ok('ETF 收益 +7.09%', rankHtml.indexOf('+7.09%') >= 0);
+    ok('NVDA 收益 +1.39%', rankHtml.indexOf('+1.39%') >= 0);
+    ok('ETF 盈亏 +¥273', rankHtml.indexOf('+¥273') >= 0);
+    ok('按收益率降序（ETF 在前）', rankHtml.indexOf('沪深300ETF') < rankHtml.indexOf('英伟达'));
+    ok('按月投入标题', monHtml.indexOf('按月投入') >= 0);
+    ok('9 月 ¥1,900 1 笔', monHtml.indexOf('¥1,900') >= 0 && monHtml.indexOf('1 笔') >= 0);
+    ok('10 月 ¥2,310 2 笔', monHtml.indexOf('¥2,310') >= 0 && monHtml.indexOf('2 笔') >= 0);
+    /* 空态 */
+    A.invests.length = 0;
+    A.renderPnl();
+    ok('空态引导', els['pnlRank'].innerHTML.indexOf('暂无收益数据') >= 0);
+    eq('空态汇总清空', els['pnlSum'].innerHTML, '');
+  });
+}).then(function () {
+  /* ============ 加减仓：关联价格 ============ */
+  A.signals.length = 0;
+  A.sigQuotes = {};
+  /* 1) 带代码的新信号 → 首次取价 changed=true */
+  A.signals.push({ id: 't1', name: '英伟达', code: 'NVDA', type: 'price', dir: 1, price: 200, fired: false });
+
+  return A.fetchSignalQuotes().then(function (changed) {
+    ok('信号取价有更新', changed === true);
+    eq('美股现价入缓存', A.sigQuotes['NVDA'].price, 182.5);
+    ok('信号取价请求命中', fetchLog.filter(function (u) { return u.indexOf('usNVDA') >= 0; }).length >= 1);
+    const sg = A.signals[0];
+    eq('提醒方向=加仓', sg.dir, 1);
+    ok('sigQuote 返回现价+昨收', A.sigQuote(sg).price === 182.5 && A.sigQuote(sg).prev === 182.5);
+
+    /* 列表显示：现价 / 距触发（涨到 200，现价 182.5 → 还需 +9.6%） */
+    A.renderSignals();
+    const sigHtml = els['sigList'].innerHTML;
+    ok('列表显示代码徽章', sigHtml.indexOf('>NVDA<') >= 0);
+    ok('列表显示现价', sigHtml.indexOf('现价 ¥182.50') >= 0);
+    ok('列表显示距触发 +9.6%', sigHtml.indexOf('距触发 +9.6%') >= 0);
+    ok('未触发显示监控中', sigHtml.indexOf('监控中') >= 0);
+
+    /* 触发判定：目标 200 未到（182.5 < 200）→ 不触发 */
+    A.checkSignalTriggers();
+    ok('未到价不触发', sg.fired !== true);
+    /* 改目标 180（低于现价）→ 触发 */
+    sg.price = 180;
+    A.checkSignalTriggers();
+    eq('到价即触发', sg.fired, true);
+    ok('触发后 toast 通知（无原生通知时回退）', toasts.some(function (t) { return t.indexOf('英伟达 已到 182.50') >= 0; }));
+
+    /* 2) 表单流：保存带代码的减仓提醒（A股 ETF） */
+    A.signals.length = 0;
+    A.editSigId = null; A.sheetDir = -1;
+    el('sfName').value = '沪深300ETF'; el('sfCode').value = '510300';
+    el('sfType').value = 'price'; el('sfPrice').value = '3.5';
+    el('sfTime').value = ''; el('sfPe').value = '';
+    A.saveSignalForm();
+    eq('新增减仓提醒', A.signals.length, 1);
+    eq('提醒带代码', A.signals[0].code, '510300');
+    eq('提醒方向=减仓', A.signals[0].dir, -1);
+    ok('localStorage 已写入提醒', (localStorageStub.store['fuley.signals.v1'] || '').indexOf('510300') >= 0);
+    return A.fetchSignalQuotes().then(function () {
+      const sg2 = A.signals[0];
+      ok('A股ETF取价成功', A.sigQuotes['510300'].price === 4.123);
+      A.checkSignalTriggers();
+      ok('未跌破目标价不触发', sg2.fired !== true);
+      A.renderSignals();
+      ok('列表显示 ETF 现价', els['sigList'].innerHTML.indexOf('现价 ¥4.123') >= 0);
+      ok('距触发为负（需下跌）', els['sigList'].innerHTML.indexOf('距触发 -15.1%') >= 0, els['sigList'].innerHTML);
+
+      /* 填入现价：表单代码 → 缓存价直接填入 */
+      el('sfName').value = ''; el('sfCode').value = 'NVDA'; el('sfPrice').value = '';
+      A.fillSigPrice();
+      eq('填入现价-缓存', el('sfPrice').value, '182.50');
+      /* 无代码无名称 → 提示 */
+      el('sfName').value = ''; el('sfCode').value = '';
+      A.fillSigPrice();
+      ok('无代码提示填写', toasts.some(function (t) { return t.indexOf('请先填写代码') >= 0; }));
+
+      /* 指数名称回退：不填代码也能关联四大指数行情 */
+      const sz = A.INDICES.filter(function (x) { return x.name === '上证指数'; })[0];
+      sz.price = 3700;
+      ok('sigQuote 指数名回退', A.sigQuote({ type: 'price', name: '上证指数', code: '' }).price === 3700);
+
+      /* 定时提醒不取价 */
+      A.signals.length = 0;
+      A.editSigId = null; A.sheetDir = 1;
+      el('sfName').value = '每周复盘'; el('sfCode').value = '';
+      el('sfType').value = 'time'; el('sfTime').value = '每周五 14:30'; el('sfPrice').value = '';
+      A.saveSignalForm();
+      eq('新增定时提醒', A.signals.length, 1);
+      const before2 = fetchLog.length;
+      return A.fetchSignalQuotes().then(function () {
+        eq('定时提醒不发行情请求', fetchLog.length, before2);
+        A.renderSignals();
+        ok('定时提醒正常渲染', els['sigList'].innerHTML.indexOf('定时 每周五 14:30') >= 0);
+      });
+    });
+  });
+}).then(function () {
+  console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败');
+  process.exit(fail ? 1 : 0);
+}).catch(function (e) {
+  console.error('测试执行异常:', e);
+  process.exit(1);
+});
