@@ -390,6 +390,20 @@ function refreshQuotes() {
     if (q && Object.keys(q).length) { applyQuotes(q); checkSignalTriggers(); }
     refreshGold();
     renderIndices();
+    if (curTab === 'plan' && curPlanPane === 'pos') renderPosRatio();
+    if (curTab === 'plan' && curPlanPane === 'inv') {
+      fetchInvestQuotes().then(function () { renderInvests(); }, function () { renderInvests(); });
+    }
+    if (curTab === 'plan' && curPlanPane === 'pnl') {
+      fetchInvestQuotes().then(function () { renderPnl(); }, function () { renderPnl(); });
+    }
+    /* 加减仓关联行情：自定义代码每轮联网刷新，价格变动即重判触发 */
+    fetchSignalQuotes().then(function (changed) {
+      if (changed) {
+        checkSignalTriggers();
+        if (curTab === 'signals' && curSigPane === 'sig') renderSignals();
+      }
+    });
   }, function () { renderIndices(); });
 }
 
@@ -627,20 +641,24 @@ function switchTab(btn) {
   // FAB 显隐：定投=添加计划；加减仓=添加提醒(条件页=添加题目，恐慌页隐藏)；走势-日历=标记事件；红绿灯/我的=无
   var hideFab = id === 'notes' || id === 'me'
     || (id === 'home' && curHomePane !== 'cal')
+    || (id === 'plan' && (curPlanPane === 'pos' || curPlanPane === 'pnl'))
     || (id === 'signals' && curSigPane === 'panic');
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', hideFab);
   if (id === 'signals') {
-    fab.setAttribute('title', curSigPane === 'quiz' ? '自定义题目' : '添加加减仓提醒');
+    fab.setAttribute('title', curSigPane === 'quiz' ? L('自定义题目', 'Custom question') : L('添加加减仓提醒', 'Add alert'));
+    if (curSigPane === 'sig') {
+      fetchSignalQuotes().then(function () { if (curTab === 'signals' && curSigPane === 'sig') renderSignals(); });
+    }
   } else if (id === 'home') {
-    fab.setAttribute('title', '标记事件');
+    fab.setAttribute('title', L('标记事件', 'Add event'));
   } else if (id === 'plan') {
-    fab.setAttribute('title', '添加定投提醒');
+    fab.setAttribute('title', curPlanPane === 'inv' ? L('记录定投', 'Log DCA') : L('添加定投提醒', 'Add plan'));
   }
 }
 
 /* ---------- 底部弹层 ---------- */
-var sheetMode = 'form';       // plan | signal | auth | quiz | calev | license
+var sheetMode = 'form';       // plan | signal | auth | quiz | calev | license | inv
 var editPlanId = null;        // 非空 = 编辑中的定投
 var editSigId = null;         // 非空 = 编辑中的加减仓提醒
 var sheetDir = 1;             // 加减仓方向：1 加 / -1 减
@@ -648,7 +666,11 @@ var sheetPeOp = 'lte';        // 市盈率条件方向：lte = ≤ / gte = ≥
 function openSheet() {
   if (curTab === 'home' && curHomePane === 'cal') { openCalEvent(); return; }
   if (curTab === 'signals' && curSigPane === 'quiz') { openQuizSheet(); return; }
-  if (curTab === 'plan') { editPlanId = null; openPlanForm(); return; }
+  if (curTab === 'plan') {
+    if (curPlanPane === 'pos') return;      // 仓位比页无新增动作
+    if (curPlanPane === 'inv') { editInvId = null; openInvestForm(); return; }
+    editPlanId = null; openPlanForm(); return;
+  }
   if (curTab === 'signals') { editSigId = null; openSignalForm(); return; }
 }
 function showSheet() {
@@ -665,6 +687,7 @@ function sheetSave() {
   if (sheetMode === 'calev') { calSave(); return; }
   if (sheetMode === 'license') { activateLicense(); return; }
   if (sheetMode === 'plan') { savePlanForm(); return; }
+  if (sheetMode === 'inv') { saveInvForm(); return; }
   if (sheetMode === 'signal') { saveSignalForm(); return; }
   closeSheet();
 }
@@ -731,6 +754,7 @@ function delPlan() {
     plans.splice(i, 1);
     savePlans();
     renderPlans();
+    renderPosRatio();
     toast('已删除该定投');
   }
   editPlanId = null;
@@ -753,11 +777,427 @@ function savePlanForm() {
   p.name = name; p.code = code; p.day = day; p.amount = amt;
   savePlans();
   renderPlans();
+  renderPosRatio();
   schedulePlanNotify(p);
   ensureNotifyPermission();
   editPlanId = null;
   closeSheet();
   toast('已保存定投提醒');
+}
+
+/* ---------- 定投仓位比：按市场温度给出本期建议投入比例 ---------- */
+var POS_KEY = 'fuley.posRatio.v1';
+var posCfg = loadJSON(POS_KEY, null) || {};
+if (!posCfg || typeof posCfg !== 'object') posCfg = {};
+if (posCfg.override != null && !(posCfg.override >= 20 && posCfg.override <= 100)) posCfg.override = null;
+function savePosCfg() { saveJSON(POS_KEY, posCfg); }
+
+/* 分位：小于等于 v 的样本占比（0-100） */
+function pctRank(vals, v) {
+  if (!vals || !vals.length || !isFinite(v)) return null;
+  var c = 0;
+  for (var i = 0; i < vals.length; i++) if (vals[i] <= v) c++;
+  return c / vals.length * 100;
+}
+/* 市场温度 = 0.6×上证位置分位 + 0.4×VIX 分位；仓位比 = 100 - 温度，钳制 20%～100% */
+function dcaPosModel() {
+  var day = (IDX_KLINES.sh000001 && IDX_KLINES.sh000001.year) || [];
+  var closes = [];
+  for (var i = Math.max(0, day.length - 250); i < day.length; i++) {
+    var v = Number(day[i][1]);
+    if (isFinite(v) && v > 0) closes.push(v);
+  }
+  var lastC = closes.length ? closes[closes.length - 1] : null;
+  var idxPct = lastC != null ? pctRank(closes, lastC) : null;
+
+  var vixArr = [];
+  if (typeof VIX_DATA !== 'undefined' && VIX_DATA.length) {
+    for (var j = Math.max(0, VIX_DATA.length - 252); j < VIX_DATA.length; j++) {
+      var vv = Number(VIX_DATA[j][1]);
+      if (isFinite(vv)) vixArr.push(vv);
+    }
+  }
+  var vixNow = vixArr.length ? vixArr[vixArr.length - 1] : null;
+  var vixPct = vixNow != null ? pctRank(vixArr, vixNow) : null;
+
+  var temp = (idxPct != null && vixPct != null) ? (idxPct * 0.6 + vixPct * 0.4)
+           : (idxPct != null ? idxPct : 50);
+  var auto = Math.max(20, Math.min(100, Math.round((100 - temp) / 10) * 10));
+  var manual = posCfg.override != null;
+  return {
+    idxPct: idxPct, vixPct: vixPct, vix: vixNow, temp: temp,
+    auto: auto, use: manual ? posCfg.override : auto, manual: manual, ok: idxPct != null
+  };
+}
+function posBand(r) {
+  if (r >= 90) return { zh: '低位区 · 加码定投', en: 'Cheap · add more', actZh: '位置与情绪都在低位，可加倍投入', actEn: 'Valuation and sentiment are both low — double up', cls: 'buy' };
+  if (r >= 70) return { zh: '偏低区 · 适度加码', en: 'Below average · add a bit', actZh: '仍低于中枢，可在计划上小幅加码', actEn: 'Still below the mid-line — add a little', cls: 'buy' };
+  if (r >= 50) return { zh: '中性区 · 按计划投', en: 'Neutral · stay on plan', actZh: '不高不低，按原计划执行，不额外加码', actEn: 'Neither cheap nor rich — stick to the plan', cls: 'mid' };
+  if (r >= 30) return { zh: '偏高区 · 降低投入', en: 'Above average · trim', actZh: '位置偏高，减少本期投入，留出现金', actEn: 'Getting expensive — invest less, hold cash', cls: 'sell' };
+  return { zh: '高位区 · 少投多留', en: 'Expensive · mostly cash', actZh: '估值与情绪双双偏热，只投底仓，多留现金', actEn: 'Rich valuation and hot sentiment — minimum only', cls: 'sell' };
+}
+function renderPosRatio() {
+  var big = document.getElementById('posBig');
+  if (!big) return;
+  var m = dcaPosModel(), band = posBand(m.use);
+  big.textContent = m.use + '%';
+  var badge = document.getElementById('posBadge');
+  badge.textContent = m.manual ? L('手动', 'Manual') : L('自动', 'Auto');
+  badge.className = 'pos-badge' + (m.manual ? ' manual' : '');
+  var fill = document.getElementById('posFill');
+  fill.style.width = Math.max(0, Math.min(100, (m.use - 20) / 80 * 100)) + '%';
+  fill.className = 'pos-fill ' + band.cls;
+  var ver = document.getElementById('posVerdict');
+  ver.textContent = L(band.zh, band.en);
+  ver.className = 'pos-verdict ' + band.cls;
+  document.getElementById('posAct').textContent = L(band.actZh, band.actEn);
+
+  var why = [];
+  if (m.idxPct != null) why.push(L('上证位置分位 ' + Math.round(m.idxPct) + '%', 'SSE percentile ' + Math.round(m.idxPct) + '%'));
+  if (m.vix != null && m.vixPct != null) why.push('VIX ' + m.vix.toFixed(1) + L(' · 分位 ' + Math.round(m.vixPct) + '%', ' · pct ' + Math.round(m.vixPct) + '%'));
+  why.push(L('市场温度 ' + Math.round(m.temp) + '°', 'Heat ' + Math.round(m.temp) + '°'));
+  if (!m.ok) why.push(L('指数数据不足，按中性处理', 'Not enough index data — neutral'));
+  document.getElementById('posWhy').innerHTML = why.map(function (t) {
+    return '<span class="pos-chip">' + t + '</span>';
+  }).join('');
+
+  /* 各计划分配 */
+  var box = document.getElementById('posAlloc');
+  var total = 0;
+  plans.forEach(function (p) { total += Number(p.amount) || 0; });
+  var invest = total * m.use / 100, cash = total - invest;
+  if (!plans.length) {
+    box.innerHTML = '<div class="listcard"><div class="empty">' + L('还没有定投计划<br>先到「定投计划」添加一个', 'No plans yet<br>Add one in Plans') + '</div></div>';
+    return;
+  }
+  var h = '<div class="pos-sum">'
+    + '<div class="ps"><div class="ps-k">' + L('每月定投总额', 'Monthly total') + '</div><div class="ps-v">¥' + fmtAmt(total) + '</div></div>'
+    + '<div class="ps"><div class="ps-k">' + L('本期建议投入', 'Invest this period') + '</div><div class="ps-v accent">¥' + fmtAmt(Math.round(invest)) + '</div></div>'
+    + '<div class="ps"><div class="ps-k">' + L('留存现金', 'Cash left') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(cash)) + '</div></div>'
+    + '</div>';
+  h += '<div class="listcard">';
+  plans.forEach(function (p) {
+    var amt = Number(p.amount) || 0;
+    var share = total > 0 ? amt / total * 100 : 0;
+    var put = Math.round(amt * m.use / 100);
+    h += '<div class="lrow pos-row" onclick="editPlan(\'' + p.id + '\')">'
+      + '<div class="linfo"><div class="lname">' + esc(p.name) + '</div>'
+      + '<div class="lsub">' + esc(p.code || '—') + ' · ' + L('占比', 'Weight') + ' ' + share.toFixed(0) + '%</div></div>'
+      + '<div class="lval"><div class="v1">¥' + fmtAmt(put) + '</div>'
+      + '<div class="v2">' + L('计划 ¥' + fmtAmt(amt), 'Plan ¥' + fmtAmt(amt)) + '</div></div>'
+      + '</div>';
+  });
+  h += '</div>';
+  h += '<div class="hintbar" style="margin-top:4px">' + L('按仓位比折算后的本期投入 · 点击条目可编辑计划', 'Amounts scaled by the ratio · tap a row to edit') + '</div>';
+  box.innerHTML = h;
+}
+function posSet(btn) {
+  var r = btn.getAttribute('data-r');
+  posCfg.override = r === 'auto' ? null : Number(r);
+  savePosCfg();
+  document.querySelectorAll('#posTune button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderPosRatio();
+  toast(posCfg.override == null ? L('已恢复自动仓位比', 'Back to auto ratio') : L('已设为手动 ' + posCfg.override + '%', 'Manual ' + posCfg.override + '%'));
+}
+function syncPosTune() {
+  var wrap = document.getElementById('posTune');
+  if (!wrap) return;
+  var cur = posCfg.override == null ? 'auto' : String(posCfg.override);
+  wrap.querySelectorAll('button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-r') === cur);
+  });
+}
+var curPlanPane = 'list';
+function planTab(btn) {
+  var pane = btn.getAttribute('data-pane');
+  document.querySelectorAll('#planTabs button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  document.getElementById('planPane').style.display = pane === 'list' ? '' : 'none';
+  document.getElementById('posPane').style.display = pane === 'pos' ? '' : 'none';
+  var inv = document.getElementById('invPane');
+  if (inv) inv.style.display = pane === 'inv' ? '' : 'none';
+  var pnl = document.getElementById('pnlPane');
+  if (pnl) pnl.style.display = pane === 'pnl' ? '' : 'none';
+  curPlanPane = pane;
+  var fab = document.getElementById('fab');
+  fab.classList.toggle('hide', pane === 'pos' || pane === 'pnl');
+  fab.setAttribute('title', pane === 'inv' ? L('记录定投', 'Log DCA') : L('添加定投提醒', 'Add plan'));
+  if (pane === 'list') renderPlans();
+  if (pane === 'pos') { syncPosTune(); renderPosRatio(); }
+  if (pane === 'inv') {
+    renderInvests();
+    fetchInvestQuotes().then(function () { if (curPlanPane === 'inv') renderInvests(); });
+  }
+  if (pane === 'pnl') {
+    renderPnl();
+    fetchInvestQuotes().then(function () { if (curPlanPane === 'pnl') renderPnl(); });
+  }
+}
+
+/* ---------- 已定投：每笔定投记录 / 定投数量 / 定投股价 / 浮盈浮亏 ---------- */
+var INV_KEY = 'fuley.invests.v1';
+var invests = loadJSON(INV_KEY, []);
+if (!Array.isArray(invests)) invests = [];
+function saveInvests() { saveJSON(INV_KEY, invests); }
+var invQuotes = {};                 // 原始代码 -> { price, tm }
+var editInvId = null;
+
+/* 用户代码 → 腾讯行情代码：6 位 A股（沪 6/5/9 · 深 0/1/2/3 · 北 4/8/92）/ 5 位港股 / 字母美股；已带 sh|sz|hk|us|bj 前缀的原样 */
+function quoteCodeFor(code) {
+  var c = String(code || '').trim();
+  if (!c) return '';
+  if (/^(sh|sz|hk|us|bj)/i.test(c)) return c.toLowerCase();
+  if (/^\d{6}$/.test(c)) {
+    var d = c.charAt(0);
+    if (d === '6' || d === '5') return 'sh' + c;                    // 沪市 A股 / ETF
+    if (d === '0' || d === '1' || d === '2' || d === '3') return 'sz' + c;  // 深市 A股 / ETF / 创业板
+    if (d === '4' || d === '8' || c.indexOf('92') === 0) return 'bj' + c;  // 北交所 430/830/870/920
+    if (d === '9') return 'sh' + c;                                 // 900xxx 沪B
+    return 'sz' + c;
+  }
+  if (/^\d{5}$/.test(c)) return 'hk' + c;
+  if (/^[A-Za-z][A-Za-z0-9.\-]*$/.test(c)) return 'us' + c;
+  return '';
+}
+/* 通用批量取价：map = { 腾讯代码: 用户代码 }，写入 cache[用户代码] = { price, prev, tm } */
+function fetchQuoteBatch(map, cache) {
+  var keys = Object.keys(map);
+  if (!keys.length) return Promise.resolve(false);
+  return fetch('https://qt.gtimg.cn/q=' + keys.join(','), { cache: 'no-store' })
+    .then(function (r) { return r.text(); })
+    .then(function (txt) {
+      var out = {}, m, re = /v_([A-Za-z0-9.]+)="([^"]*)"/g;
+      while ((m = re.exec(txt))) {
+        var f = m[2].split('~');
+        if (f.length < 33) continue;
+        var p = parseFloat(f[3]);
+        if (!isFinite(p) || p <= 0) continue;
+        var prev = parseFloat(f[4]);
+        out[m[1]] = { price: p, prev: (isFinite(prev) && prev > 0) ? prev : p, tm: fmtTm(f[30]) };
+      }
+      var changed = false;
+      keys.forEach(function (k) {
+        if (out[k] && (!cache[map[k]] || cache[map[k]].price !== out[k].price)) {
+          cache[map[k]] = out[k]; changed = true;
+        }
+      });
+      return changed;
+    })
+    .catch(function () { return false; });
+}
+/* 按「用户代码」单点取价：命中即写入 sigQuotes 缓存并回调 */
+function fetchOneQuote(code, cb) {
+  var q = quoteCodeFor(code);
+  if (!q) { toast(L('代码格式不支持，示例：510300 / 00700 / NVDA', 'Bad code, e.g. 510300 / 00700 / NVDA')); return; }
+  var m = {}; m[q] = code;
+  var tmp = {};
+  fetchQuoteBatch(m, tmp).then(function () {
+    var got = tmp[code];
+    if (got) { sigQuotes[code] = got; cb(got); }
+    else toast(L('未取到该代码行情，请检查代码', 'No quote for this code — please check it'));
+  });
+}
+function fetchInvestQuotes() {
+  var map = {};
+  invests.forEach(function (r) {
+    var q = quoteCodeFor(r.code);
+    if (q && !map[q]) map[q] = r.code;
+  });
+  return fetchQuoteBatch(map, invQuotes);
+}
+function fmtQty(q) { var n = Number(q) || 0; return n % 1 ? n.toFixed(2) : String(Math.round(n)); }
+function fmtPx(v) { var n = Number(v) || 0; return n >= 100 ? n.toFixed(2) : n.toFixed(3); }
+function invHoldings() {
+  var map = {};
+  invests.forEach(function (r) {
+    var k = (r.name || '—') + '|' + (r.code || '');
+    if (!map[k]) map[k] = { name: r.name || '—', code: r.code || '', qty: 0, cost: 0, rows: [] };
+    var h = map[k];
+    h.qty += Number(r.qty) || 0;
+    h.cost += (Number(r.qty) || 0) * (Number(r.price) || 0);
+    h.rows.push(r);
+  });
+  var list = [];
+  Object.keys(map).forEach(function (k) {
+    var h = map[k];
+    h.avg = h.qty > 0 ? h.cost / h.qty : 0;
+    h.rows.sort(function (a, b) { return String(a.ts).localeCompare(String(b.ts)); });
+    var q = invQuotes[h.code];
+    h.cur = q ? q.price : null;
+    h.market = h.cur != null ? h.cur * h.qty : null;
+    h.pnl = h.cur != null ? (h.cur - h.avg) * h.qty : null;
+    h.rate = h.cur != null && h.avg > 0 ? (h.cur - h.avg) / h.avg * 100 : null;
+    list.push(h);
+  });
+  return list;
+}
+function renderInvests() {
+  var sumBox = document.getElementById('invSum'), listBox = document.getElementById('invList');
+  if (!listBox) return;
+  if (!invests.length) {
+    if (sumBox) sumBox.innerHTML = '';
+    listBox.innerHTML = '<div class="listcard"><div class="empty">' + L('还没有定投记录<br>点右下角 + 记下第一笔', 'No records yet<br>Tap + to log the first') + '</div></div>';
+    return;
+  }
+  var hs = invHoldings();
+  var totCost = 0, totMkt = 0, hasMkt = false;
+  hs.forEach(function (h) { totCost += h.cost; if (h.market != null) { totMkt += h.market; hasMkt = true; } });
+  var totPnl = hasMkt ? totMkt - totCost : null;
+  if (sumBox) {
+    sumBox.innerHTML = '<div class="pos-sum">'
+      + '<div class="ps"><div class="ps-k">' + L('累计投入', 'Total cost') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(totCost)) + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('当前市值', 'Market value') + '</div><div class="ps-v">' + (hasMkt ? '¥' + fmtAmt(Math.round(totMkt)) : '—') + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('浮动盈亏', 'Floating P/L') + '</div><div class="ps-v ' + (totPnl == null ? '' : (totPnl >= 0 ? 'up' : 'down')) + '">'
+      + (totPnl == null ? '—' : (totPnl >= 0 ? '+' : '-') + '¥' + fmtAmt(Math.abs(Math.round(totPnl)))) + '</div></div>'
+      + '</div>';
+  }
+  var h = '';
+  hs.forEach(function (g, gi) {
+    var rateCls = g.rate == null ? '' : (g.rate >= 0 ? 'up' : 'down');
+    var rateTxt = g.rate == null ? '' : (g.rate >= 0 ? '+' : '') + g.rate.toFixed(2) + '%';
+    h += '<div class="inv-card">'
+      + '<div class="inv-h" onclick="editHold(\'' + gi + '\')">'
+      + '<div class="inv-name">' + esc(g.name) + (g.code ? '<span class="inv-code">' + esc(g.code) + '</span>' : '') + '</div>'
+      + '<div class="inv-rate ' + rateCls + '">' + rateTxt + '</div>'
+      + '</div>'
+      + '<div class="inv-g">'
+      + '<div class="inv-gi"><span>' + L('定投数量', 'Units') + '</span><b>' + fmtQty(g.qty) + '</b></div>'
+      + '<div class="inv-gi"><span>' + L('定投股价', 'Avg cost') + '</span><b>¥' + fmtPx(g.avg) + '</b></div>'
+      + '<div class="inv-gi"><span>' + L('现价', 'Price') + '</span><b>' + (g.cur != null ? '¥' + fmtPx(g.cur) : '—') + '</b></div>'
+      + '<div class="inv-gi"><span>' + L('市值', 'Value') + '</span><b>' + (g.market != null ? '¥' + fmtAmt(Math.round(g.market)) : '—') + '</b></div>'
+      + '</div>'
+      + '<div class="inv-rows">';
+    g.rows.forEach(function (r) {
+      h += '<div class="inv-row" onclick="editInv(\'' + r.id + '\')">'
+        + '<span class="ir-d">' + esc(r.ts || '—') + '</span>'
+        + '<span class="ir-p">' + L('定投价', 'buy @') + ' ¥' + fmtPx(r.price) + '</span>'
+        + '<span class="ir-q">' + fmtQty(r.qty) + '</span>'
+        + '<span class="ir-a">¥' + fmtAmt(Math.round((Number(r.qty) || 0) * (Number(r.price) || 0))) + '</span>'
+        + '</div>';
+    });
+    h += '</div></div>';
+  });
+  listBox.innerHTML = h;
+}
+function editHold(gi) { return; }   // 占位：点击标题不触发（行内记录可点）
+/* ---------- 收益：汇总 / 按标的排行 / 按月投入 ---------- */
+function renderPnl() {
+  var sumBox = document.getElementById('pnlSum'), rankBox = document.getElementById('pnlRank'), monBox = document.getElementById('pnlMonths');
+  if (!rankBox) return;
+  if (!invests.length) {
+    if (sumBox) sumBox.innerHTML = '';
+    if (monBox) monBox.innerHTML = '';
+    rankBox.innerHTML = '<div class="listcard"><div class="empty">' + L('暂无收益数据<br>去「已定投」记录第一笔定投', 'No returns yet<br>Log your first DCA in "Invested"') + '</div></div>';
+    return;
+  }
+  var hs = invHoldings();
+  var totCost = 0, totMkt = 0, hasMkt = false;
+  hs.forEach(function (h) { totCost += h.cost; if (h.market != null) { totMkt += h.market; hasMkt = true; } });
+  var totPnl = hasMkt ? totMkt - totCost : null;
+  var totRate = (totPnl != null && totCost > 0) ? totPnl / totCost * 100 : null;
+  if (sumBox) {
+    sumBox.innerHTML = '<div class="pos-sum">'
+      + '<div class="ps"><div class="ps-k">' + L('累计投入', 'Total cost') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(totCost)) + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('当前市值', 'Market value') + '</div><div class="ps-v">' + (hasMkt ? '¥' + fmtAmt(Math.round(totMkt)) : '—') + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('浮动盈亏', 'Floating P/L') + '</div><div class="ps-v ' + (totPnl == null ? '' : (totPnl >= 0 ? 'up' : 'down')) + '">'
+      + (totPnl == null ? '—' : (totPnl >= 0 ? '+' : '-') + '¥' + fmtAmt(Math.abs(Math.round(totPnl)))) + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('总收益率', 'Total return') + '</div><div class="ps-v ' + (totRate == null ? '' : (totRate >= 0 ? 'up' : 'down')) + '">'
+      + (totRate == null ? '—' : (totRate >= 0 ? '+' : '') + totRate.toFixed(2) + '%') + '</div></div>'
+      + '</div>';
+  }
+  /* 按标的收益排行：有现价的按收益率降序，无现价排最后 */
+  var rank = hs.slice().sort(function (a, b) {
+    if (a.rate == null && b.rate == null) return 0;
+    if (a.rate == null) return 1;
+    if (b.rate == null) return -1;
+    return b.rate - a.rate;
+  });
+  var rh = '';
+  rank.forEach(function (g) {
+    var cls = g.rate == null ? '' : (g.rate >= 0 ? 'up' : 'down');
+    var rateTxt = g.rate == null ? '—' : (g.rate >= 0 ? '+' : '') + g.rate.toFixed(2) + '%';
+    var pnlTxt = g.pnl == null ? '—' : (g.pnl >= 0 ? '+' : '-') + '¥' + fmtAmt(Math.abs(Math.round(g.pnl)));
+    rh += '<div class="pnl-row">'
+      + '<div class="pnl-name">' + esc(g.name) + '</div>'
+      + '<div class="pnl-rate ' + cls + '">' + rateTxt + '</div>'
+      + '<div class="pnl-pnl ' + cls + '">' + pnlTxt + '</div>'
+      + '</div>';
+  });
+  rankBox.innerHTML = '<div class="pnl-t">' + L('收益排行', 'Returns by asset') + '</div>' + rh;
+  /* 按月投入：笔数 + 金额 + 占比条 */
+  var mm = {};
+  invests.forEach(function (r) {
+    var k = String(r.ts || '').slice(0, 7);
+    if (!k) return;
+    if (!mm[k]) mm[k] = { m: k, amt: 0, n: 0 };
+    mm[k].amt += (Number(r.qty) || 0) * (Number(r.price) || 0);
+    mm[k].n++;
+  });
+  var mks = Object.keys(mm).sort();
+  var maxAmt = 0;
+  mks.forEach(function (k) { if (mm[k].amt > maxAmt) maxAmt = mm[k].amt; });
+  var mh = '';
+  mks.forEach(function (k) {
+    var it = mm[k];
+    var w = maxAmt > 0 ? Math.max(4, it.amt / maxAmt * 100) : 4;
+    mh += '<div class="pnl-mon">'
+      + '<span class="pm-m">' + esc(it.m) + '</span>'
+      + '<span class="pm-bar"><i style="width:' + w.toFixed(1) + '%"></i></span>'
+      + '<span class="pm-a">¥' + fmtAmt(Math.round(it.amt)) + '<em>' + it.n + ' ' + L('笔', 'buys') + '</em></span>'
+      + '</div>';
+  });
+  if (monBox) monBox.innerHTML = '<div class="pnl-t">' + L('按月投入', 'Monthly deposits') + '</div>' + mh;
+}
+function openInvestForm() {
+  var r = editInvId ? invests.filter(function (x) { return x.id === editInvId; })[0] : null;
+  sheetMode = 'inv';
+  document.getElementById('sheetTitle').textContent = r ? '编辑定投记录' : '记录定投';
+  document.getElementById('sheetSave').textContent = r ? '保存' : '添加';
+  var today = new Date().toISOString().slice(0, 10);
+  var body = '';
+  if (r) body += '<button class="btn ghost btn-block" style="margin-bottom:12px" onclick="delInv()">删除此记录</button>';
+  body += '<div class="field"><label>' + L('股票名称', 'Asset name') + '</label><input type="text" id="ifName" maxlength="30" placeholder="' + L('如 沪深300ETF / 英伟达', 'e.g. CSI 300 ETF / NVDA') + '" value="' + esc(r ? r.name : '') + '"></div>'
+    + '<div class="field"><label>' + L('代码（可选，填了自动取现价）', 'Code (optional — enables the live price)') + '</label><input type="text" id="ifCode" maxlength="20" placeholder="510300 / 00700 / NVDA" value="' + esc(r ? r.code : '') + '"></div>'
+    + '<div class="field"><label>' + L('定投日期', 'Date') + '</label><input type="date" id="ifTs" max="' + today + '" value="' + esc(r ? r.ts : today) + '"></div>'
+    + '<div class="field"><label>' + L('定投股价', 'Price paid') + '</label><input type="number" id="ifPrice" min="0" step="0.0001" placeholder="' + L('如 3.856', 'e.g. 3.856') + '" value="' + (r ? r.price : '') + '"></div>'
+    + '<div class="field"><label>' + L('定投数量（股）', 'Units') + '</label><input type="number" id="ifQty" min="0" step="0.01" placeholder="' + L('如 500', 'e.g. 500') + '" value="' + (r ? r.qty : '') + '"></div>'
+    + '<div class="hintbar" style="margin:0">' + L('金额 = 股价 × 数量，自动计算；多条同名记录会合并统计浮盈浮亏', 'Amount = price × units · same-asset rows merge into one position with floating P/L') + '</div>';
+  document.getElementById('sheetBody').innerHTML = body;
+  showSheet();
+}
+function editInv(id) { editInvId = id; openInvestForm(); }
+function delInv() {
+  if (!editInvId) { closeSheet(); return; }
+  var i = invests.findIndex(function (x) { return x.id === editInvId; });
+  if (i >= 0) {
+    invests.splice(i, 1);
+    saveInvests();
+    renderInvests();
+    toast('已删除该定投记录');
+  }
+  editInvId = null;
+  closeSheet();
+}
+function saveInvForm() {
+  var name = (document.getElementById('ifName').value || '').trim();
+  var code = (document.getElementById('ifCode').value || '').trim();
+  var ts = document.getElementById('ifTs').value || new Date().toISOString().slice(0, 10);
+  var price = Number(document.getElementById('ifPrice').value || 0);
+  var qty = Number(document.getElementById('ifQty').value || 0);
+  if (!name) { toast('请填写股票名称'); return; }
+  if (!(price > 0)) { toast('请填写定投股价'); return; }
+  if (!(qty > 0)) { toast('请填写定投数量'); return; }
+  var r;
+  if (editInvId) r = invests.filter(function (x) { return x.id === editInvId; })[0];
+  if (!r) { r = { id: genId() }; invests.push(r); }
+  r.name = name; r.code = code; r.ts = ts; r.price = price; r.qty = qty;
+  saveInvests();
+  editInvId = null;
+  closeSheet();
+  renderInvests();
+  fetchInvestQuotes().then(function () { renderInvests(); });
+  toast('已保存定投记录');
 }
 
 /* ---------- 本地通知（Capacitor LocalNotifications） ---------- */
@@ -804,6 +1244,24 @@ var SIGNALS_KEY = 'fuley.signals.v1';
 var signals = loadJSON(SIGNALS_KEY, []);
 if (!Array.isArray(signals)) signals = [];
 function saveSignals() { saveJSON(SIGNALS_KEY, signals); }
+var sigQuotes = {};                 // 用户代码 -> { price, prev, tm }（价格触发关联任意标的的行情）
+function fetchSignalQuotes() {
+  var map = {};
+  signals.forEach(function (s) {
+    if (s.type !== 'price' || !s.code) return;
+    var q = quoteCodeFor(s.code);
+    if (q && !map[q]) map[q] = s.code;
+  });
+  return fetchQuoteBatch(map, sigQuotes);
+}
+/* 解析信号的实时行情：优先按代码取缓存，其次按名称匹配四大指数 */
+function sigQuote(s) {
+  if (!s || s.type !== 'price') return null;
+  if (s.code) { var q = sigQuotes[s.code]; if (q && q.price) return q; }
+  var ix = findIndexByName(s.name);
+  if (ix && ix.price) return { price: ix.price, prev: (ix.prev && ix.prev > 0) ? ix.prev : ix.price, tm: ix.tm || '' };
+  return null;
+}
 /* 市盈率（P/E）条件：附加在价格/定时之后显示，≤ 便宜 / ≥ 贵 */
 function sigCondText(s) {
   var base = s.type === 'price'
@@ -831,10 +1289,20 @@ function renderSignals() {
   var html = '';
   signals.forEach(function (s) {
     var cond = sigCondText(s);
-    var state = s.type === 'price' ? (s.fired ? '已触发' : '监控中') : (s.fired ? '已提醒' : '待提醒');
+    var state = s.type === 'price' ? (s.fired ? L('已触发', 'Triggered') : L('监控中', 'Watching')) : (s.fired ? L('已提醒', 'Notified') : L('待提醒', 'Pending'));
+    var q = sigQuote(s);
+    var pxLine = '';
+    if (q && s.type === 'price') {
+      var chg = q.prev > 0 ? (q.price - q.prev) / q.prev * 100 : 0;
+      var dist = (Number(s.price) - q.price) / q.price * 100;   // >0 = 还需涨 · <0 = 已过/需跌
+      pxLine = '<div class="lsub2">' + L('现价', 'Price') + ' ¥' + fmtPx(q.price)
+        + ' <span class="' + (chg >= 0 ? 'up' : 'down') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span>'
+        + ' · ' + L('距触发', 'to trigger') + ' ' + (dist >= 0 ? '+' : '') + dist.toFixed(1) + '%</div>';
+    }
     html += '<div class="lrow" onclick="editSignal(\'' + s.id + '\')">'
       + '<div class="dirchip ' + (s.dir > 0 ? 'up' : 'down') + '">' + (s.dir > 0 ? '加' : '减') + '</div>'
-      + '<div class="linfo"><div class="lname">' + esc(s.name) + '</div><div class="lsub">' + esc(cond) + '</div></div>'
+      + '<div class="linfo"><div class="lname">' + esc(s.name) + (s.code ? '<span class="inv-code">' + esc(s.code) + '</span>' : '') + '</div>'
+      + '<div class="lsub">' + esc(cond) + '</div>' + pxLine + '</div>'
       + '<div class="lval"><div class="v1">' + state + '</div><div class="v2">' + esc(s.note || '') + '</div></div>'
       + '</div>';
   });
@@ -853,11 +1321,13 @@ function openSignalForm() {
   body += '<div class="seg" id="dirSeg">'
     + '<button class="' + (sheetDir > 0 ? 'on up' : '') + '" onclick="segDir(this,1)">加仓</button>'
     + '<button class="' + (sheetDir < 0 ? 'on down' : '') + '" onclick="segDir(this,-1)">减仓</button></div>'
-    + '<div class="field"><label>标的名称</label><input type="text" id="sfName" maxlength="30" placeholder="标普500 / 恒生指数 / 英伟达" value="' + esc(s ? s.name : '') + '"></div>'
+    + '<div class="field"><label>' + L('标的名称', 'Asset name') + '</label><input type="text" id="sfName" maxlength="30" placeholder="' + L('标普500 / 恒生指数 / 英伟达', 'S&P 500 / Hang Seng / NVDA') + '" value="' + esc(s ? s.name : '') + '"></div>'
+    + '<div class="field"><label>' + L('代码（可选，填了自动取现价）', 'Code (optional — enables the live price)') + '</label><input type="text" id="sfCode" maxlength="20" placeholder="510300 / 00700 / NVDA" value="' + esc(s ? s.code : '') + '"></div>'
     + '<div class="field"><label>触发类型</label><select id="sfType">'
     + '<option value="price"' + (s && s.type === 'price' ? ' selected' : '') + '>价格触发</option>'
     + '<option value="time"' + (s && s.type === 'time' ? ' selected' : '') + '>定时提醒</option></select></div>'
-    + '<div class="field"><label>触发价（价格触发时填写）</label><input type="number" id="sfPrice" min="0" step="0.01" placeholder="如 205.00" value="' + (s ? s.price : '') + '"></div>'
+    + '<div class="field"><label>' + L('触发价（价格触发时填写）', 'Trigger price (for price alerts)') + '</label><input type="number" id="sfPrice" min="0" step="0.01" placeholder="' + L('如 205.00', 'e.g. 205.00') + '" value="' + (s ? s.price : '') + '">'
+    + '<button type="button" class="btn ghost btn-block" style="margin-top:7px" onclick="fillSigPrice()">' + L('填入现价', 'Use live price') + '</button></div>'
     + '<div class="field"><label>市盈率 P/E 条件（可选，显示在价格后）</label>'
     + '<div class="seg" id="peSeg" style="margin-bottom:7px">'
     + '<button class="' + (peOpSel === 'lte' ? 'on' : '') + '" onclick="segPeOp(this,0)">≤ 低于</button>'
@@ -865,9 +1335,23 @@ function openSignalForm() {
     + '<input type="number" id="sfPe" min="0" step="0.1" placeholder="如 12（留空 = 不限市盈率）" value="' + (s && s.peVal ? s.peVal : '') + '">'
     + '</div>'
     + '<div class="field"><label>定时（定时提醒时填写）</label><input type="text" id="sfTime" maxlength="30" placeholder="如 每周五 14:30" value="' + esc(s ? s.time : '') + '"></div>'
-    + '<div class="hintbar" style="margin:0">价格触发盯四大指数实时行情 · 命名需与指数一致（标普500 / 纳斯达克 / 恒生指数 / 上证指数）· P/E 条件记录在提醒中，触发时一并提示</div>';
+    + '<div class="hintbar" style="margin:0">' + L('价格触发支持四大指数（名称匹配：标普500 / 纳斯达克 / 恒生指数 / 上证指数）与任意股票代码（填代码自动联网取现价、列表显示距触发幅度、到价即提醒）· P/E 条件记录在提醒中，触发时一并提示', 'Price alerts work for the four indices (match by name: S&P 500 / Nasdaq / Hang Seng / SSE Comp) or any security by code (live price, distance to trigger, notification on hit) · the P/E condition is stored and shown with the alert') + '</div>';
   document.getElementById('sheetBody').innerHTML = body;
   showSheet();
+}
+/* 「填入现价」：优先已缓存行情（代码 / 指数名），否则联网取一次 */
+function fillSigPrice() {
+  var name = (document.getElementById('sfName').value || '').trim();
+  var code = (document.getElementById('sfCode').value || '').trim();
+  var q = sigQuote({ type: 'price', name: name, code: code });
+  if (q && q.price) { setSigPrice(q.price); return; }
+  if (code) { fetchOneQuote(code, function (qq) { setSigPrice(qq.price); }); return; }
+  toast(L('请先填写代码，或使用指数名称（标普500 / 纳斯达克 / 恒生指数 / 上证指数）', 'Enter a code, or use an index name (S&P 500 / Nasdaq / Hang Seng / SSE Comp)'));
+}
+function setSigPrice(p) {
+  var el = document.getElementById('sfPrice');
+  if (el) el.value = p >= 100 ? p.toFixed(2) : p.toFixed(3);
+  toast(L('已填入现价', 'Filled with live price'));
 }
 /* 市盈率比较方向：0 = ≤ 低于（便宜） / 1 = ≥ 高于（贵） */
 function segPeOp(btn, op) {
@@ -891,6 +1375,7 @@ function delSignal() {
 }
 function saveSignalForm() {
   var name = (document.getElementById('sfName').value || '').trim();
+  var code = (document.getElementById('sfCode').value || '').trim();
   var type = document.getElementById('sfType').value || 'price';
   var price = Number(document.getElementById('sfPrice').value || 0);
   var time = (document.getElementById('sfTime').value || '').trim();
@@ -902,12 +1387,12 @@ function saveSignalForm() {
   if (editSigId) s = signals.filter(function (x) { return x.id === editSigId; })[0];
   if (!s) { s = { id: genId() }; signals.push(s); }
   s.name = name; s.type = type; s.dir = sheetDir;
-  s.price = price; s.time = time; s.fired = false;
+  s.code = code; s.price = price; s.time = time; s.fired = false;
   s.peOp = (peVal > 0) ? sheetPeOp : '';
   s.peVal = (peVal > 0) ? peVal : 0;
   saveSignals();
   renderSignals();
-  checkSignalTriggers();
+  fetchSignalQuotes().then(function () { renderSignals(); checkSignalTriggers(); });
   editSigId = null;
   closeSheet();
   toast('已保存加减仓提醒');
@@ -915,9 +1400,9 @@ function saveSignalForm() {
 function checkSignalTriggers() {
   signals.forEach(function (s) {
     if (s.fired || s.type !== 'price') return;
-    var ix = findIndexByName(s.name);
-    if (!ix) return;
-    var p = ix.price;
+    var q = sigQuote(s);
+    if (!q || !(q.price > 0)) return;
+    var p = q.price;
     var hit = s.dir > 0 ? p >= Number(s.price) : p <= Number(s.price);
     if (hit) {
       s.fired = true;
@@ -1136,9 +1621,13 @@ function sigTab(btn) {
   curSigPane = pane;
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', pane === 'panic');
-  fab.setAttribute('title', pane === 'quiz' ? '自定义题目' : '添加加减仓提醒');
+  fab.setAttribute('title', pane === 'quiz' ? L('自定义题目', 'Custom question') : L('添加加减仓提醒', 'Add alert'));
   if (pane === 'quiz') renderQuiz();
   if (pane === 'panic') renderPanic();
+  if (pane === 'sig') {
+    renderSignals();
+    fetchSignalQuotes().then(function () { if (curSigPane === 'sig') renderSignals(); });
+  }
 }
 
 /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
@@ -1784,6 +2273,7 @@ function vixFetchUpdate() {
         if (changed) {
           lsSet('fuley.vix.v1', JSON.stringify(VIX_DATA.slice(-400)));
           if (curHomePane === 'vix') renderVix();
+          if (curTab === 'plan' && curPlanPane === 'pos') renderPosRatio();
         }
       }).catch(function () {});
   } catch (e) {}
@@ -2038,7 +2528,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.4.2';
+var APP_VERSION = 'v1.4.5';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -2210,32 +2700,87 @@ function checkTrialDaily() {
 }
 function collectData() {
   return {
-    app: 'fuley', version: 'v1.3.0', exportedAt: new Date().toISOString(),
+    app: 'fuley', version: APP_VERSION, exportedAt: new Date().toISOString(),
     plans: plans, signals: signals, notes: notes,
     quiz: quizItems, panic: panicLv, cal: calCustom
   };
 }
-function exportData() {
-  var data = collectData();
-  var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+var lastExportUri = null;
+function exportFileName() { return 'fuley-export-' + new Date().toISOString().slice(0, 10) + '.json'; }
+function exportCount() { return plans.length + signals.length + notes.red.length + notes.green.length + notes.case.length; }
+function b64ofJson(s) {
+  try { return btoa(unescape(encodeURIComponent(s))); } catch (e) { return btoa(s); }
+}
+function webDownload(json, name, cnt) {
+  var blob = new Blob([json], { type: 'application/json' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = 'fuley-export-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
-  var cnt = plans.length + signals.length + notes.red.length + notes.green.length + notes.case.length;
-  toast('已导出 ' + cnt + ' 条数据');
+  toast(L('已导出 ' + cnt + ' 条 · 已保存到浏览器下载目录', 'Exported ' + cnt + ' items · saved to browser downloads'));
 }
+/* 原生 App：写进「文档」目录（文件管理器可见），并打开分享面板可直接保存/发送 */
+function exportData() {
+  var data = collectData();
+  var json = JSON.stringify(data, null, 2);
+  var name = exportFileName();
+  var cnt = exportCount();
+  var nat = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var FS = nat && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+  if (FS && FS.writeFile) {
+    FS.writeFile({ path: name, data: b64ofJson(json), directory: 'DOCUMENTS', recursive: true })
+      .then(function (res) {
+        lastExportUri = res && res.uri ? res.uri : null;
+        var row = document.getElementById('shareExportRow');
+        if (row && lastExportUri) row.style.display = '';
+        var shown = lastExportUri ? String(lastExportUri).replace(/^file:\/\//, '') : name;
+        toast(L('已导出 ' + cnt + ' 条 · 保存在「文档」目录：' + shown, 'Exported ' + cnt + ' items · Documents/' + shown));
+        var SH = window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+        if (SH && SH.share && lastExportUri) {
+          SH.share({ title: name, text: '浮乐数据导出', url: lastExportUri, dialogTitle: L('导出文件 · 可保存或发送', 'Export file · save or send') })
+            .catch(function () { /* 用户取消 */ });
+        }
+      })
+      .catch(function () { webDownload(json, name, cnt); });
+    return;
+  }
+  webDownload(json, name, cnt);
+}
+function shareExport() {
+  var SH = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+  if (!lastExportUri || !SH || !SH.share) { toast(L('还没有可分享的导出文件', 'No export to share')); return; }
+  SH.share({ title: exportFileName(), text: '浮乐数据导出', url: lastExportUri, dialogTitle: L('导出文件 · 可保存或发送', 'Export file · save or send') })
+    .catch(function () {});
+}
+
+/* 备份：本机应用存储各存一份，原生端同时写入「文档」目录（同名自动覆盖，toast 提示路径） */
+function backupFileName() { return 'fuley-backup-' + new Date().toISOString().slice(0, 10) + '.json'; }
 function backupData() {
+  var json = JSON.stringify(collectData());
   try {
-    lsSet('fuley_backup', JSON.stringify(collectData()));
+    lsSet('fuley_backup', json);
     document.getElementById('backupState').textContent = '刚刚已备份';
-    toast('备份成功，保存在本机');
   } catch (e) {
     toast('备份失败：' + e.message);
+    return;
   }
+  var nat = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var FS = nat && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+  if (FS && FS.writeFile) {
+    FS.writeFile({ path: backupFileName(), data: b64ofJson(json), directory: 'DOCUMENTS', recursive: true })
+      .then(function (res) {
+        var shown = res && res.uri ? String(res.uri).replace(/^file:\/\//, '') : backupFileName();
+        toast(L('备份成功 · 保存在「文档」目录：' + shown, 'Backup saved · Documents/' + shown));
+      })
+      .catch(function () {
+        toast(L('备份成功（仅本机应用存储）', 'Backup saved locally'));
+      });
+    return;
+  }
+  toast(L('备份成功，保存在本机应用存储', 'Backup saved on this device'));
 }
 function pickRestoreFile() {
   document.getElementById('restoreFile').click();
@@ -2322,6 +2867,10 @@ function toast(msg) {
   renderLangSeg();
   renderIndices();
   renderPlans();
+  syncPosTune();
+  renderPosRatio();
+  renderInvests();
+  renderPnl();
   renderSignals();
   renderNotes();
   renderQuiz();
