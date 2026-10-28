@@ -904,7 +904,7 @@ input, select, textarea { font-family: inherit; }
   position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
   writing-mode: vertical-rl;
   font-size: 44px; font-weight: 800; letter-spacing: 16px;
-  color: var(--up); opacity: .07;
+  color: var(--up); opacity: .12;
   pointer-events: none; user-select: none; -webkit-user-select: none;
   white-space: nowrap; line-height: 1.6; z-index: 0;
 }
