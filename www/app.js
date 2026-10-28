@@ -2528,7 +2528,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.4.4';
+var APP_VERSION = 'v1.4.5';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -2700,7 +2700,7 @@ function checkTrialDaily() {
 }
 function collectData() {
   return {
-    app: 'fuley', version: 'v1.3.0', exportedAt: new Date().toISOString(),
+    app: 'fuley', version: APP_VERSION, exportedAt: new Date().toISOString(),
     plans: plans, signals: signals, notes: notes,
     quiz: quizItems, panic: panicLv, cal: calCustom
   };
@@ -2756,14 +2756,31 @@ function shareExport() {
     .catch(function () {});
 }
 
+/* 备份：本机应用存储各存一份，原生端同时写入「文档」目录（同名自动覆盖，toast 提示路径） */
+function backupFileName() { return 'fuley-backup-' + new Date().toISOString().slice(0, 10) + '.json'; }
 function backupData() {
+  var json = JSON.stringify(collectData());
   try {
-    lsSet('fuley_backup', JSON.stringify(collectData()));
+    lsSet('fuley_backup', json);
     document.getElementById('backupState').textContent = '刚刚已备份';
-    toast('备份成功，保存在本机');
   } catch (e) {
     toast('备份失败：' + e.message);
+    return;
   }
+  var nat = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var FS = nat && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+  if (FS && FS.writeFile) {
+    FS.writeFile({ path: backupFileName(), data: b64ofJson(json), directory: 'DOCUMENTS', recursive: true })
+      .then(function (res) {
+        var shown = res && res.uri ? String(res.uri).replace(/^file:\/\//, '') : backupFileName();
+        toast(L('备份成功 · 保存在「文档」目录：' + shown, 'Backup saved · Documents/' + shown));
+      })
+      .catch(function () {
+        toast(L('备份成功（仅本机应用存储）', 'Backup saved locally'));
+      });
+    return;
+  }
+  toast(L('备份成功，保存在本机应用存储', 'Backup saved on this device'));
 }
 function pickRestoreFile() {
   document.getElementById('restoreFile').click();
