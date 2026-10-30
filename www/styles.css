@@ -335,6 +335,29 @@ input, select, textarea { font-family: inherit; }
 .cal-row.custom .ct-t { color: var(--ink); }
 .cal-empty { text-align: center; color: var(--sub); font-size: 12px; padding: 18px 0 6px; }
 
+/* ---------- 财报日历 ---------- */
+.earn-next {
+  background: var(--card); border-radius: 16px; padding: 13px 15px 12px;
+  box-shadow: var(--shadow); margin-bottom: 12px;
+}
+.earn-next .en-k { font-size: 11.5px; font-weight: 700; color: var(--sub); }
+.earn-next .en-n {
+  font-size: 19px; font-weight: 800; letter-spacing: -.2px; margin: 4px 0 3px;
+  display: flex; align-items: center; gap: 8px;
+}
+.earn-next .en-cd {
+  margin-left: auto; flex: none; font-size: 11.5px; font-weight: 800; color: #fff;
+  background: var(--accent); border-radius: 8px; padding: 3px 9px;
+}
+.earn-next .en-m { font-size: 11.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+.earn-row .earn-d { width: 46px; flex: none; text-align: center; }
+.earn-row .earn-d b { display: block; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.earn-row .earn-d span { font-size: 10px; color: var(--sub); }
+.earn-row .lval .v1 { font-size: 12px; color: var(--sub); }
+.earn-row .lval .v1.on { color: var(--accent); }
+#homeTabs { gap: 6px; }
+#homeTabs button { font-size: 12px; }
+
 /* ---------- 黄金走势趋势 ---------- */
 .gold-quotes {
   background: var(--card); border-radius: 16px; padding: 12px 14px; margin: 10px 12px;

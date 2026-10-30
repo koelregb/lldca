@@ -2330,16 +2330,132 @@ function homeTab(btn) {
   document.getElementById('goldPane').style.display = pane === 'gold' ? '' : 'none';
   document.getElementById('vixPane').style.display = pane === 'vix' ? '' : 'none';
   document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
+  document.getElementById('earnPane').style.display = pane === 'earn' ? '' : 'none';
   curHomePane = pane;
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', pane !== 'cal');
   fab.setAttribute('title', '标记事件');
   if (pane === 'cal') renderCal();
+  if (pane === 'earn') renderEarn();
   if (pane === 'vix') renderVix();
   if (pane === 'cycle') renderEconCycle();
   if (pane === 'gold') renderGold();
 }
 var curHomePane = 'trend';
+
+/* ---------- 七巨头财报日历（内置节奏表；est=1 表示按历史节奏预估） ---------- */
+var EARN = [
+  { c: 'TSLA', zh: '特斯拉', en: 'Tesla', q: 'Q3 2026', d: '2026-10-21', est: 0 },
+  { c: 'GOOGL', zh: '谷歌', en: 'Alphabet', q: 'Q3 2026', d: '2026-10-27', est: 0 },
+  { c: 'MSFT', zh: '微软', en: 'Microsoft', q: 'Q1 FY27', d: '2026-10-28', est: 0 },
+  { c: 'META', zh: 'Meta', en: 'Meta', q: 'Q3 2026', d: '2026-10-28', est: 0 },
+  { c: 'AAPL', zh: '苹果', en: 'Apple', q: 'Q4 FY26', d: '2026-10-29', est: 0 },
+  { c: 'AMZN', zh: '亚马逊', en: 'Amazon', q: 'Q3 2026', d: '2026-10-29', est: 0 },
+  { c: 'NVDA', zh: '英伟达', en: 'NVIDIA', q: 'Q3 FY27', d: '2026-11-18', est: 1 },
+
+  { c: 'MSFT', zh: '微软', en: 'Microsoft', q: 'Q2 FY27', d: '2027-01-26', est: 1 },
+  { c: 'TSLA', zh: '特斯拉', en: 'Tesla', q: 'Q4 2026', d: '2027-01-27', est: 1 },
+  { c: 'META', zh: 'Meta', en: 'Meta', q: 'Q4 2026', d: '2027-01-27', est: 1 },
+  { c: 'AAPL', zh: '苹果', en: 'Apple', q: 'Q1 FY27', d: '2027-01-28', est: 1 },
+  { c: 'GOOGL', zh: '谷歌', en: 'Alphabet', q: 'Q4 2026', d: '2027-02-02', est: 1 },
+  { c: 'AMZN', zh: '亚马逊', en: 'Amazon', q: 'Q4 2026', d: '2027-02-04', est: 1 },
+  { c: 'NVDA', zh: '英伟达', en: 'NVIDIA', q: 'Q4 FY27', d: '2027-02-24', est: 1 },
+
+  { c: 'TSLA', zh: '特斯拉', en: 'Tesla', q: 'Q1 2027', d: '2027-04-21', est: 1 },
+  { c: 'MSFT', zh: '微软', en: 'Microsoft', q: 'Q3 FY27', d: '2027-04-27', est: 1 },
+  { c: 'GOOGL', zh: '谷歌', en: 'Alphabet', q: 'Q1 2027', d: '2027-04-27', est: 1 },
+  { c: 'META', zh: 'Meta', en: 'Meta', q: 'Q1 2027', d: '2027-04-28', est: 1 },
+  { c: 'AAPL', zh: '苹果', en: 'Apple', q: 'Q2 FY27', d: '2027-04-29', est: 1 },
+  { c: 'AMZN', zh: '亚马逊', en: 'Amazon', q: 'Q1 2027', d: '2027-04-29', est: 1 },
+  { c: 'NVDA', zh: '英伟达', en: 'NVIDIA', q: 'Q1 FY28', d: '2027-05-26', est: 1 },
+
+  { c: 'TSLA', zh: '特斯拉', en: 'Tesla', q: 'Q2 2027', d: '2027-07-21', est: 1 },
+  { c: 'MSFT', zh: '微软', en: 'Microsoft', q: 'Q4 FY27', d: '2027-07-27', est: 1 },
+  { c: 'GOOGL', zh: '谷歌', en: 'Alphabet', q: 'Q2 2027', d: '2027-07-27', est: 1 },
+  { c: 'META', zh: 'Meta', en: 'Meta', q: 'Q2 2027', d: '2027-07-28', est: 1 },
+  { c: 'AAPL', zh: '苹果', en: 'Apple', q: 'Q3 FY27', d: '2027-07-29', est: 1 },
+  { c: 'AMZN', zh: '亚马逊', en: 'Amazon', q: 'Q2 2027', d: '2027-07-29', est: 1 },
+  { c: 'NVDA', zh: '英伟达', en: 'NVIDIA', q: 'Q2 FY28', d: '2027-08-25', est: 1 }
+];
+var EARN_KEY = 'fuley.earnremind.v1';
+var earnRemind = loadJSON(EARN_KEY, []);
+if (!Array.isArray(earnRemind)) earnRemind = [];
+function fullToday() { return dateStr(new Date()); }     // 完整 YYYY-MM-DD（todayStr 只有 MM-DD，图表用）
+function daysUntil(ds) {
+  var a = new Date(String(ds) + 'T00:00:00'), b = new Date(fullToday() + 'T00:00:00');
+  return Math.round((a.getTime() - b.getTime()) / 86400000);
+}
+function earnRemindOn(c, d) {
+  return earnRemind.some(function (r) { return r.c === c && r.d === d; });
+}
+function earnLabel(e) { return L(e.zh, e.en); }
+function earnBody(e) { return earnLabel(e) + ' ' + e.c + ' ' + e.q + L(' 明日盘后发布', ' reports after tomorrow\'s close'); }
+function scheduleEarnNotify(e) {
+  if (!e || !hasLN()) return;
+  var at = new Date(e.d + 'T21:00:00');
+  at.setDate(at.getDate() - 1);                 // 财报前一天 21:00 提醒
+  if (at.getTime() <= Date.now()) return;
+  window.Capacitor.Plugins.LocalNotifications.schedule({
+    notifications: [{
+      id: nid('earn', e.c + e.d),
+      title: L('财报提醒', 'Earnings reminder'),
+      body: earnBody(e),
+      schedule: { at: at, allowWhileIdle: true }
+    }]
+  }).catch(function () {});
+}
+function toggleEarnRemind(c, d) {
+  var i = -1;
+  earnRemind.forEach(function (r, k) { if (r.c === c && r.d === d) i = k; });
+  if (i >= 0) {
+    earnRemind.splice(i, 1);
+    saveJSON(EARN_KEY, earnRemind);
+    if (hasLN()) window.Capacitor.Plugins.LocalNotifications.cancel({ notifications: [{ id: nid('earn', c + d) }] }).catch(function () {});
+    toast(L('已取消财报提醒', 'Earnings reminder removed'));
+  } else {
+    earnRemind.push({ c: c, d: d });
+    saveJSON(EARN_KEY, earnRemind);
+    var e = EARN.filter(function (x) { return x.c === c && x.d === d; })[0];
+    scheduleEarnNotify(e);
+    toast(L('已设提醒 · 财报前一天 21:00', 'Reminder set · 21:00 the day before'));
+  }
+  renderEarn();
+}
+function renderEarn() {
+  var nextBox = document.getElementById('earnNext'), listBox = document.getElementById('earnList');
+  if (!nextBox || !listBox) return;
+  var today = fullToday();
+  var up = EARN.filter(function (e) { return e.d >= today; }).sort(function (a, b) {
+    if (a.d !== b.d) return a.d < b.d ? -1 : 1;
+    return a.c < b.c ? -1 : 1;
+  });
+  if (!up.length) {
+    nextBox.innerHTML = '';
+    listBox.innerHTML = '<div class="listcard"><div class="empty">' + L('暂无待公布财报<br>版本更新后会补充下一季日期', 'No upcoming earnings<br>Next-quarter dates ship with the next update') + '</div></div>';
+    return;
+  }
+  var n = up[0], nd = daysUntil(n.d);
+  nextBox.innerHTML = '<div class="earn-next">'
+    + '<div class="en-k">' + L('下一个财报', 'Next earnings') + '</div>'
+    + '<div class="en-n">' + esc(earnLabel(n)) + '<span class="inv-code">' + n.c + '</span>'
+    + '<span class="en-cd">' + (nd <= 0 ? L('今天', 'today') : L(nd + ' 天后', 'in ' + nd + ' days')) + '</span></div>'
+    + '<div class="en-m">' + n.d + ' · ' + n.q + ' · ' + L('盘后发布', 'after close') + (n.est ? ' · ' + L('预计日期', 'estimated') : '') + '</div>'
+    + '</div>';
+  var h = '', lastM = '';
+  up.forEach(function (e) {
+    var m = e.d.slice(0, 7).replace('-', '/');
+    if (m !== lastM) { h += '<div class="pnl-t">' + m + '</div>'; lastM = m; }
+    var dd = daysUntil(e.d), on = earnRemindOn(e.c, e.d);
+    h += '<div class="lrow earn-row" onclick="toggleEarnRemind(\'' + e.c + '\',\'' + e.d + '\')">'
+      + '<div class="earn-d"><b>' + e.d.slice(5) + '</b><span>' + dd + L('天', 'd') + '</span></div>'
+      + '<div class="linfo"><div class="lname">' + esc(earnLabel(e)) + '<span class="inv-code">' + e.c + '</span></div>'
+      + '<div class="lsub">' + e.q + ' · ' + L('盘后', 'after close') + (e.est ? ' · ' + L('预计', 'est.') : '') + '</div></div>'
+      + '<div class="lval"><div class="v1' + (on ? ' on' : '') + '">' + (on ? L('已提醒', 'Set') : L('提醒', 'Remind')) + '</div>'
+      + '<div class="v2">' + L('前一天 21:00', '21:00 prev day') + '</div></div>'
+      + '</div>';
+  });
+  listBox.innerHTML = h;
+}
 
 /* ---------- 事件日历（财报 / 经济指标 / 选举 / 自定义） ---------- */
 var CAL_TYPES = {
@@ -2367,9 +2483,14 @@ var CAL_EVENTS = (function () {
   }
   ev.push({ d: '2026-11-03', t: 'vote', title: '美国中期选举', note: '国会改选' });
   ev.push({ d: '2028-11-07', t: 'vote', title: '美国总统大选', note: '预测日程' });
-  ev.push({ d: '2026-10-21', t: 'earnings', title: '特斯拉 Q3 财报', note: '预计' });
-  ev.push({ d: '2026-10-26', t: 'earnings', title: '科技巨头 Q3 财报周（苹果 / 微软 / 谷歌 / Meta / 亚马逊）', note: '预计' });
-  ev.push({ d: '2026-11-18', t: 'earnings', title: '英伟达 Q3 FY27 财报', note: '预计' });
+  EARN.forEach(function (x) {
+    ev.push({
+      d: x.d, t: 'earnings',
+      zh: x.zh + ' ' + x.q + ' 财报',
+      en: x.en + ' ' + x.q + ' earnings',
+      note: x.est ? '预计' : '已确认'
+    });
+  });
   return ev;
 })();
 var calCustom = loadJSON('fuley.cal.v1', []);
@@ -2419,14 +2540,21 @@ function renderCalEvents() {
     html += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '">'
       + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
       + '<div class="ct-t"></div>'
-      + '<span class="ct-n">' + esc(e.note || '') + '</span>'
+      + '<span class="ct-n">' + esc(calNoteText(e.note)) + '</span>'
       + (e.t === 'custom' ? '<button class="ct-del" title="删除" onclick="delCalEvent(' + e.idx + ')">×</button>' : '')
       + '</div>';
   });
   box.innerHTML = html;
   box.querySelectorAll('.cal-row').forEach(function (row, i) {
-    row.querySelector('.ct-t').textContent = evs[i].title;
+    var it = evs[i];
+    row.querySelector('.ct-t').textContent = it.zh ? L(it.zh, it.en) : it.title;
   });
+}
+function calNoteText(n) {
+  if (n === '预计') return L('预计', 'est.');
+  if (n === '已确认') return L('已确认', 'confirmed');
+  if (n === '自定义') return L('自定义', 'custom');
+  return n || '';
 }
 function calSelect(ds) { calSel = ds; renderCal(); }
 function calMove(delta) {
@@ -2555,7 +2683,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.4.8';
+var APP_VERSION = 'v1.4.9';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -2909,6 +3037,11 @@ function toast(msg) {
   if (hasLN()) {
     ensureNotifyPermission().then(function () {
       plans.forEach(function (p) { schedulePlanNotify(p); });
+      // 财报通知重排：已设提醒的日期重新挂上系统通知
+      earnRemind.forEach(function (r) {
+        var e = EARN.filter(function (x) { return x.c === r.c && x.d === r.d; })[0];
+        if (e) scheduleEarnNotify(e);
+      });
     });
   }
 

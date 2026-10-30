@@ -345,6 +345,28 @@
   .cal-row .ct-del { border: none; background: none; color: var(--sub); font-size: 14px; cursor: pointer; padding: 0 2px; flex: none; }
   .cal-row.custom .ct-t { color: var(--ink); }
   .cal-empty { text-align: center; color: var(--sub); font-size: 12px; padding: 18px 0 6px; }
+  /* ---------- 财报日历 ---------- */
+  .earn-next {
+    background: var(--card); border-radius: 16px; padding: 13px 15px 12px;
+    box-shadow: var(--shadow); margin-bottom: 12px;
+  }
+  .earn-next .en-k { font-size: 11.5px; font-weight: 700; color: var(--sub); }
+  .earn-next .en-n {
+    font-size: 19px; font-weight: 800; letter-spacing: -.2px; margin: 4px 0 3px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .earn-next .en-cd {
+    margin-left: auto; flex: none; font-size: 11.5px; font-weight: 800; color: #fff;
+    background: var(--accent); border-radius: 8px; padding: 3px 9px;
+  }
+  .earn-next .en-m { font-size: 11.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .earn-row .earn-d { width: 46px; flex: none; text-align: center; }
+  .earn-row .earn-d b { display: block; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .earn-row .earn-d span { font-size: 10px; color: var(--sub); }
+  .earn-row .lval .v1 { font-size: 12px; color: var(--sub); }
+  .earn-row .lval .v1.on { color: var(--accent); }
+  #homeTabs { gap: 6px; }
+  #homeTabs button { font-size: 12px; }
 
   /* ---------- 黄金走势趋势 ---------- */
   .gold-quotes {
@@ -794,6 +816,7 @@
         <button data-pane="gold" onclick="homeTab(this)">黄金</button>
         <button data-pane="vix" onclick="homeTab(this)">VIX</button>
         <button data-pane="cal" onclick="homeTab(this)">日历</button>
+        <button data-pane="earn" onclick="homeTab(this)">财报</button>
       </div>
 
       <div id="trendPane">
@@ -878,6 +901,27 @@
         <div id="calEvents"></div>
         <button class="qadd" onclick="openCalEvent()">+ 标记事件</button>
         <div class="hintbar">财报 / 经济指标 / 选举日程 · 底部按钮可自定义标记 · 点击日期查看当天</div>
+      </div>
+
+      <div id="earnPane" style="display:none">
+        <div class="earn-next">
+          <div class="en-k">下一个财报</div>
+          <div class="en-n">英伟达<span class="inv-code">NVDA</span><span class="en-cd">19 天后</span></div>
+          <div class="en-m">2026-11-18 · Q3 FY27 · 盘后发布 · 预计日期</div>
+        </div>
+        <div>
+          <div class="pnl-t">2026/11</div>
+          <div class="lrow earn-row"><div class="earn-d"><b>11-18</b><span>19天</span></div><div class="linfo"><div class="lname">英伟达<span class="inv-code">NVDA</span></div><div class="lsub">Q3 FY27 · 盘后 · 预计</div></div><div class="lval"><div class="v1">提醒</div><div class="v2">前一天 21:00</div></div></div>
+          <div class="pnl-t">2027/01</div>
+          <div class="lrow earn-row"><div class="earn-d"><b>01-26</b><span>88天</span></div><div class="linfo"><div class="lname">微软<span class="inv-code">MSFT</span></div><div class="lsub">Q2 FY27 · 盘后 · 预计</div></div><div class="lval"><div class="v1">提醒</div><div class="v2">前一天 21:00</div></div></div>
+          <div class="lrow earn-row"><div class="earn-d"><b>01-27</b><span>89天</span></div><div class="linfo"><div class="lname">Meta<span class="inv-code">META</span></div><div class="lsub">Q4 2026 · 盘后 · 预计</div></div><div class="lval"><div class="v1">提醒</div><div class="v2">前一天 21:00</div></div></div>
+          <div class="lrow earn-row"><div class="earn-d"><b>01-27</b><span>89天</span></div><div class="linfo"><div class="lname">特斯拉<span class="inv-code">TSLA</span></div><div class="lsub">Q4 2026 · 盘后 · 预计</div></div><div class="lval"><div class="v1">提醒</div><div class="v2">前一天 21:00</div></div></div>
+          <div class="lrow earn-row"><div class="earn-d"><b>01-28</b><span>90天</span></div><div class="linfo"><div class="lname">苹果<span class="inv-code">AAPL</span></div><div class="lsub">Q1 FY27 · 盘后 · 预计</div></div><div class="lval"><div class="v1">提醒</div><div class="v2">前一天 21:00</div></div></div>
+          <div class="pnl-t">2027/02</div>
+          <div class="lrow earn-row"><div class="earn-d"><b>02-02</b><span>95天</span></div><div class="linfo"><div class="lname">谷歌<span class="inv-code">GOOGL</span></div><div class="lsub">Q4 2026 · 盘后 · 预计</div></div><div class="lval"><div class="v1">提醒</div><div class="v2">前一天 21:00</div></div></div>
+          <div class="lrow earn-row"><div class="earn-d"><b>02-24</b><span>117天</span></div><div class="linfo"><div class="lname">英伟达<span class="inv-code">NVDA</span></div><div class="lsub">Q4 FY27 · 盘后 · 预计</div></div><div class="lval"><div class="v1">提醒</div><div class="v2">前一天 21:00</div></div></div>
+        </div>
+        <div class="hintbar">七巨头财报节奏：1 月末 / 4 月末 / 7 月末 / 10 月末（英伟达晚一个月）· 全部为盘后发布 · 点一行可设「前一天 21:00」系统提醒</div>
       </div>
     </div>
 
@@ -3084,6 +3128,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     document.getElementById('goldPane').style.display = pane === 'gold' ? '' : 'none';
     document.getElementById('vixPane').style.display = pane === 'vix' ? '' : 'none';
     document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
+    document.getElementById('earnPane').style.display = pane === 'earn' ? '' : 'none';
     curHomePane = pane;
     var fab = document.getElementById('fab');
     fab.classList.toggle('hide', pane !== 'cal');
