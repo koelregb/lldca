@@ -315,6 +315,56 @@ return A.fetchInvestQuotes().then(function (changed) {
     });
   });
 }).then(function () {
+  /* ============ 财报日历 ============ */
+  const codes = {};
+  A.EARN.forEach(function (e) { codes[e.c] = 1; });
+  ok('财报表覆盖七巨头', Object.keys(codes).length === 7, Object.keys(codes).join(','));
+  ok('财报表 ≥ 4 个季度', A.EARN.length >= 28, 'n=' + A.EARN.length);
+  ok('财报日期格式统一', A.EARN.every(function (e) { return /^\d{4}-\d{2}-\d{2}$/.test(e.d); }));
+  ok('财报日期全在工作日', A.EARN.every(function (e) {
+    const w = new Date(e.d + 'T00:00:00').getDay();
+    return w >= 1 && w <= 5;
+  }), A.EARN.filter(function (e) { const w = new Date(e.d + 'T00:00:00').getDay(); return w < 1 || w > 5; }).map(function (e) { return e.d; }).join(','));
+  ok('每家每季度唯一', (function () {
+    const seen = {};
+    for (const e of A.EARN) { const k = e.c + e.d; if (seen[k]) return false; seen[k] = 1; }
+    return true;
+  })());
+
+  /* 渲染：下一个财报 + 列表 */
+  A.renderEarn();
+  const nextHtml = els['earnNext'].innerHTML, listHtml2 = els['earnList'].innerHTML;
+  ok('下一个财报卡片有标题', nextHtml.indexOf('下一个财报') >= 0, nextHtml);
+  ok('下一个财报带倒计时', nextHtml.indexOf('en-cd') >= 0 && (nextHtml.indexOf('天后') >= 0 || nextHtml.indexOf('今天') >= 0), nextHtml);
+  ok('列表按月分组', listHtml2.indexOf('pnl-t') >= 0);
+  ok('列表行可点设提醒', listHtml2.indexOf('toggleEarnRemind(') >= 0);
+
+  /* 只显示未过期：首行日期 = 今天之后最近的 */
+  const todayS = A.fullToday();
+  const upcoming = A.EARN.filter(function (e) { return e.d >= todayS; }).sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+  ok('已过日期不显示', upcoming.length === 0 || listHtml2.indexOf(upcoming[0].d.slice(5)) >= 0);
+  ok('倒计时无 NaN', listHtml2.indexOf('NaN') < 0 && nextHtml.indexOf('NaN') < 0, nextHtml);
+  ok('倒计时天数正确（首条）', upcoming.length === 0 || nextHtml.indexOf(A.daysUntil(upcoming[0].d) + ' 天后') >= 0 || A.daysUntil(upcoming[0].d) <= 0);
+  ok('过期财报不进列表', todayS <= '2026-10-21' || listHtml2.indexOf('>10-21<') < 0, listHtml2.slice(0, 120));
+
+  /* 提醒开关：加 / 删 + 持久化 */
+  if (upcoming.length) {
+    const t0 = upcoming[0];
+    A.earnRemind.length = 0;
+    A.toggleEarnRemind(t0.c, t0.d);
+    eq('提醒写入内存', A.earnRemind.length, 1);
+    ok('提醒落盘', (localStorageStub.getItem('fuley.earnremind.v1') || '').indexOf(t0.c) >= 0);
+    A.renderEarn();
+    ok('列表标记已提醒', els['earnList'].innerHTML.indexOf('已提醒') >= 0);
+    A.toggleEarnRemind(t0.c, t0.d);
+    eq('再点取消提醒', A.earnRemind.length, 0);
+  }
+
+  /* 与日历打通：财报日出现在事件日历里 */
+  const ev = A.eventsOn('2026-11-18');
+  ok('日历含英伟达财报', ev.some(function (e) { return e.t === 'earnings' && e.zh.indexOf('英伟达') >= 0; }), JSON.stringify(ev));
+  ok('日历备注区分确认/预计', ev.length > 0 && /预计|已确认/.test(ev[ev.length - 1].note || ''));
+}).then(function () {
   console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败');
   process.exit(fail ? 1 : 0);
 }).catch(function (e) {

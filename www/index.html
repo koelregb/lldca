@@ -38,6 +38,7 @@
         <button data-pane="gold" onclick="homeTab(this)">黄金</button>
         <button data-pane="vix" onclick="homeTab(this)">VIX</button>
         <button data-pane="cal" onclick="homeTab(this)">日历</button>
+        <button data-pane="earn" onclick="homeTab(this)">财报</button>
       </div>
 
       <div id="trendPane">
@@ -122,6 +123,12 @@
         <div id="calEvents"></div>
         <button class="qadd" onclick="openCalEvent()">+ 标记事件</button>
         <div class="hintbar">财报 / 经济指标 / 选举日程 · 底部按钮可自定义标记 · 点击日期查看当天</div>
+      </div>
+
+      <div id="earnPane" style="display:none">
+        <div id="earnNext"></div>
+        <div id="earnList"></div>
+        <div class="hintbar">七巨头财报节奏：1 月末 / 4 月末 / 7 月末 / 10 月末（英伟达晚一个月）· 全部为盘后发布 · 点一行可设「前一天 21:00」系统提醒</div>
       </div>
     </section>
 
@@ -318,7 +325,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.4.8</span>
+          <span class="mrow-v" id="appVer">v1.4.9</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
