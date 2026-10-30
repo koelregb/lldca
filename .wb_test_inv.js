@@ -143,7 +143,12 @@ return A.fetchInvestQuotes().then(function (changed) {
   ok('列表含单笔定投价 3.900', listHtml.indexOf('¥3.900') >= 0);
   ok('汇总含累计投入 ¥4,210', sumHtml.indexOf('4,210') >= 0, sumHtml);
   ok('浮盈用 up 红（涨）', listHtml.indexOf('inv-rate up') >= 0);
-  ok('汇总浮动盈亏带 +', sumHtml.indexOf('+¥') >= 0);
+  /* 币种：A股 ¥ / 美股 $ / 混币种合计不误标符号 */
+  ok('美股价格用 $（定投价 180.00）', listHtml.indexOf('$180.00') >= 0, listHtml);
+  ok('美股现价用 $（182.50）', listHtml.indexOf('$182.50') >= 0);
+  ok('A股仍用 ¥（3.850）', listHtml.indexOf('¥3.850') >= 0);
+  ok('混币种合计不误标 ¥', sumHtml.indexOf('¥4,210') < 0 && sumHtml.indexOf('4,210') >= 0, sumHtml);
+  ok('汇总浮动盈亏带 +', sumHtml.indexOf('+278') >= 0, sumHtml);
   ok('单笔行可点编辑', listHtml.indexOf("editInv('a')") >= 0);
 
   /* 6) 表单校验：空名称 / 空价 / 空量 */
@@ -211,7 +216,7 @@ return A.fetchInvestQuotes().then(function (changed) {
     const sumHtml = els['pnlSum'].innerHTML, rankHtml = els['pnlRank'].innerHTML, monHtml = els['pnlMonths'].innerHTML;
     ok('汇总含总收益率', sumHtml.indexOf('总收益率') >= 0);
     ok('总收益率 +6.60%', sumHtml.indexOf('+6.60%') >= 0, sumHtml);
-    ok('汇总浮动盈亏 +¥278', sumHtml.indexOf('+¥278') >= 0);
+    ok('汇总浮动盈亏 +278', sumHtml.indexOf('+278') >= 0, sumHtml);
     ok('排行标题', rankHtml.indexOf('收益排行') >= 0);
     ok('ETF 收益 +7.09%', rankHtml.indexOf('+7.09%') >= 0);
     ok('NVDA 收益 +1.39%', rankHtml.indexOf('+1.39%') >= 0);
@@ -219,7 +224,8 @@ return A.fetchInvestQuotes().then(function (changed) {
     ok('按收益率降序（ETF 在前）', rankHtml.indexOf('沪深300ETF') < rankHtml.indexOf('英伟达'));
     ok('按月投入标题', monHtml.indexOf('按月投入') >= 0);
     ok('9 月 ¥1,900 1 笔', monHtml.indexOf('¥1,900') >= 0 && monHtml.indexOf('1 笔') >= 0);
-    ok('10 月 ¥2,310 2 笔', monHtml.indexOf('¥2,310') >= 0 && monHtml.indexOf('2 笔') >= 0);
+    ok('10 月 ¥2,310 2 笔', monHtml.indexOf('2,310') >= 0 && monHtml.indexOf('2 笔') >= 0, monHtml);
+    ok('混币种月份不误标 ¥2,310', monHtml.indexOf('¥2,310') < 0, monHtml);
     /* 空态 */
     A.invests.length = 0;
     A.renderPnl();
@@ -245,7 +251,8 @@ return A.fetchInvestQuotes().then(function (changed) {
     A.renderSignals();
     const sigHtml = els['sigList'].innerHTML;
     ok('列表显示代码徽章', sigHtml.indexOf('>NVDA<') >= 0);
-    ok('列表显示现价', sigHtml.indexOf('现价 ¥182.50') >= 0);
+    ok('列表显示现价 $182.50', sigHtml.indexOf('现价 $182.50') >= 0, sigHtml);
+    ok('条件文案带币种（涨到 $200.00）', sigHtml.indexOf('涨到 $200.00') >= 0, sigHtml);
     ok('列表显示距触发 +9.6%', sigHtml.indexOf('距触发 +9.6%') >= 0);
     ok('未触发显示监控中', sigHtml.indexOf('监控中') >= 0);
 
@@ -256,7 +263,7 @@ return A.fetchInvestQuotes().then(function (changed) {
     sg.price = 180;
     A.checkSignalTriggers();
     eq('到价即触发', sg.fired, true);
-    ok('触发后 toast 通知（无原生通知时回退）', toasts.some(function (t) { return t.indexOf('英伟达 已到 182.50') >= 0; }));
+    ok('触发后 toast 通知（含美元符号）', toasts.some(function (t) { return t.indexOf('英伟达 已到 $182.50') >= 0; }), toasts.join('|'));
 
     /* 2) 表单流：保存带代码的减仓提醒（A股 ETF） */
     A.signals.length = 0;

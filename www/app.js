@@ -1008,6 +1008,24 @@ function fetchInvestQuotes() {
 }
 function fmtQty(q) { var n = Number(q) || 0; return n % 1 ? n.toFixed(2) : String(Math.round(n)); }
 function fmtPx(v) { var n = Number(v) || 0; return n >= 100 ? n.toFixed(2) : n.toFixed(3); }
+/* 价格币种符号：A股 ¥ · 港股 HK$ · 美股 $；指数按名称判断（标普/纳指 $ · 恒生 HK$ · 上证 ¥） */
+function pxSymbol(code, name) {
+  var c = String(code || '').trim();
+  if (/^(sh|sz|bj)/i.test(c)) return '¥';
+  if (/^hk/i.test(c)) return 'HK$';
+  if (/^us/i.test(c)) return '$';
+  if (/^\d{5}$/.test(c)) return 'HK$';            // 港股 5 位代码
+  if (/^[A-Za-z]/.test(c)) return '$';             // 美股字母代码
+  var n = String(name || '');
+  if (/标普|纳斯达克|道琼斯/.test(n)) return '$';
+  if (/恒生/.test(n)) return 'HK$';
+  return '¥';
+}
+function mergeSym(symSet) {   // 币种集合：单一币种返回其符号，混币种返回空串（不误标）
+  var ks = Object.keys(symSet || {});
+  if (!ks.length) return '¥';
+  return ks.length === 1 ? ks[0] : '';
+}
 function invHoldings() {
   var map = {};
   invests.forEach(function (r) {
@@ -1044,16 +1062,20 @@ function renderInvests() {
   var totCost = 0, totMkt = 0, hasMkt = false;
   hs.forEach(function (h) { totCost += h.cost; if (h.market != null) { totMkt += h.market; hasMkt = true; } });
   var totPnl = hasMkt ? totMkt - totCost : null;
+  var symSet = {};
+  hs.forEach(function (g) { symSet[pxSymbol(g.code, g.name)] = 1; });
+  var sumSym = mergeSym(symSet), mixCur = Object.keys(symSet).length > 1;   // 合计跟随持仓币种
   if (sumBox) {
     sumBox.innerHTML = '<div class="pos-sum">'
-      + '<div class="ps"><div class="ps-k">' + L('累计投入', 'Total cost') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(totCost)) + '</div></div>'
-      + '<div class="ps"><div class="ps-k">' + L('当前市值', 'Market value') + '</div><div class="ps-v">' + (hasMkt ? '¥' + fmtAmt(Math.round(totMkt)) : '—') + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('累计投入', 'Total cost') + (mixCur ? L(' · 多币种', ' · multi-cur') : '') + '</div><div class="ps-v">' + sumSym + fmtAmt(Math.round(totCost)) + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('当前市值', 'Market value') + '</div><div class="ps-v">' + (hasMkt ? sumSym + fmtAmt(Math.round(totMkt)) : '—') + '</div></div>'
       + '<div class="ps"><div class="ps-k">' + L('浮动盈亏', 'Floating P/L') + '</div><div class="ps-v ' + (totPnl == null ? '' : (totPnl >= 0 ? 'up' : 'down')) + '">'
-      + (totPnl == null ? '—' : (totPnl >= 0 ? '+' : '-') + '¥' + fmtAmt(Math.abs(Math.round(totPnl)))) + '</div></div>'
+      + (totPnl == null ? '—' : (totPnl >= 0 ? '+' : '-') + sumSym + fmtAmt(Math.abs(Math.round(totPnl)))) + '</div></div>'
       + '</div>';
   }
   var h = '';
   hs.forEach(function (g, gi) {
+    var sym = pxSymbol(g.code, g.name);
     var rateCls = g.rate == null ? '' : (g.rate >= 0 ? 'up' : 'down');
     var rateTxt = g.rate == null ? '' : (g.rate >= 0 ? '+' : '') + g.rate.toFixed(2) + '%';
     h += '<div class="inv-card">'
@@ -1063,17 +1085,17 @@ function renderInvests() {
       + '</div>'
       + '<div class="inv-g">'
       + '<div class="inv-gi"><span>' + L('定投数量', 'Units') + '</span><b>' + fmtQty(g.qty) + '</b></div>'
-      + '<div class="inv-gi"><span>' + L('定投股价', 'Avg cost') + '</span><b>¥' + fmtPx(g.avg) + '</b></div>'
-      + '<div class="inv-gi"><span>' + L('现价', 'Price') + '</span><b>' + (g.cur != null ? '¥' + fmtPx(g.cur) : '—') + '</b></div>'
-      + '<div class="inv-gi"><span>' + L('市值', 'Value') + '</span><b>' + (g.market != null ? '¥' + fmtAmt(Math.round(g.market)) : '—') + '</b></div>'
+      + '<div class="inv-gi"><span>' + L('定投股价', 'Avg cost') + '</span><b>' + sym + fmtPx(g.avg) + '</b></div>'
+      + '<div class="inv-gi"><span>' + L('现价', 'Price') + '</span><b>' + (g.cur != null ? sym + fmtPx(g.cur) : '—') + '</b></div>'
+      + '<div class="inv-gi"><span>' + L('市值', 'Value') + '</span><b>' + (g.market != null ? sym + fmtAmt(Math.round(g.market)) : '—') + '</b></div>'
       + '</div>'
       + '<div class="inv-rows">';
     g.rows.forEach(function (r) {
       h += '<div class="inv-row" onclick="editInv(\'' + r.id + '\')">'
         + '<span class="ir-d">' + esc(r.ts || '—') + '</span>'
-        + '<span class="ir-p">' + L('定投价', 'buy @') + ' ¥' + fmtPx(r.price) + '</span>'
+        + '<span class="ir-p">' + L('定投价', 'buy @') + ' ' + sym + fmtPx(r.price) + '</span>'
         + '<span class="ir-q">' + fmtQty(r.qty) + '</span>'
-        + '<span class="ir-a">¥' + fmtAmt(Math.round((Number(r.qty) || 0) * (Number(r.price) || 0))) + '</span>'
+        + '<span class="ir-a">' + sym + fmtAmt(Math.round((Number(r.qty) || 0) * (Number(r.price) || 0))) + '</span>'
         + '</div>';
     });
     h += '</div></div>';
@@ -1096,12 +1118,15 @@ function renderPnl() {
   hs.forEach(function (h) { totCost += h.cost; if (h.market != null) { totMkt += h.market; hasMkt = true; } });
   var totPnl = hasMkt ? totMkt - totCost : null;
   var totRate = (totPnl != null && totCost > 0) ? totPnl / totCost * 100 : null;
+  var symSet = {};
+  hs.forEach(function (g) { symSet[pxSymbol(g.code, g.name)] = 1; });
+  var sumSym = mergeSym(symSet), mixCur = Object.keys(symSet).length > 1;   // 合计跟随持仓币种
   if (sumBox) {
     sumBox.innerHTML = '<div class="pos-sum">'
-      + '<div class="ps"><div class="ps-k">' + L('累计投入', 'Total cost') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(totCost)) + '</div></div>'
-      + '<div class="ps"><div class="ps-k">' + L('当前市值', 'Market value') + '</div><div class="ps-v">' + (hasMkt ? '¥' + fmtAmt(Math.round(totMkt)) : '—') + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('累计投入', 'Total cost') + (mixCur ? L(' · 多币种', ' · multi-cur') : '') + '</div><div class="ps-v">' + sumSym + fmtAmt(Math.round(totCost)) + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('当前市值', 'Market value') + '</div><div class="ps-v">' + (hasMkt ? sumSym + fmtAmt(Math.round(totMkt)) : '—') + '</div></div>'
       + '<div class="ps"><div class="ps-k">' + L('浮动盈亏', 'Floating P/L') + '</div><div class="ps-v ' + (totPnl == null ? '' : (totPnl >= 0 ? 'up' : 'down')) + '">'
-      + (totPnl == null ? '—' : (totPnl >= 0 ? '+' : '-') + '¥' + fmtAmt(Math.abs(Math.round(totPnl)))) + '</div></div>'
+      + (totPnl == null ? '—' : (totPnl >= 0 ? '+' : '-') + sumSym + fmtAmt(Math.abs(Math.round(totPnl)))) + '</div></div>'
       + '<div class="ps"><div class="ps-k">' + L('总收益率', 'Total return') + '</div><div class="ps-v ' + (totRate == null ? '' : (totRate >= 0 ? 'up' : 'down')) + '">'
       + (totRate == null ? '—' : (totRate >= 0 ? '+' : '') + totRate.toFixed(2) + '%') + '</div></div>'
       + '</div>';
@@ -1115,9 +1140,10 @@ function renderPnl() {
   });
   var rh = '';
   rank.forEach(function (g) {
+    var sym = pxSymbol(g.code, g.name);
     var cls = g.rate == null ? '' : (g.rate >= 0 ? 'up' : 'down');
     var rateTxt = g.rate == null ? '—' : (g.rate >= 0 ? '+' : '') + g.rate.toFixed(2) + '%';
-    var pnlTxt = g.pnl == null ? '—' : (g.pnl >= 0 ? '+' : '-') + '¥' + fmtAmt(Math.abs(Math.round(g.pnl)));
+    var pnlTxt = g.pnl == null ? '—' : (g.pnl >= 0 ? '+' : '-') + sym + fmtAmt(Math.abs(Math.round(g.pnl)));
     rh += '<div class="pnl-row">'
       + '<div class="pnl-name">' + esc(g.name) + '</div>'
       + '<div class="pnl-rate ' + cls + '">' + rateTxt + '</div>'
@@ -1130,8 +1156,9 @@ function renderPnl() {
   invests.forEach(function (r) {
     var k = String(r.ts || '').slice(0, 7);
     if (!k) return;
-    if (!mm[k]) mm[k] = { m: k, amt: 0, n: 0 };
+    if (!mm[k]) mm[k] = { m: k, amt: 0, n: 0, syms: {} };
     mm[k].amt += (Number(r.qty) || 0) * (Number(r.price) || 0);
+    mm[k].syms[pxSymbol(r.code, r.name)] = 1;
     mm[k].n++;
   });
   var mks = Object.keys(mm).sort();
@@ -1144,7 +1171,7 @@ function renderPnl() {
     mh += '<div class="pnl-mon">'
       + '<span class="pm-m">' + esc(it.m) + '</span>'
       + '<span class="pm-bar"><i style="width:' + w.toFixed(1) + '%"></i></span>'
-      + '<span class="pm-a">¥' + fmtAmt(Math.round(it.amt)) + '<em>' + it.n + ' ' + L('笔', 'buys') + '</em></span>'
+      + '<span class="pm-a">' + mergeSym(it.syms) + fmtAmt(Math.round(it.amt)) + '<em>' + it.n + ' ' + L('笔', 'buys') + '</em></span>'
       + '</div>';
   });
   if (monBox) monBox.innerHTML = '<div class="pnl-t">' + L('按月投入', 'Monthly deposits') + '</div>' + mh;
@@ -1265,7 +1292,7 @@ function sigQuote(s) {
 /* 市盈率（P/E）条件：附加在价格/定时之后显示，≤ 便宜 / ≥ 贵 */
 function sigCondText(s) {
   var base = s.type === 'price'
-    ? (s.dir > 0 ? '涨到 ' : '跌到 ') + Number(s.price).toFixed(2)
+    ? (s.dir > 0 ? '涨到 ' : '跌到 ') + pxSymbol(s.code, s.name) + Number(s.price).toFixed(2)
     : ('定时 ' + (s.time || ''));
   if (s.peVal && s.peVal > 0) {
     base += ' · P/E ' + (s.peOp === 'gte' ? '≥' : '≤') + ' ' + Number(s.peVal);
@@ -1295,7 +1322,7 @@ function renderSignals() {
     if (q && s.type === 'price') {
       var chg = q.prev > 0 ? (q.price - q.prev) / q.prev * 100 : 0;
       var dist = (Number(s.price) - q.price) / q.price * 100;   // >0 = 还需涨 · <0 = 已过/需跌
-      pxLine = '<div class="lsub2">' + L('现价', 'Price') + ' ¥' + fmtPx(q.price)
+      pxLine = '<div class="lsub2">' + L('现价', 'Price') + ' ' + pxSymbol(s.code, s.name) + fmtPx(q.price)
         + ' <span class="' + (chg >= 0 ? 'up' : 'down') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span>'
         + ' · ' + L('距触发', 'to trigger') + ' ' + (dist >= 0 ? '+' : '') + dist.toFixed(1) + '%</div>';
     }
@@ -1412,7 +1439,7 @@ function checkSignalTriggers() {
       var peTxt = (s.peVal > 0)
         ? '　市盈率 ' + (s.peOp === 'gte' ? '≥' : '≤') + ' ' + Number(s.peVal)
         : '';
-      pushNotify(label, s.name + ' 已到 ' + p.toFixed(2) + '（目标 ' + Number(s.price).toFixed(2) + '）' + peTxt, nid('sig', s.id));
+      pushNotify(label, s.name + ' 已到 ' + pxSymbol(s.code, s.name) + p.toFixed(2) + '（目标 ' + pxSymbol(s.code, s.name) + Number(s.price).toFixed(2) + '）' + peTxt, nid('sig', s.id));
       toast(s.name + ' 触发' + label + peTxt);
     }
   });
@@ -2528,7 +2555,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.4.7';
+var APP_VERSION = 'v1.4.8';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
