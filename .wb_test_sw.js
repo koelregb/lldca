@@ -91,7 +91,7 @@ function mkEvent(url, method) {
   ok(ev.responded, '同源 /app.js 被 SW 接管');
   let res = await ev.response;
   ok(res && res.fresh === true, '首次请求回源并返回网络响应');
-  ok(store['fuley-v1.4.7'][assetUrl], '首次响应写入缓存');
+  ok(store['fuley-v1.4.8'][assetUrl], '首次响应写入缓存');
 
   ev = mkEvent(assetUrl);
   fetchHandler(ev);
