@@ -277,6 +277,8 @@
   .bn-btn:active { opacity: .6; }
   .bn-num { min-width: 18px; text-align: center; font-size: 15px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
   .bn-tip { margin-left: auto; font-size: 10px; color: var(--sub); }
+  .bn-rec { font-size: 11px; color: var(--sub); margin: -2px 2px 10px; line-height: 1.5; }
+  .bn-rec b { color: var(--ink); }
   .bratio { display: flex; gap: 6px; margin-bottom: 8px; }
   .bratio label { flex: 1; background: var(--card); border-radius: 9px; padding: 6px 4px; text-align: center; box-shadow: var(--shadow); }
   .bratio span { display: block; font-size: 9.5px; color: var(--sub); }
@@ -1179,6 +1181,7 @@
           <button class="bn-btn" onclick="bAddTier(1)">＋</button>
           <span class="bn-tip">2–10 档，比例随档数增减</span>
         </div>
+        <div class="bn-rec" id="bRec"></div>
         <div class="bratio" id="bratio"></div>
 
         <div class="bsum" id="bsum"></div>
@@ -3325,9 +3328,9 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 <script>
 (function () {
   var MODES = {
-    add:  { tag: '应对下跌（正金字塔加仓）', hint: '越跌买越多，最大一档压在底部（最低价），低位重仓摊薄成本。至少分 5 档。',
+    add:  { rec: '建议 <b>5–8 档</b>：每跌 8%–15% 补一档，跌得越深档位越重，别两三次就把子弹打完。', tag: '应对下跌（正金字塔加仓）', hint: '越跌买越多，最大一档压在底部（最低价），低位重仓摊薄成本。至少分 5 档。',
             ratios: [10, 10, 15, 20, 20, 25], dir: -1, color: '#e04a4a' },
-    trim: { tag: '应对上涨（倒金字塔减仓）', hint: '先在高位卖大头，最大一档压在最顶上（最高价），先收回本金。涨幅 30% 以上再启动。',
+    trim: { rec: '建议 <b>3–4 档</b>：涨幅 30% 以上启动，每涨 10%–15% 卖一档，越高卖得越多，先收回本金。', tag: '应对上涨（倒金字塔减仓）', hint: '先在高位卖大头，最大一档压在最顶上（最高价），先收回本金。涨幅 30% 以上再启动。',
             ratios: [30, 50, 80], dir: 1, color: '#4a7fd4' }
   };
   var cur = 'add', ratios = MODES.add.ratios.slice();
@@ -3364,6 +3367,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 
     document.getElementById('bhint').textContent = m.tag + ' · ' + m.hint;
     document.getElementById('bN').textContent = n;
+    document.getElementById('bRec').innerHTML = m.rec;
 
     // 展示顺序：加仓为正常金字塔（顶尖朝上）；减仓倒置，使最大档在最上方、尖端朝下
     var disp = ratios.slice();
