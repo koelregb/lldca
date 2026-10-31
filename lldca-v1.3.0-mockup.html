@@ -7,12 +7,12 @@
 <style>
   :root {
     --bg: #eef1f6; --card: #ffffff; --ink: #1a2233; --sub: #8a93a6; --line: #e8ecf3;
-    --up: #e04a4a; --down: #1a9e5c; --accent: #d05b5b; --chip: #f4f6fa;
+    --up: #e04a4a; --down: #1a9e5c; --accent: #d05b5b; --rule: #d99a2b; --chip: #f4f6fa;
     --tabbg: rgba(255,255,255,.92); --sheet: #ffffff;
   }
   [data-theme="dark"] {
     --bg: #10141d; --card: #1a2130; --ink: #e8ecf3; --sub: #7d8698; --line: #262f40;
-    --up: #f06262; --down: #2fbf71; --accent: #e07070; --chip: #232b3a;
+    --up: #f06262; --down: #2fbf71; --accent: #e07070; --rule: #e0b15a; --chip: #232b3a;
     --tabbg: rgba(26,33,48,.94); --sheet: #1a2130;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -686,11 +686,14 @@
   .lampseg button.on.green .lamp { background: #c9f2dc; }
   .lampseg button.on:not(.red):not(.green) { background: var(--accent); }
   .lampseg button.on:not(.red):not(.green) .lamp { background: rgba(255,255,255,.85); }
+  .lampseg button.on.rule { background: var(--rule); }
+  .lampseg button.on.rule .lamp { background: rgba(255,255,255,.9); }
   .notecard .lamprow { display: flex; align-items: center; gap: 5px; }
   .notecard .lamprow .lamp { width: 9px; height: 9px; border-radius: 50%; flex: none; }
   .notecard .lamprow .lt { font-size: 10.5px; font-weight: 700; }
   .notecard .lamprow .lt.red { color: var(--up); }
   .notecard .lamprow .lt.green { color: var(--down); }
+  .notecard .lamprow .lt.rule { color: var(--rule); }
 
   /* ---------- FAB ---------- */
   .fab {
@@ -1011,8 +1014,9 @@
           <button class="on red" onclick="lampSeg(this, 1)"><span class="lamp"></span>红线 · 禁忌</button>
           <button onclick="lampSeg(this, -1)"><span class="lamp"></span>绿线 · 可重复</button>
           <button onclick="lampSeg(this, 0)"><span class="lamp"></span>案例</button>
+          <button onclick="lampSeg(this, 2)"><span class="lamp"></span>交易法则</button>
         </div>
-        <textarea id="noteInput" maxlength="500" placeholder="录入心得或红线，如：单只个股不超过总仓位 20%；不追高，跌破成本 8% 必须止损……"></textarea>
+        <textarea id="noteInput" maxlength="500" placeholder="录入红线 / 绿线 / 交易法则 / 案例，如：单只个股不超过总仓位 20%；不追高，跌破成本 8% 必须止损……"></textarea>
         <div class="efoot">
           <span class="ecount" id="noteCount">0 / 500</span>
           <button class="btn" onclick="addNote()">保存</button>
@@ -1068,7 +1072,29 @@
           <div class="nt">【绿线案例】每月定投沪深 300，五年间无视所有短期波动，年化跑赢身边所有「择时高手」。教训：简单动作重复做，就是最难的事。</div>
         </div>
       </div>
-      <div class="hintbar">红线 = 绝不做 · 绿线 = 可重复 · 案例 = 复盘存档</div>
+      <div id="noteListRule" style="display:none">
+        <div class="notecard">
+          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
+          <div class="nt">顺势而为：只在上升趋势确认后（右侧）加仓，不在下跌途中接飞刀；下跌用正金字塔分批，上涨用倒金字塔减仓。</div>
+        </div>
+        <div class="notecard">
+          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
+          <div class="nt">仓位即态度：单笔风险不超过总资金 2%，单只个股不超过总仓位 20%，永不满仓（常态 7–8 成，留两成现金等回调）。</div>
+        </div>
+        <div class="notecard">
+          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
+          <div class="nt">止损先于盈利：建仓同时写下止损线，触发即执行，不找例外；亏损扩大前先离场，保住本金才能再战。</div>
+        </div>
+        <div class="notecard">
+          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
+          <div class="nt">计划交易：买卖点、仓位、止损提前写进计划，盘中只执行不临时决策；情绪高涨、热闹时不加仓。</div>
+        </div>
+        <div class="notecard">
+          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
+          <div class="nt">概率思维：没有必胜策略，只做正期望的重复动作；接受小亏，让利润随趋势奔跑，不赌单次对错。</div>
+        </div>
+      </div>
+      <div class="hintbar">红线 = 绝不做 · 绿线 = 可重复 · 交易法则 = 纪律原则 · 案例 = 复盘存档</div>
     </div>
 
     <!-- ============ 加减仓页（加减仓法则 / 恐慌级别评估） ============ -->
@@ -2290,14 +2316,17 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   function lampSeg(btn, dir) {
     lampDir = dir;
     btn.parentElement.querySelectorAll('button').forEach(function (b) {
-      b.classList.remove('on', 'red', 'green');
+      b.classList.remove('on', 'red', 'green', 'rule');
     });
-    if (dir === 0) { btn.classList.add('on'); }
-    else { btn.classList.add('on', dir > 0 ? 'red' : 'green'); }
+    btn.classList.add('on');
+    if (dir === 1) btn.classList.add('red');
+    else if (dir === -1) btn.classList.add('green');
+    else if (dir === 2) btn.classList.add('rule');
     // 选色即切换列表显示
     document.getElementById('noteListRed').style.display = dir === 1 ? '' : 'none';
     document.getElementById('noteListGreen').style.display = dir === -1 ? '' : 'none';
     document.getElementById('noteListCase').style.display = dir === 0 ? '' : 'none';
+    document.getElementById('noteListRule').style.display = dir === 2 ? '' : 'none';
   }
   // 初始化：默认选中红线，显示红线列表
   lampSeg(document.querySelectorAll('#lampSeg button')[0], 1);
@@ -2310,21 +2339,24 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     if (!v) return;
     var d = new Date();
     var ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-    var isRed = lampDir > 0, isCase = lampDir === 0;
+    var isRed = lampDir === 1, isCase = lampDir === 0, isRule = lampDir === 2;
+    var lampColor = isRed ? 'var(--up)' : (isRule ? 'var(--rule)' : 'var(--down)');
+    var tag = isRed ? '红线' : (isCase ? '案例' : (isRule ? '法则' : '绿线'));
+    var tagCls = isRed ? 'red' : (isRule ? 'rule' : 'green');
     var card = document.createElement('div');
     card.className = 'notecard';
     card.innerHTML = '<div class="nd"><span class="lamprow">'
-      + '<span class="lamp" style="background:' + (isRed ? 'var(--up)' : 'var(--down)') + '"></span>'
-      + '<span class="lt ' + (isRed ? 'red' : 'green') + '">' + (isRed ? '红线' : (isCase ? '案例' : '绿线')) + '</span>'
+      + '<span class="lamp" style="background:' + lampColor + '"></span>'
+      + '<span class="lt ' + tagCls + '">' + tag + '</span>'
       + '<span class="dt">' + (isCase ? '自录' : ds) + '</span></span>'
       + '<button class="del" title="删除" onclick="delNote(this)">×</button></div>'
       + '<div class="nt"></div>';
     card.querySelector('.nt').textContent = v;
-    var list = document.getElementById(isRed ? 'noteListRed' : (isCase ? 'noteListCase' : 'noteListGreen'));
+    var list = document.getElementById(isRed ? 'noteListRed' : (isCase ? 'noteListCase' : (isRule ? 'noteListRule' : 'noteListGreen')));
     list.prepend(card);
     // 自动切到刚保存颜色的列表，录入即所见
     var segBtns = document.querySelectorAll('#lampSeg button');
-    var segIdx = isRed ? 0 : (isCase ? 2 : 1);
+    var segIdx = isRed ? 0 : (isCase ? 2 : (isRule ? 3 : 1));
     if (segBtns[segIdx]) lampSeg(segBtns[segIdx], lampDir);
     ta.value = '';
     noteCount.textContent = '0 / 500';
