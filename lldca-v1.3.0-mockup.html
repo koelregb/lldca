@@ -464,6 +464,8 @@
   .cal-mt { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--sub); margin: 4px 2px 8px; }
   .cal-mt em { margin-left: auto; font-style: normal; font-weight: 600; font-size: 11px; }
   .cal-mtag { font-size: 10px; font-weight: 700; color: #fff; background: #dfa32a; border-radius: 5px; padding: 1px 6px; }
+  .cal-mpre { font-size: 10px; font-weight: 800; color: #fff; background: var(--accent); border-radius: 5px; padding: 1px 6px; }
+  .cal-mpre.next { background: #4a7fd4; }
 .cal-empty { text-align: center; color: var(--sub); font-size: 12px; padding: 18px 0 6px; }
   /* ---------- 财报日历 ---------- */
   .earn-next {
@@ -990,10 +992,9 @@
         </div>
         <div class="cal-grid" id="calGrid"></div>
         <div id="calMonthList"></div>
-        <div class="cal-sec" id="calSelTitle" style="font-size:12px;font-weight:700;color:var(--sub);margin:2px 2px 8px">当日事件</div>
-        <div id="calEvents"></div>
+        <div id="calNextList"></div>
         <button class="qadd" onclick="openCalEvent()">+ 标记事件</button>
-        <div class="hintbar">财报 / 经济指标 / 选举日程 · 底部按钮可自定义标记 · 点击日期查看当天</div>
+        <div class="hintbar">当月 / 下月重点随日历翻动更新 · 财报 / 经济指标 / 选举日程已预置 · 底部按钮可自定义标记</div>
       </div>
 
       <div id="earnPane" style="display:none">
@@ -3250,30 +3251,41 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     gridEl.className = 'cal-grid' + (monthHasErn ? ' ern-month' : '');
     gridEl.innerHTML = html;
     renderMonthList();
-    document.getElementById('calSelTitle').textContent = calSel + ' 事件';
-    renderCalEvents();
+    renderNextMonthList();
   }
-  function renderCalEvents() {
-    var evs = eventsOn(calSel);
-    var box = document.getElementById('calEvents');
+  /* 下月重点：当前显示月的下一个月所有日程 */
+  function nextMonthEvents() {
+    var nm = calM + 1, ny = calY;
+    if (nm > 11) { nm = 0; ny++; }
+    var pre = ny + '-' + (nm + 1 < 10 ? '0' : '') + (nm + 1);
+    var out = [];
+    CAL_EVENTS.forEach(function (e) { if (String(e.d).indexOf(pre) === 0) out.push({ d: e.d, t: e.t, title: e.title, note: e.note }); });
+    calCustom.forEach(function (c) { if (String(c.d).indexOf(pre) === 0) out.push({ d: c.d, t: c.t, title: c.title, note: '自定义' }); });
+    out.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+    return out;
+  }
+  function renderNextMonthList() {
+    var box = document.getElementById('calNextList');
+    if (!box) return;
+    var nm = calM + 1, ny = calY; if (nm > 11) { nm = 0; ny++; }
+    var evs = nextMonthEvents();
+    var hasErn = evs.some(function (e) { return e.t === 'earnings'; });
+    var h = '<div class="cal-mt"><span class="cal-mpre next">下月</span>' + (nm + 1) + ' 月重点'
+      + (hasErn ? '<span class="cal-mtag">财报季</span>' : '')
+      + '<em>' + evs.length + ' 件</em></div>';
     if (!evs.length) {
-      box.innerHTML = '<div class="cal-empty">当天没有日程 · 可点击下方按钮标记</div>';
-      return;
+      h += '<div class="cal-empty">下月没有预置日程</div>';
+    } else {
+      evs.forEach(function (e) {
+        var tp = CAL_TYPES[e.t] || CAL_TYPES.custom;
+        h += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '" onclick="calSelect(' + "'" + e.d + "'" + ')">'
+          + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
+          + '<div class="ct-t">' + e.d.slice(5) + ' ' + (e.title || '') + '</div>'
+          + '<span class="ct-n">' + (e.note || '') + '</span>'
+          + '</div>';
+      });
     }
-    var html = '';
-    evs.forEach(function (e) {
-      var tp = CAL_TYPES[e.t] || CAL_TYPES.custom;
-      html += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '">'
-        + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
-        + '<div class="ct-t"></div>'
-        + '<span class="ct-n">' + (e.note || '') + '</span>'
-        + (e.t === 'custom' ? '<button class="ct-del" title="删除" onclick="delCalEvent(' + e.idx + ')">×</button>' : '')
-        + '</div>';
-    });
-    box.innerHTML = html;
-    box.querySelectorAll('.cal-row').forEach(function (row, i) {
-      row.querySelector('.ct-t').textContent = evs[i].title;
-    });
+    box.innerHTML = h;
   }
   /* 本月重点：当月所有日程按日期排成清单 */
   function monthEvents() {
@@ -3293,7 +3305,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     if (!box) return;
     var evs = monthEvents();
     var hasErn = evs.some(function (e) { return e.t === 'earnings'; });
-    var h = '<div class="cal-mt">' + (calM + 1) + ' 月重点'
+    var h = '<div class="cal-mt"><span class="cal-mpre">本月</span>' + (calM + 1) + ' 月重点'
       + (hasErn ? '<span class="cal-mtag">财报季</span>' : '')
       + '<em>' + evs.length + ' 件</em></div>';
     if (!evs.length) {
