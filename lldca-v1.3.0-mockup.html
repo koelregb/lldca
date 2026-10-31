@@ -603,7 +603,7 @@
   .vix-lvact { font-size: 10.5px; color: var(--sub); line-height: 1.4; margin-top: 1px; }
   .vix-lvrow.cur { background: var(--chip); border-radius: 10px; padding: 10px 8px; margin: 0 -8px; }
 
-  /* ---------- 加减仓条件（做题打勾） ---------- */
+  /* ---------- 建仓清仓条件（做题打勾） ---------- */
   .quiz-head {
     background: var(--card); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
     box-shadow: 0 2px 8px rgba(30,40,60,.04); display: flex; align-items: center; gap: 12px;
@@ -1171,11 +1171,11 @@
       <div class="hintbar">红线 = 绝不做 · 绿线 = 可重复 · 案例 = 复盘存档</div>
     </div>
 
-    <!-- ============ 加减仓页（加减仓条件 / 恐慌级别） ============ -->
+    <!-- ============ 加减仓页（建仓清仓条件 / 恐慌级别） ============ -->
     <div class="view" id="view-signals">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
-        <button class="on" data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
+        <button class="on" data-pane="quiz" onclick="sigTab(this)">建仓清仓条件</button>
         <button data-pane="build" onclick="sigTab(this)">加减仓法则</button>
         <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
       </div>
@@ -1419,7 +1419,7 @@
   财报子 tab：七巨头财报日历（28 条节奏表）+ 距今天数 + 一键「财报前一天 21:00」系统提醒，与事件日历同一数据源<br>
   红绿灯页 = 选色切换列表（红线 · 禁忌 / 绿线 · 可重复 / 案例）<br>
   定投页 = 定投计划（标的 / 每月定投日 / 到日推送本地通知，只记标的与日期不记金额）+ 定投仓位比（市场温度→建议仓位比 20%-100%，可手动 50 / 70 / 100%；标的仓位占比可手动添加「股票名称 + 代码 + 占比」，只记比例不记金额，合计 ≠ 100% 标橙、> 100% 标红）<br>  「已定投」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
-  加减仓页 = 加减仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别（十级自评 + Kübler-Ross 五阶段）<br>
+  加减仓页 = 建仓清仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别（十级自评 + Kübler-Ross 五阶段）<br>
   信号提醒（价格触发 / 定时提醒）自 v1.5.2 下线，历史数据保留在导出文件里<br>
   我的页：导出 / 备份完成后 toast 提示保存路径（「文档」目录，如 fuley-export-2026-10-28.json），并弹出系统分享面板可保存或发送<br>
   每个 tab 背景竖排水印「耐心 信心 恒心」（深红色 opacity .12，不挡操作）
@@ -2389,7 +2389,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     noteCount.textContent = '0 / 500';
   }
 
-  /* ---------- 加减仓条件：加仓 / 减仓两套十题，得分 ≥ 8（含）得出结论 ---------- */
+  /* ---------- 建仓清仓条件：加仓 / 减仓两套十题，得分 ≥ 8（含）得出结论 ---------- */
   var QUIZ_BUY_KEY = 'fuley_quiz_buy_v2';
   var QUIZ_SELL_KEY = 'fuley_quiz_sell_v2';
   var QUIZ_BUY_DEFAULT = [
