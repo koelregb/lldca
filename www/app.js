@@ -38,7 +38,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 
 /* ---------- 全局状态 ---------- */
 var titles = { home: '走势', plan: '定投提醒', notes: '红绿灯', signals: '加减仓', me: '我的' };
-var curTab = 'home';
+var curTab = (function(){ try { var v = sessionStorage.getItem('fuley.tab.v1'); return (v==='home'||v==='plan'||v==='notes'||v==='signals'||v==='me') ? v : 'home'; } catch(e){ return 'home'; } })();
 var lampDir = 1; // 1 = 红线(禁忌)  -1 = 绿线(可重复)  0 = 案例
 
 /* 指数行情值（初始为快照，启动后由腾讯实时行情覆盖） */
@@ -635,6 +635,7 @@ function switchTab(btn) {
   btn.classList.add('on');
   var id = btn.getAttribute('data-tab');
   curTab = id;
+  try { sessionStorage.setItem('fuley.tab.v1', id); } catch (e) { /* ignore */ }
   document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('on', 'active'); });
   document.getElementById('view-' + id).classList.add('active');
   document.getElementById('tbTitle').textContent = titles[id];
@@ -2826,7 +2827,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.5.3';
+var APP_VERSION = 'v1.5.6';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -3160,6 +3161,14 @@ function toast(msg) {
   if (s && s.account) { meUser = s; checkTrialDaily(); } else { showRegGate(); }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) checkTrialDaily(); });
 
+  // 恢复上次所在页（语言切换 reload 后不跳回首页）
+  (function () {
+    if (curTab !== 'home') {
+      var tb = document.querySelector('.tab[data-tab="' + curTab + '"]');
+      if (tb) switchTab(tb);
+    }
+  })();
+
   // 初始渲染
   renderMe();
   renderLangSeg();
@@ -3217,7 +3226,7 @@ function toast(msg) {
 })();
 
 /* ---------- 加减仓法则（交互式金字塔，与页面模型一致） ---------- */
-function IS_EN() { return (typeof i18n !== 'undefined' && i18n.isEn) ? i18n.isEn() : false; }
+function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window.FuleyI18N.isEn()); }
 (function () {
   // trigs: 各档触发涨跌幅（正数，加仓=跌幅、减仓=涨幅；0=建仓起点）
   // ratios: 各档买入/卖出比例（占总预算 / 期初持仓的 %）
@@ -3316,7 +3325,7 @@ function IS_EN() { return (typeof i18n !== 'undefined' && i18n.isEn) ? i18n.isEn
       if (i === n - 1 && cur === 'trim') labCls += ' top';
       f += '<div class="btier">'
         + '<div class="bt-bg" style="clip-path:' + clip + ';background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.05)),' + m.color + '"></div>'
-        + '<div class="' + labCls + '">' + (tg === 0 ? '' : '<span class="bt-no">' + (IS_EN ? 'Tier ' + (srcIdx + 1) + ' · ' + trigTxt : '第 ' + (srcIdx + 1) + ' 档 · ' + trigTxt) + '</span>') + '<span class="bt-pc">' + pct.toFixed(0) + '%</span></div>'
+        + '<div class="' + labCls + '">' + (tg === 0 ? '' : '<span class="bt-no">' + (IS_EN() ? 'Tier ' + (srcIdx + 1) + ' · ' + trigTxt : '第 ' + (srcIdx + 1) + ' 档 · ' + trigTxt) + '</span>') + '<span class="bt-pc">' + pct.toFixed(0) + '%</span></div>'
         + '</div>';
     }
     var cap = (cur === 'add')
@@ -3327,7 +3336,7 @@ function IS_EN() { return (typeof i18n !== 'undefined' && i18n.isEn) ? i18n.isEn
     // 逐档编辑表：档位 | 触发% | 比例%
     var e = '<div class="btr bth"><span class="bth1">档位</span><span class="bth2">' + m.unit1 + '</span><span class="bthu"></span><span class="bth2">' + m.unit2 + '</span><span class="bthu"></span></div>';
     for (var k = 0; k < n; k++) {
-      var noTxt = (cur === 'add' && k === 0) ? (IS_EN ? 'Tier 1<i>open</i>' : '第 1 档<i>建仓</i>') : ((IS_EN ? 'Tier ' + (k + 1) : '第 ' + (k + 1) + ' 档'));
+      var noTxt = (cur === 'add' && k === 0) ? (IS_EN() ? 'Tier 1<i>open</i>' : '第 1 档<i>建仓</i>') : ((IS_EN() ? 'Tier ' + (k + 1) : '第 ' + (k + 1) + ' 档'));
       e += '<div class="btr">'
         + '<span class="bno">' + noTxt + '</span>'
         + '<input type="number" min="0" step="0.5" value="' + trigs[k] + '" onchange="bSetTrig(' + k + ',this.value)">'
@@ -3340,16 +3349,16 @@ function IS_EN() { return (typeof i18n !== 'undefined' && i18n.isEn) ? i18n.isEn
 
     var sumTxt;
     if (cur === 'add') {
-      sumTxt = (IS_EN ? 'Total <b>' + n + '</b> tiers (incl. open) · budget <b>' + sum + '%</b>'
+      sumTxt = (IS_EN() ? 'Total <b>' + n + '</b> tiers (incl. open) · budget <b>' + sum + '%</b>'
                : '共 <b>' + n + '</b> 档（含建仓）· 预算合计 <b>' + sum + '%</b>')
-        + (sum < 99.5 ? (IS_EN ? ' · <b>' + (100 - sum).toFixed(0) + '%</b> cash left'
+        + (sum < 99.5 ? (IS_EN() ? ' · <b>' + (100 - sum).toFixed(0) + '%</b> cash left'
             : ' · 还剩 <b>' + (100 - sum).toFixed(0) + '%</b> 现金')
-           : (sum > 100.5 ? (IS_EN ? ' · <span class="warn">over budget, lower it</span>'
-            : ' · <span class="warn">超出预算，请调低</span>') : (IS_EN ? ' · budget fully allocated' : ' · 预算全部排完')));
+           : (sum > 100.5 ? (IS_EN() ? ' · <span class="warn">over budget, lower it</span>'
+            : ' · <span class="warn">超出预算，请调低</span>') : (IS_EN() ? ' · budget fully allocated' : ' · 预算全部排完')));
     } else {
-      sumTxt = (IS_EN ? 'Total <b>' + n + '</b> tiers · cumulative sold <b>' + sum + '%</b> · keep <b>' + Math.max(0, 100 - sum).toFixed(0) + '%</b> core'
+      sumTxt = (IS_EN() ? 'Total <b>' + n + '</b> tiers · cumulative sold <b>' + sum + '%</b> · keep <b>' + Math.max(0, 100 - sum).toFixed(0) + '%</b> core'
                : '共 <b>' + n + '</b> 档 · 累计卖出 <b>' + sum + '%</b> 持仓 · 保留 <b>' + Math.max(0, 100 - sum).toFixed(0) + '%</b> 底仓')
-        + (sum > 100.5 ? (IS_EN ? ' · <span class="warn">exceeds holding, lower it</span>' : ' · <span class="warn">超过持仓，请调低</span>') : '');
+        + (sum > 100.5 ? (IS_EN() ? ' · <span class="warn">exceeds holding, lower it</span>' : ' · <span class="warn">超过持仓，请调低</span>') : '');
     }
     document.getElementById('bsum').innerHTML = sumTxt;
   };
