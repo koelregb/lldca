@@ -719,6 +719,10 @@
   .rchart .band { fill: rgba(120,130,150,.10); }
   .rchart .band-line { stroke: var(--line); stroke-width: 1; stroke-dasharray: 4 3; }
   .rchart .pt-cross { fill: #e0902b; stroke: #fff; stroke-width: 1.5; }
+  .rchart .leader { stroke: var(--sub); stroke-width: 1; stroke-dasharray: 2 2; }
+  .rchart .tp { stroke: #fff; stroke-width: 1.6; }
+  .rchart .tp-left { fill: var(--down); }
+  .rchart .tp-right { fill: var(--up); }
   .rchart-cap { font-size: 10.5px; color: var(--sub); line-height: 1.55; padding: 7px 4px 2px; }
   .rchart-cap b.dn { color: var(--down); }
   .rchart-cap b.up { color: var(--up); }
@@ -1112,16 +1116,22 @@
             <text class="lbl-sub" x="56" y="17" text-anchor="start">价格</text>
             <line class="ma" x1="92" y1="14" x2="116" y2="14"/>
             <text class="lbl-sub" x="120" y="17" text-anchor="start">均线 MA</text>
-            <text class="lbl" x="30" y="132" text-anchor="start">下震荡</text>
-            <text class="lbl-sub" x="30" y="144" text-anchor="start">低位盘整</text>
-            <text class="lbl" x="310" y="52" text-anchor="end">上震荡</text>
-            <text class="lbl-sub" x="310" y="64" text-anchor="end">高位盘整</text>
+            <text class="lbl" x="122" y="124" text-anchor="start">下震荡</text>
+            <text class="lbl-sub" x="122" y="136" text-anchor="start">低位盘整</text>
+            <text class="lbl" x="176" y="52" text-anchor="start">上震荡</text>
+            <text class="lbl-sub" x="176" y="64" text-anchor="start">高位盘整</text>
             <polyline class="price" points="24,156 42,166 60,140 78,162 96,142 114,164 132,146 150,166 168,150 186,118 200,96 216,70 232,86 248,58 264,82 280,62 296,86 312,66 316,76"/>
             <polyline class="ma" points="24,150 42,160 60,150 78,150 96,152 114,150 132,150 150,150 168,142 186,108 200,86 216,76 232,78 248,62 264,76 280,72 296,78 312,68 316,74"/>
-            <circle class="pt-cross" cx="128" cy="150" r="3.6"/>
-            <circle class="pt-cross" cx="240" cy="71" r="3.6"/>
+            <line class="leader" x1="60" y1="121" x2="60" y2="135"/>
+            <circle class="tp tp-left" cx="60" cy="140" r="5"/>
+            <text class="lbl dn" x="30" y="108" text-anchor="start">左侧交易点</text>
+            <text class="lbl-sub dn" x="30" y="119" text-anchor="start">逢低买 · 逆向</text>
+            <line class="leader" x1="300" y1="46" x2="290" y2="70"/>
+            <circle class="tp tp-right" cx="288" cy="75" r="5"/>
+            <text class="lbl up" x="312" y="30" text-anchor="end">右侧交易点</text>
+            <text class="lbl-sub up" x="312" y="41" text-anchor="end">突破买 · 顺势</text>
           </svg>
-          <div class="rchart-cap">价格先在一带低位<b>下震荡</b>（盘整蓄势），再切换至高位<b>上震荡</b>（高位盘整）；橙色<b>均线（MA）</b>随波动上下穿插价格线，形成<b>金叉 / 死叉</b>，是判断趋势强弱与买卖节奏的常用参考。</div>
+          <div class="rchart-cap">绿点 <b class="dn">左侧交易点</b>：低位下震荡中逢低逆向买入（越跌越买、摊薄成本）；红点 <b class="up">右侧交易点</b>：均线（MA）上穿价格形成<b>金叉</b>后顺势突破买入。橙色均线随波动上下穿插价格线（金叉 / 死叉），是判断趋势强弱与买卖节奏的常用参考。</div>
         </div>
       </div>
       <div id="noteListRule" style="display:none">
