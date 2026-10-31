@@ -246,9 +246,10 @@
     /* 建仓法则：方法图 */
   .bseg { display: flex; gap: 6px; margin-bottom: 8px; }
   .bseg button {
-    flex: 1; border: none; border-radius: 10px; padding: 9px 0; font-size: 12.5px; font-weight: 700;
+    flex: 1; border: none; border-radius: 10px; padding: 7px 0; font-size: 12.5px; font-weight: 700;
     background: var(--card); color: var(--sub); cursor: pointer; box-shadow: var(--shadow);
   }
+  .bseg button small { display: block; font-size: 9.5px; font-weight: 600; opacity: .85; margin-top: 1px; letter-spacing: .2px; }
   .bseg button.on { background: var(--accent); color: #fff; }
   .bhint { font-size: 11.5px; color: var(--sub); margin: 0 2px 10px; line-height: 1.5; }
   .bfig { background: var(--card); border-radius: 16px; padding: 12px 12px 10px; box-shadow: var(--shadow); margin-bottom: 10px; }
@@ -1129,7 +1130,7 @@
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
         <button class="on" data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
-        <button data-pane="build" onclick="sigTab(this)">建仓法则</button>
+        <button data-pane="build" onclick="sigTab(this)">加减仓法则</button>
         <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
       </div>
 
@@ -1151,8 +1152,8 @@
 
       <div id="buildPane" style="display:none">
         <div class="bseg" id="bseg">
-          <button class="on" data-m="add" onclick="bSetMode('add')">正金字塔 · 加仓</button>
-          <button data-m="trim" onclick="bSetMode('trim')">倒金字塔 · 减仓</button>
+          <button class="on" data-m="add" onclick="bSetMode('add')">应对下跌<small>正金字塔加仓</small></button>
+          <button data-m="trim" onclick="bSetMode('trim')">应对上涨<small>倒金字塔减仓</small></button>
         </div>
         <div class="bhint" id="bhint"></div>
 
@@ -3305,9 +3306,9 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 <script>
 (function () {
   var MODES = {
-    add:  { tag: '正金字塔 · 加仓', hint: '应对下跌：越跌买越多，最大一档压在底部（最低价），低位重仓摊薄成本。至少分 5 档。',
+    add:  { tag: '应对下跌（正金字塔加仓）', hint: '越跌买越多，最大一档压在底部（最低价），低位重仓摊薄成本。至少分 5 档。',
             ratios: [10, 10, 15, 20, 20, 25], dir: -1, color: '#e04a4a' },
-    trim: { tag: '倒金字塔 · 减仓', hint: '应对上涨：先在高位卖大头，最大一档压在最顶上（最高价），先收回本金。涨幅 30% 以上再启动。',
+    trim: { tag: '应对上涨（倒金字塔减仓）', hint: '先在高位卖大头，最大一档压在最顶上（最高价），先收回本金。涨幅 30% 以上再启动。',
             ratios: [30, 50, 80], dir: 1, color: '#4a7fd4' }
   };
   var cur = 'add', ratios = MODES.add.ratios.slice();
