@@ -1504,9 +1504,30 @@ function lampSeg(btn, dir) {
   });
   if (dir === 0) { btn.classList.add('on'); }
   else { btn.classList.add('on', dir > 0 ? 'red' : 'green'); }
+  var editor = document.querySelector('#view-notes .editor');
+  if (editor) editor.style.display = dir === 2 ? 'none' : '';
   document.getElementById('noteListRed').style.display = dir === 1 ? '' : 'none';
   document.getElementById('noteListGreen').style.display = dir === -1 ? '' : 'none';
   document.getElementById('noteListCase').style.display = dir === 0 ? '' : 'none';
+  var rc = document.getElementById('noteRuleChart');
+  var rl = document.getElementById('noteListRule');
+  if (rc) rc.style.display = dir === 2 ? '' : 'none';
+  if (rl) rl.style.display = dir === 2 ? '' : 'none';
+  if (dir === 2) {
+    // 复位子tab到右侧
+    var sub = document.querySelectorAll('#ruleSubSeg button');
+    sub.forEach(function (b) { b.classList.remove('on'); });
+    if (sub[0]) sub[0].classList.add('on');
+    var rr = document.getElementById('ruleRight'), lr = document.getElementById('ruleLeft');
+    if (rr) rr.style.display = '';
+    if (lr) lr.style.display = 'none';
+  }
+}
+function ruleSub(btn, which) {
+  btn.parentElement.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  document.getElementById('ruleRight').style.display = which === 'right' ? '' : 'none';
+  document.getElementById('ruleLeft').style.display = which === 'left' ? '' : 'none';
 }
 function addNote() {
   var ta = document.getElementById('noteInput');
@@ -2816,7 +2837,7 @@ function renderMe() {
   document.getElementById('meUname').textContent = meUser ? meUser.name : L('未登录', 'Not signed in');
   document.getElementById('meUsub').textContent = meUser
     ? L('账号 ' + meUser.account + ' · 数据仅保存在本机', 'Account ' + meUser.account + ' · data stays on this device')
-    : L('注册账号后可多设备云端同步', 'Sign up to sync across devices');
+    : '';
   document.getElementById('meAuthBtn').textContent = meUser ? L('登出', 'Sign out') : (loadAccount() ? L('登录', 'Sign in') : L('注册', 'Sign up'));
   document.getElementById('meAvatar').textContent = meUser ? meUser.name.charAt(0) : '浮';
 }
