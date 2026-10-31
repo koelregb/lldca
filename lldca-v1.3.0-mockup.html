@@ -970,22 +970,19 @@
       <div id="planPane">
         <div class="listcard">
         <div class="lrow">
-          <div class="daychip"><div><div class="d">1</div><div class="m">每月</div></div></div>
           <div class="linfo"><div class="lname">英伟达</div><div class="lsub">NVDA · 美股</div></div>
-          <div class="lval"><div class="v2">下次提醒 11-01</div></div>
+          <div class="lval"><div class="v2">价格提醒 · 建仓价 $120.00</div></div>
         </div>
         <div class="lrow">
-          <div class="daychip"><div><div class="d">10</div><div class="m">每月</div></div></div>
           <div class="linfo"><div class="lname">沪深300 ETF</div><div class="lsub">510300 · A股</div></div>
-          <div class="lval"><div class="v2">下次提醒 11-10</div></div>
+          <div class="lval"><div class="v2">价格提醒 · 建仓价 $4.50</div></div>
         </div>
         <div class="lrow">
-          <div class="daychip"><div><div class="d">15</div><div class="m">每月</div></div></div>
           <div class="linfo"><div class="lname">腾讯控股</div><div class="lsub">00700 · 港股</div></div>
-          <div class="lval"><div class="v2">下次提醒 11-15</div></div>
+          <div class="lval"><div class="v2">价格提醒 · 建仓价 $52.00</div></div>
         </div>
       </div>
-      <div class="hintbar">到设置日自动推送本地通知 · 点击条目可编辑</div>
+      <div class="hintbar">到价自动提醒 · 点击条目可编辑建仓价格</div>
       </div>
 
       <div id="posPane" style="display:none">
@@ -1296,7 +1293,7 @@
   走势页 3 个子 tab = 周期 / 黄金 / 日历（原「股票」「VIX」「财报」已下线；恒生、上证指数一并移除）<br>
   走势页「财报」子 tab 已下线（七巨头财报节奏并入事件日历，可在「日历」页查看）<br>
   红绿灯页 = 选色切换列表（红线 · 禁忌 / 绿线 · 可重复 / 案例）<br>
-  仓位页 = 仓位计划（标的 / 每月执行日 / 到日推送本地通知，只记标的与日期不记金额）+ 仓位占比（标的仓位占比可自定义添加「名称 + 代码 + 比例」，比例任意填写，点击条目可修改 / 删除，合计 ≠ 100% 标橙、> 100% 标红）<br>  「已建仓」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
+  仓位页 = 仓位计划（标的 / 建仓价格（美元）/ 到价自动提醒，记录标的与建仓价格）+ 仓位占比（标的仓位占比可自定义添加「名称 + 代码 + 比例」，比例任意填写，点击条目可修改 / 删除，合计 ≠ 100% 标橙、> 100% 标红）<br>  「已建仓」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
   加减仓页 = 建仓清仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别评估（十级自评 + Kübler-Ross 五阶段）<br>
   信号提醒（价格触发 / 定时提醒）自 v1.5.2 下线，历史数据保留在导出文件里<br>
   我的页：导出 / 备份完成后 toast 提示保存路径（「文档」目录，如 fuley-export-2026-10-28.json），并弹出系统分享面板可保存或发送<br>
@@ -1917,7 +1914,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
       title: '添加仓位提醒',
       body: '<div class="field"><label>标的名称</label><input type="text" placeholder="如 英伟达 / 沪深300 ETF"></div>'
         + '<div class="field"><label>代码</label><input type="text" placeholder="NVDA / 510300 / 00700"></div>'
-        + '<div class="field"><label>每月执行日</label><input type="number" min="1" max="31" placeholder="1 - 31"></div>'
+        + '<div class="field"><label>建仓价格（美元）</label><input type="number" step="0.01" min="0" placeholder="如 120.00"></div>'
     },
     signals: {
       title: '添加加减仓提醒',
@@ -2047,7 +2044,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     return {
       app: 'fuley', version: 'v1.5.3', exportedAt: new Date().toISOString(),
       plans: [].map.call(document.querySelectorAll('#view-plan .lrow'), function (r) {
-        return { day: txt('.d', r), name: txt('.lname', r), code: txt('.lsub', r), amount: txt('.v1', r), next: txt('.v2', r) };
+        return { name: txt('.lname', r), code: txt('.lsub', r), price: txt('.v2', r) };
       }),
       signals: [].map.call(document.querySelectorAll('#view-signals .lrow'), function (r) {
         return { dir: txt('.dirchip', r), name: txt('.lname', r), cond: txt('.lsub', r), state: txt('.v1', r), note: txt('.v2', r) };
