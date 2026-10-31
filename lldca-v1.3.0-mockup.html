@@ -1186,11 +1186,8 @@
 
         <div class="bsum" id="bsum"></div>
 
-        <div class="pnl-t">两条纪律</div>
-        <div class="listcard bc-laws">
-          <div class="bc-law"><span class="bc-no">1</span><span>先定这只标的的总预算，再排档位；至少分 5 档，别两三次打完</span></div>
-          <div class="bc-law"><span class="bc-no">2</span><span>永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓</span></div>
-        </div>
+        <div class="pnl-t" id="bLawT"></div>
+        <div class="listcard bc-laws" id="bLaws"></div>
         <div class="hintbar">参数取自公开分享的加减仓体系 · 仅作纪律参考，不构成投资建议</div>
       </div>
 
@@ -3328,9 +3325,11 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 <script>
 (function () {
   var MODES = {
-    add:  { rec: '建议 <b>5–8 档</b>：每跌 8%–15% 补一档，跌得越深档位越重，别两三次就把子弹打完。', tag: '应对下跌（正金字塔加仓）', hint: '越跌买越多，最大一档压在底部（最低价），低位重仓摊薄成本。至少分 5 档。',
+    add:  { laws: ['先定这只标的的总预算，再排档位；至少分 5 档，别两三次打完', '永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓'],
+          rec: '建议 <b>5–8 档</b>：每跌 8%–15% 补一档，跌得越深档位越重，别两三次就把子弹打完。', tag: '应对下跌（正金字塔加仓）', hint: '越跌买越多，最大一档压在底部（最低价），低位重仓摊薄成本。至少分 5 档。',
             ratios: [10, 10, 15, 20, 20, 25], dir: -1, color: '#e04a4a' },
-    trim: { rec: '建议 <b>3–4 档</b>：涨幅 30% 以上启动，每涨 10%–15% 卖一档，越高卖得越多，先收回本金。', tag: '应对上涨（倒金字塔减仓）', hint: '先在高位卖大头，最大一档压在最顶上（最高价），先收回本金。涨幅 30% 以上再启动。',
+    trim: { laws: ['越涨越卖时先收回本金，卖到成本出清后，剩下的仓位才是利润在跑', '跌破启动价（或回撤 10%）就停止卖出计划，别把底部筹码也交出去'],
+          rec: '建议 <b>3–4 档</b>：涨幅 30% 以上启动，每涨 10%–15% 卖一档，越高卖得越多，先收回本金。', tag: '应对上涨（倒金字塔减仓）', hint: '先在高位卖大头，最大一档压在最顶上（最高价），先收回本金。涨幅 30% 以上再启动。',
             ratios: [30, 50, 80], dir: 1, color: '#4a7fd4' }
   };
   var cur = 'add', ratios = MODES.add.ratios.slice();
@@ -3368,6 +3367,10 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     document.getElementById('bhint').textContent = m.tag + ' · ' + m.hint;
     document.getElementById('bN').textContent = n;
     document.getElementById('bRec').innerHTML = m.rec;
+    document.getElementById('bLawT').textContent = m.tag + ' · 两条纪律';
+    document.getElementById('bLaws').innerHTML = m.laws.map(function (t, i) {
+      return '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + t + '</span></div>';
+    }).join('');
 
     // 展示顺序：加仓为正常金字塔（顶尖朝上）；减仓倒置，使最大档在最上方、尖端朝下
     var disp = ratios.slice();
