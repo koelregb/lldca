@@ -728,7 +728,7 @@ function openPlanForm() {
   var p = editPlanId ? plans.filter(function (x) { return x.id === editPlanId; })[0] : null;
   sheetMode = 'plan';
   document.getElementById('sheetSave').textContent = p ? '保存' : '添加';
-  document.getElementById('sheetTitle').textContent = p ? '编辑定投提醒' : '添加定投提醒';
+  document.getElementById('sheetTitle').textContent = p ? L('编辑定投提醒', 'Edit DCA alert') : L('添加定投提醒', 'Add DCA alert');
   var body = '';
   if (p) body += '<button class="btn ghost btn-block" style="margin-bottom:12px" onclick="delPlan()">删除此定投</button>';
   body += '<div class="field"><label>标的名称</label><input type="text" id="pfName" maxlength="30" placeholder="如 英伟达 / 沪深300 ETF" value="' + esc(p ? p.name : '') + '"></div>'
@@ -1563,39 +1563,39 @@ function delNote(kind, i) {
 /* ---------- 建仓法则：正 / 倒金字塔 × 加仓 / 减仓 ---------- */
 var BUILD_RULES = [
   {
-    key: 'up-add', tag: '正金字塔 · 加仓', sub: '追涨 / 右侧',
+    key: 'up-add', tag: '正金字塔 · 加仓', sub: '追涨 / 右侧', tagEn: 'Pyramid · Add', subEn: 'Chasing / right-side',
     rows: [
-      ['档位', '首档 40% → 30% → 20% → 10%（越涨加越少）'],
-      ['档差', '每涨 5%–8% 一档，价格确认上行再加'],
-      ['用途', '趋势确认后补仓，成本仍能压住'],
-      ['注意', '不预测顶部，但每档只加一次，不重复追']
+      ['档位', '首档 40% → 30% → 20% → 10%（越涨加越少）', 'Tiers', '40% → 30% → 20% → 10% (add less as it rises)'],
+      ['档差', '每涨 5%–8% 一档，价格确认上行再加', 'Spacing', 'One tier per 5–8% rise, add only after the uptrend is confirmed'],
+      ['用途', '趋势确认后补仓，成本仍能压住', 'Purpose', 'Add after trend confirmation while keeping cost controlled'],
+      ['注意', '不预测顶部，但每档只加一次，不重复追', 'Caution', 'Don\u2019t predict the top; add each tier only once']
     ]
   },
   {
-    key: 'down-add', tag: '倒金字塔 · 加仓', sub: '抄底 / 左侧',
+    key: 'down-add', tag: '倒金字塔 · 加仓', sub: '抄底 / 左侧', tagEn: 'Inverted pyramid · Add', subEn: 'Bottom-fishing / left-side',
     rows: [
-      ['档位', '1 - 1 - 1.5 - 2 - 2 - 2.5（越跌买越多）'],
-      ['档差', '8%–15%；资金少拉到 10%–15%，资金大用 5%'],
-      ['前提', '标的「第一兼唯一」、三表健康，否则越补越亏'],
-      ['上限', '加完总仓位不超过 8 成，常态 7–7.5 成']
+      ['档位', '1 - 1 - 1.5 - 2 - 2 - 2.5（越跌买越多）', 'Tiers', '1 - 1 - 1.5 - 2 - 2 - 2.5 (buy more as it falls)'],
+      ['档差', '8%–15%；资金少拉到 10%–15%，资金大用 5%', 'Spacing', '8–15%; wider (10–15%) with small capital, 5% with large'],
+      ['前提', '标的「第一兼唯一」、三表健康，否则越补越亏', 'Prerequisite', 'Asset is #1/unique with healthy statements, else averaging down loses more'],
+      ['上限', '加完总仓位不超过 8 成，常态 7–7.5 成', 'Cap', 'Total position ≤80% after adds (normally 70–75%)']
     ]
   },
   {
-    key: 'up-trim', tag: '正金字塔 · 减仓', sub: '先落袋',
+    key: 'up-trim', tag: '正金字塔 · 减仓', sub: '先落袋', tagEn: 'Pyramid · Trim', subEn: 'Lock in first',
     rows: [
-      ['档位', '50% → 30% → 20%（先卖大头）'],
-      ['触发', '到达目标价即执行，不等更高'],
-      ['用途', '担心回吐、想先锁本金时用'],
-      ['代价', '牛市中容易卖得太早']
+      ['档位', '50% → 30% → 20%（先卖大头）', 'Tiers', '50% → 30% → 20% (sell the bulk first)'],
+      ['触发', '到达目标价即执行，不等更高', 'Trigger', 'Execute at target price, don\u2019t wait for higher'],
+      ['用途', '担心回吐、想先锁本金时用', 'Purpose', 'Use when you fear giving back gains and want principal locked'],
+      ['代价', '牛市中容易卖得太早', 'Cost', 'May sell too early in a bull market']
     ]
   },
   {
-    key: 'down-trim', tag: '倒金字塔 · 减仓', sub: '标准止盈',
+    key: 'down-trim', tag: '倒金字塔 · 减仓', sub: '标准止盈', tagEn: 'Inverted pyramid · Trim', subEn: 'Standard take-profit',
     rows: [
-      ['档位', '30 → 50 → 80（越涨卖越多）'],
-      ['触发', '涨幅 30% 以上才开始；PEG ≥ 2 提前减'],
-      ['目标', '先收回本金，剩余做成零成本'],
-      ['节奏', '2-3-3-2：30–50% 卖约 20%，50–80% 再卖 30%']
+      ['档位', '30 → 50 → 80（越涨卖越多）', 'Tiers', '30 → 50 → 80 (sell more as it rises)'],
+      ['触发', '涨幅 30% 以上才开始；PEG ≥ 2 提前减', 'Trigger', 'Start only after +30%; trim early if PEG ≥ 2'],
+      ['目标', '先收回本金，剩余做成零成本', 'Goal', 'Recover principal first, make the rest zero-cost'],
+      ['节奏', '2-3-3-2：30–50% 卖约 20%，50–80% 再卖 30%', 'Pace', '2-3-3-2: sell ~20% in 30–50%, another 30% in 50–80%']
     ]
   }
 ];
@@ -1606,21 +1606,28 @@ var BUILD_LAWS = [
   '标的必须基本面可靠；倒金字塔抄底用在垃圾股上等于加速亏损',
   '越涨越卖时先收回本金，剩下的才是利润在跑'
 ];
+var BUILD_LAWS_EN = [
+  'Set the total budget for this asset first, then tier it \u2014 don\u2019t decide how much to buy only after it drops',
+  'Use at least 5 tiers; finishing in 2\u20133 shots is the most common mistake',
+  'Never go full-in: keep 30% cash, stop adding above 80% total position',
+  'Fundamentals must be solid; inverted-pyramid bottom-fishing on junk stocks just speeds up losses',
+  'When trimming, recover principal first \u2014 the rest is pure profit running'
+];
 function renderBuildRules() {
   var box = document.getElementById('buildRules');
   if (!box) return;
   var h = '<div class="hintbar" style="margin-top:0">' + L('正 / 倒描述的是「动作量的形状」，加仓减仓是方向 · 按动作量命名，若按持仓形状命名，第 2 张卡会被叫作「正金字塔」', 'Up/down describes the shape of each action; buy/sell is the direction') + '</div>';
   BUILD_RULES.forEach(function (r) {
     h += '<div class="build-card">'
-      + '<div class="bc-h"><span class="bc-tag">' + L(r.tag, r.tag) + '</span><span class="bc-sub">' + L(r.sub, r.sub) + '</span></div>';
+      + '<div class="bc-h"><span class="bc-tag">' + L(r.tag, r.tagEn || r.tag) + '</span><span class="bc-sub">' + L(r.sub, r.subEn || r.sub) + '</span></div>';
     r.rows.forEach(function (row) {
-      h += '<div class="bc-row"><span class="bc-k">' + L(row[0], row[0]) + '</span><span class="bc-v">' + L(row[1], row[1]) + '</span></div>';
+      h += '<div class="bc-row"><span class="bc-k">' + L(row[0], row[2] || row[0]) + '</span><span class="bc-v">' + L(row[1], row[3] || row[1]) + '</span></div>';
     });
     h += '</div>';
   });
   h += '<div class="pnl-t">' + L('五条铁律', 'Five rules') + '</div><div class="listcard bc-laws">';
   BUILD_LAWS.forEach(function (t, i) {
-    h += '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + L(t, t) + '</span></div>';
+    h += '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + L(t, (BUILD_LAWS_EN[i] || t)) + '</span></div>';
   });
   h += '</div>';
   h += '<div class="hintbar">' + L('参数取自公开分享的加减仓体系（金字塔 / 倒金字塔），仅作纪律参考，不构成投资建议', 'Parameters from publicly shared position-sizing frameworks; discipline reference only') + '</div>';
@@ -2827,7 +2834,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.5.6';
+var APP_VERSION = 'v1.5.7';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -2913,7 +2920,9 @@ function logout() {
   meUser = null;
   lsDel(SESSION_KEY);
   renderMe();
-  toast('已退出登录');
+  // 登出后立即回到注册/登录门，未登录不可查看 App 内容
+  showRegGate();
+  toast(L('已退出登录', 'Signed out'));
 }
 
 /* ---------- 首次打开注册门 + 试用提示 + 最后一周每日提醒 ---------- */
@@ -2938,18 +2947,28 @@ function hideRegGate() {
 }
 function renderRegGate() {
   var isReg = authMode === 'register';
-  document.getElementById('rgTitle').textContent = isReg ? '欢迎使用浮乐' : '登录浮乐';
-  document.getElementById('rgSub').textContent = isReg ? '注册账号后即可使用 · 数据仅保存在本机' : '欢迎回来，登录后继续使用';
+  document.getElementById('rgTitle').textContent = isReg ? L('欢迎使用浮乐', 'Welcome to Fuley') : L('登录浮乐', 'Sign in to Fuley');
+  document.getElementById('rgSub').textContent = isReg
+    ? L('注册账号后即可使用 · 数据仅保存在本机', 'Sign up to start · data stays on this device')
+    : L('欢迎回来，登录后继续使用', 'Welcome back, sign in to continue');
+  // 注册门上的语言切换按钮
+  var lbox = document.getElementById('rgLang');
+  if (lbox) {
+    var curL = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
+    lbox.innerHTML = [['zh', '中文'], ['en', 'English']].map(function (it) {
+      return '<button type="button" class="' + (curL === it[0] ? 'on' : '') + '" onclick="switchLang(\'' + it[0] + '\')">' + it[1] + '</button>';
+    }).join('');
+  }
   var f = '';
   if (isReg) {
-    f += '<div class="field"><label>账号（3-20 位字母 / 数字 / 下划线）</label><input type="text" id="auAccount" maxlength="20" placeholder="如 fuley2026" autocomplete="off"></div>'
-      + '<div class="field"><label>昵称</label><input type="text" id="auName" maxlength="20" placeholder="怎么称呼你"></div>';
+    f += '<div class="field"><label>' + L('账号（3-20 位字母 / 数字 / 下划线）', 'Account (3-20 letters / digits / underscore)') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + L('如 fuley2026', 'e.g. fuley2026') + '" autocomplete="off"></div>'
+      + '<div class="field"><label>' + L('昵称', 'Nickname') + '</label><input type="text" id="auName" maxlength="20" placeholder="' + L('怎么称呼你', 'What should we call you') + '"></div>';
   } else {
-    f += '<div class="field"><label>账号</label><input type="text" id="auAccount" maxlength="20" placeholder="请输入账号" autocomplete="off"></div>';
+    f += '<div class="field"><label>' + L('账号', 'Account') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + L('请输入账号', 'Enter your account') + '" autocomplete="off"></div>';
   }
-  f += '<div class="field"><label>密码（6-32 位，仅字母 / 数字）</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
-  if (isReg) f += '<div class="field"><label>确认密码</label><input type="password" id="auPass2" maxlength="32" placeholder="再输一次"></div>';
-  f += '<button class="btn" onclick="rgSubmit()">' + (isReg ? '注册并开始' : '登录') + '</button>';
+  f += '<div class="field"><label>' + L('密码（6-32 位，仅字母 / 数字）', 'Password (6-32 chars, letters / digits)') + '</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
+  if (isReg) f += '<div class="field"><label>' + L('确认密码', 'Confirm password') + '</label><input type="password" id="auPass2" maxlength="32" placeholder="' + L('再输一次', 'Enter again') + '"></div>';
+  f += '<button class="btn" onclick="rgSubmit()">' + (isReg ? L('注册并开始', 'Sign Up & Start') : L('登录', 'Sign In')) + '</button>';
   document.getElementById('rgForm').innerHTML = f;
   document.getElementById('rgSwitch').innerHTML = isReg
     ? L('已有账号？<a onclick="authMode=\'login\';renderRegGate()">去登录</a>', 'Have an account? <a onclick="authMode=\'login\';renderRegGate()">Sign in</a>')
