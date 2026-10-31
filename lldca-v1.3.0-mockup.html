@@ -261,6 +261,9 @@
     position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
     color: #fff; white-space: nowrap; pointer-events: none; line-height: 1.25;
   }
+  .bt-lab.bot { justify-content: flex-end; padding-bottom: 3px; }
+  .bt-lab.top { justify-content: flex-start; padding-top: 3px; }
+  .pcap { text-align: center; font-size: 9.5px; color: var(--sub); padding: 4px 6px 2px; line-height: 1.4; }
   .bt-no { font-size: 9px; font-weight: 700; opacity: .92; letter-spacing: .2px; }
   .bt-pc { font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
   .bsec { display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--sub); margin: 0 2px 7px; }
@@ -276,18 +279,26 @@
   }
   .bn-btn:active { opacity: .6; }
   .bn-num { min-width: 18px; text-align: center; font-size: 15px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
-  .bt-field { display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: var(--sub); white-space: nowrap; }
-  .bt-field b { color: var(--ink); font-weight: 800; }
-  .bt-field input {
-    width: 40px; border: none; background: var(--chip); border-radius: 6px; padding: 3px 2px;
+  /* 逐档编辑表 */
+  .btab { background: var(--card); border-radius: 12px; padding: 10px 10px 6px; box-shadow: var(--shadow); margin-bottom: 8px; }
+  .btab .btr { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .btab .bth { font-size: 9.5px; font-weight: 700; color: var(--sub); margin-bottom: 2px; }
+  .btab .bno { width: 40px; flex: none; font-size: 10.5px; font-weight: 700; color: var(--sub); }
+  .btab .bno i { display: block; font-style: normal; font-size: 8.5px; font-weight: 600; opacity: .8; }
+  .btab input {
+    flex: 1; min-width: 0; border: none; background: var(--chip); border-radius: 7px; padding: 6px 2px;
     font-size: 12.5px; font-weight: 800; color: var(--ink); text-align: center; outline: none;
     font-variant-numeric: tabular-nums;
   }
-  .bncard + .bncard { margin-top: -4px; }
+  .btab .bunit { width: 12px; flex: none; font-size: 9.5px; font-weight: 700; color: var(--sub); text-align: left; }
+  .btab .bth1 { width: 40px; flex: none; }
+  .btab .bth2 { flex: 1; text-align: center; }
+  .btab .bth3 { flex: 1; text-align: center; }
+  .btab .bthu { width: 12px; flex: none; }
   .bn-tip { margin-left: auto; font-size: 10px; color: var(--sub); }
   .bn-rec { font-size: 11px; color: var(--sub); margin: -2px 2px 10px; line-height: 1.5; }
   .bn-rec b { color: var(--ink); }
-  .bratio { display: flex; gap: 6px; margin-bottom: 8px; }
+  .bratio { display: block; }
   .bratio label { flex: 1; background: var(--card); border-radius: 9px; padding: 6px 4px; text-align: center; box-shadow: var(--shadow); }
   .bratio span { display: block; font-size: 9.5px; color: var(--sub); }
   .bratio input {
@@ -1181,17 +1192,13 @@
 
         <div class="bfig" id="bfig"></div>
 
-        <div class="bsec"><span id="bSecT">各档比例（可改）</span><button class="blink" onclick="bReset()">恢复默认</button></div>
+        <div class="bsec"><span id="bSecT">各档触发与比例（可改）</span><button class="blink" onclick="bReset()">恢复默认</button></div>
         <div class="bncard">
           <span class="bn-lab">档数</span>
           <button class="bn-btn" onclick="bAddTier(-1)">−</button>
           <b class="bn-num" id="bN"></b>
           <button class="bn-btn" onclick="bAddTier(1)">＋</button>
           <span class="bn-tip">2–10 档，比例随档数增减</span>
-        </div>
-        <div class="bncard" id="bTrig">
-          <span class="bt-field" id="bStartWrap" style="display:none">涨 <input type="number" id="bStart" value="5" min="0" step="1" oninput="bRender()">% 启动</span>
-          <span class="bt-field">每<b id="bGapVerb">跌</b> <input type="number" id="bGapI" value="5" min="1" max="50" step="0.5" oninput="bRender()">% <b id="bGapAct">补</b>一档</span>
         </div>
         <div class="bn-rec" id="bRec"></div>
         <div class="bratio" id="bratio"></div>
@@ -3336,50 +3343,61 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 </script>
 <script>
 (function () {
+  // trigs: 各档触发涨跌幅（正数，加仓=跌幅、减仓=涨幅；0=建仓起点）
+  // ratios: 各档买入/卖出比例（占总预算 / 期初持仓的 %）
   var MODES = {
     add:  { laws: ['先定这只标的的总预算，再排档位；至少分 4 档，别两三次打完', '永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓'],
-          rec: '建议 <b>4–8 档</b>：以阶段性高点为基准，每跌 5%–10% 补一档，越跌买越多。例：10 万预算按 1/2/3/4 万递增排 4 档。',
-          tag: '应对下跌（正金字塔加仓）', hint: '以阶段性高点为基准设跌幅阈值，每跌一档买得更多，低位重仓摊薄成本。比例是各档买入金额占总预算的 %。',
-          gap: 5, start: 0, verb: '跌', act: '补', secT: '各档买入比例（占总预算 %，可改）',
-            ratios: [10, 20, 30, 40], dir: -1, color: '#e04a4a' },
+          rec: '建议 <b>4–8 档</b>：第 1 档建仓，之后以建仓价为基准每跌 5%–10% 加一档，越跌买越多。例：10 万预算按 1/2/3/4 万递增排 4 档。',
+          tag: '应对下跌（正金字塔加仓）', hint: '以建仓价为起点设跌幅阈值，第 1 档建底仓，每跌一档买得更多，低位重仓摊薄成本。比例是各档买入金额占总预算的 %。',
+          verb: '跌', act: '补', secT: '各档触发与买入比例（以建仓价为起点）', unit1: '跌幅%', unit2: '买入%',
+            trigs: [0, 5, 10, 15], ratios: [10, 20, 30, 40], color: '#e04a4a' },
     trim: { laws: ['越涨越卖时先收回本金，卖到成本出清后，剩下的仓位才是利润在跑', '跌破启动价（或回撤 10%）就停止卖出计划，别把底部筹码也交出去'],
-          rec: '建议 <b>3–4 档</b>：以底部启动价为基准，每涨 5%–10% 卖一档，累计涨 20% 以上清到只剩底仓。',
-          tag: '应对上涨（倒金字塔减仓）', hint: '以底部启动上涨为基准设涨幅阈值，越高卖得越多，先收回本金，最后只留底仓跟随行情。比例是各档卖出量占期初持仓的 %。',
-          gap: 5, start: 5, verb: '涨', act: '卖', secT: '各档卖出比例（占期初持仓 %，可改）',
-            ratios: [10, 20, 30, 30], dir: 1, color: '#4a7fd4' }
+          rec: '建议 <b>3–4 档</b>：以建仓价（底部）为基准，每涨 5%–10% 卖一档，累计涨 20% 以上清到只剩底仓。',
+          tag: '应对上涨（倒金字塔减仓）', hint: '以建仓价为起点设涨幅阈值，越高卖得越多，先收回本金，最后只留底仓跟随行情。比例是各档卖出量占期初持仓的 %。',
+          verb: '涨', act: '卖', secT: '各档触发与卖出比例（以建仓价为起点）', unit1: '涨幅%', unit2: '卖出%',
+            trigs: [5, 10, 15, 20], ratios: [10, 20, 30, 30], color: '#4a7fd4' }
   };
-  var cur = 'add', ratios = MODES.add.ratios.slice();
+  var cur = 'add';
+  var trigs = MODES.add.trigs.slice(), ratios = MODES.add.ratios.slice();
 
   window.bSetMode = function (m) {
-    cur = m; ratios = MODES[m].ratios.slice();
+    cur = m;
+    trigs = MODES[m].trigs.slice(); ratios = MODES[m].ratios.slice();
     document.querySelectorAll('#bseg button').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-m') === m);
     });
-    document.getElementById('bStartWrap').style.display = (m === 'trim') ? '' : 'none';
-    document.getElementById('bGapVerb').textContent = MODES[m].verb;
-    document.getElementById('bGapAct').textContent = MODES[m].act;
-    document.getElementById('bStart').value = MODES[m].start;
-    document.getElementById('bGapI').value = MODES[m].gap;
     document.getElementById('bSecT').textContent = MODES[m].secT;
     bRender();
   };
-  window.bReset = function () { ratios = MODES[cur].ratios.slice(); bRender(); };
+  window.bReset = function () {
+    trigs = MODES[cur].trigs.slice(); ratios = MODES[cur].ratios.slice();
+    bRender();
+  };
   window.bAddTier = function (d) {
     var n = ratios.length + d;
     if (n < 2 || n > 10) return;
     if (d > 0) {
-      // 新增档默认取当前末档权重，直接可改
-      ratios.push(ratios[ratios.length - 1] || 10);
+      var lastT = trigs[trigs.length - 1];
+      var lastR = ratios[ratios.length - 1];
+      // 新档默认：触发递增一档（默认步长 5），比例继承末档，均可直接改
+      trigs.push(lastT === 0 ? 5 : lastT + 5);
+      ratios.push(lastR || 10);
     } else {
-      ratios.pop();
+      trigs.pop(); ratios.pop();
     }
     bRender();
   };
-  window.bSetRatio = function (i, v) {
-    var n = parseFloat(v);
-    ratios[i] = isFinite(n) && n > 0 ? n : 0;
+  window.bSetTrig = function (i, v) {
+    var x = parseFloat(v);
+    trigs[i] = isFinite(x) && x >= 0 ? x : 0;
     bRender(true);
   };
+  window.bSetRatio = function (i, v) {
+    var x = parseFloat(v);
+    ratios[i] = isFinite(x) && x > 0 ? x : 0;
+    bRender(true);
+  };
+
   window.bRender = function (keepFocus) {
     var m = MODES[cur];
     var n = ratios.length;
@@ -3397,39 +3415,50 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     // 展示顺序：加仓为正常金字塔（顶尖朝上）；减仓倒置，使最大档在最上方、尖端朝下
     var disp = ratios.slice();
     if (cur === 'trim') disp.reverse();
-    var w = disp.map(function (r) { return Math.max(0.16, r / max); });
+    var w = disp.map(function (r) { return Math.max(0.34, r / max); });
     // 边界宽度：正常金字塔顶端收尖；倒金字塔底端收尖
     var B = w.slice();
     if (cur === 'add') B.unshift(0); else B.push(0);
-
-    var gap = Math.abs(parseFloat(document.getElementById('bGapI').value)) || m.gap;
-    var st = Math.abs(parseFloat(document.getElementById('bStart').value)) || 0;
 
     var f = '';
     for (var i = 0; i < n; i++) {
       var srcIdx = (cur === 'trim') ? (n - 1 - i) : i;
       var pct = ratios[srcIdx];
-      var trig = (cur === 'trim') ? (st + srcIdx * gap) : (-(srcIdx + 1) * gap);
+      var tg = trigs[srcIdx];
+      var trigTxt = (tg === 0) ? '建仓' : ((cur === 'trim' ? '+' : '-') + tg.toFixed(0) + '%');
       var t = B[i] * 100, b = B[i + 1] * 100;
       var clip = 'polygon(' + (50 - t / 2).toFixed(2) + '% 0,' + (50 + t / 2).toFixed(2) + '% 0,'
         + (50 + b / 2).toFixed(2) + '% 100%,' + (50 - b / 2).toFixed(2) + '% 100%)';
+      var labCls = 'bt-lab';
+      if (i === 0 && cur === 'add') labCls += ' bot';
+      if (i === n - 1 && cur === 'trim') labCls += ' top';
       f += '<div class="btier">'
         + '<div class="bt-bg" style="clip-path:' + clip + ';background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.05)),' + m.color + '"></div>'
-        + '<div class="bt-lab"><span class="bt-no">第 ' + (srcIdx + 1) + ' 档 · ' + (trig > 0 ? '+' : '') + trig.toFixed(0) + '%</span><span class="bt-pc">' + pct.toFixed(0) + '%</span></div>'
+        + '<div class="' + labCls + '">' + (tg === 0 ? '' : '<span class="bt-no">第 ' + (srcIdx + 1) + ' 档 · ' + trigTxt + '</span>') + '<span class="bt-pc">' + pct.toFixed(0) + '%</span></div>'
         + '</div>';
     }
-    document.getElementById('bfig').innerHTML = '<div class="bpyr">' + f + '</div>';
+    var cap = (cur === 'add')
+      ? '塔尖第 1 层 = 建仓（0%），越往下跌幅越大、买得越多'
+      : '塔底为建仓价 0% 起点，越往上涨幅越大、卖得越多';
+    document.getElementById('bfig').innerHTML = '<div class="bpyr">' + f + '</div><div class="pcap">' + cap + '</div>';
 
-    var e = '';
-    ratios.forEach(function (r, i) {
-      e += '<label><span>第 ' + (i + 1) + ' 档</span>'
-        + '<input type="number" min="0" step="1" value="' + r + '" onchange="bSetRatio(' + i + ',this.value)"></label>';
-    });
-    document.getElementById('bratio').innerHTML = e;
+    // 逐档编辑表：档位 | 触发% | 比例%
+    var e = '<div class="btr bth"><span class="bth1">档位</span><span class="bth2">' + m.unit1 + '</span><span class="bthu"></span><span class="bth2">' + m.unit2 + '</span><span class="bthu"></span></div>';
+    for (var k = 0; k < n; k++) {
+      var noTxt = (cur === 'add' && k === 0) ? '第 1 档<i>建仓</i>' : '第 ' + (k + 1) + ' 档';
+      e += '<div class="btr">'
+        + '<span class="bno">' + noTxt + '</span>'
+        + '<input type="number" min="0" step="0.5" value="' + trigs[k] + '" onchange="bSetTrig(' + k + ',this.value)">'
+        + '<span class="bunit">%</span>'
+        + '<input type="number" min="0" step="1" value="' + ratios[k] + '" onchange="bSetRatio(' + k + ',this.value)">'
+        + '<span class="bunit">%</span>'
+        + '</div>';
+    }
+    document.getElementById('bratio').innerHTML = '<div class="btab">' + e + '</div>';
 
     var sumTxt;
     if (cur === 'add') {
-      sumTxt = '共 <b>' + n + '</b> 档 · 预算合计 <b>' + sum + '%</b>'
+      sumTxt = '共 <b>' + n + '</b> 档（含建仓）· 预算合计 <b>' + sum + '%</b>'
         + (sum < 99.5 ? ' · 还剩 <b>' + (100 - sum).toFixed(0) + '%</b> 现金'
            : (sum > 100.5 ? ' · <span class="warn">超出预算，请调低</span>' : ' · 预算全部排完'));
     } else {
