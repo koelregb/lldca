@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>浮乐 (fuley) 页面模型 · 对齐 v1.5.2</title>
+<title>浮乐 (fuley) 页面模型 · 对齐 v1.5.3</title>
 <style>
   :root {
     --bg: #eef1f6; --card: #ffffff; --ink: #1a2233; --sub: #8a93a6; --line: #e8ecf3;
@@ -243,7 +243,56 @@
   .pos-row .v2 { font-size: 10px; }
   .pos-tune { margin-top: 12px; }
   .pos-tune-t { font-size: 12px; color: var(--sub); margin-bottom: 7px; }
-  .pos-alloc-head {
+    /* 建仓法则：方法图 */
+  .bseg { display: flex; gap: 6px; margin-bottom: 8px; }
+  .bseg button {
+    flex: 1; border: none; border-radius: 10px; padding: 9px 0; font-size: 12.5px; font-weight: 700;
+    background: var(--card); color: var(--sub); cursor: pointer; box-shadow: var(--shadow);
+  }
+  .bseg button.on { background: var(--accent); color: #fff; }
+  .bhint { font-size: 11.5px; color: var(--sub); margin: 0 2px 10px; line-height: 1.5; }
+  .bfig { background: var(--card); border-radius: 16px; padding: 12px 12px 10px; box-shadow: var(--shadow); margin-bottom: 10px; }
+  .brow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .brow:last-child { margin-bottom: 0; }
+  .brow .bno { width: 34px; flex: none; font-size: 10.5px; font-weight: 700; color: var(--sub); }
+  .brow .bpx { width: 58px; flex: none; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+  .brow .bbar { flex: 1; height: 22px; background: var(--chip); border-radius: 6px; overflow: hidden; display: flex; }
+  .brow .bbar i { display: block; height: 100%; border-radius: 6px; }
+  .brow .bpct { width: 46px; flex: none; text-align: right; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .bctl { display: flex; gap: 8px; margin-bottom: 10px; }
+  .bctl label {
+    flex: 1; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--sub); white-space: nowrap;
+    background: var(--card); border-radius: 10px; padding: 7px 10px; box-shadow: var(--shadow);
+  }
+  .bctl input { width: 58px; border: none; background: none; font-size: 13px; font-weight: 700; color: var(--ink); text-align: right; outline: none; }
+  .bsec { display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--sub); margin: 0 2px 7px; }
+  .bsec .blink { margin-left: auto; border: none; background: none; color: var(--accent); font-size: 11.5px; font-weight: 700; cursor: pointer; }
+  .bratio { display: flex; gap: 6px; margin-bottom: 8px; }
+  .bratio label { flex: 1; background: var(--card); border-radius: 9px; padding: 6px 4px; text-align: center; box-shadow: var(--shadow); }
+  .bratio span { display: block; font-size: 9.5px; color: var(--sub); }
+  .bratio input {
+    width: 100%; border: none; background: none; text-align: center; outline: none;
+    font-size: 13px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+  .bsum { font-size: 11.5px; color: var(--sub); margin: 0 2px 10px; line-height: 1.5; }
+  .bsum b { color: var(--ink); }
+  .bsum .warn { color: var(--up); font-weight: 700; }
+
+  /* 建仓法则卡片 */
+  .build-card { background: var(--card); border-radius: 14px; padding: 12px 14px 10px; margin-bottom: 10px; box-shadow: var(--shadow); }
+  .build-card .bc-h { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .build-card .bc-tag { font-size: 13.5px; font-weight: 800; }
+  .build-card .bc-sub { font-size: 10.5px; font-weight: 700; color: var(--sub); background: var(--chip); border-radius: 6px; padding: 2px 7px; }
+  .build-card .bc-row { display: flex; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); }
+  .build-card .bc-row:first-of-type { border-top: none; }
+  .build-card .bc-k { width: 40px; flex: none; font-size: 11.5px; font-weight: 700; color: var(--sub); }
+  .build-card .bc-v { flex: 1; font-size: 12.5px; line-height: 1.55; }
+  .bc-laws { padding: 6px 0; }
+  .bc-law { display: flex; gap: 9px; align-items: flex-start; padding: 8px 14px; font-size: 12.5px; line-height: 1.55; }
+  .bc-law + .bc-law { border-top: 1px solid var(--line); }
+  .bc-law .bc-no { width: 18px; height: 18px; flex: none; border-radius: 50%; background: var(--chip); color: var(--sub); font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+
+.pos-alloc-head {
     display: flex; align-items: center; justify-content: space-between;
     font-size: 12px; font-weight: 700; color: var(--sub); margin: 12px 2px 7px;
   }
@@ -368,7 +417,11 @@
   .cal-row .ct-n { font-size: 10px; color: var(--sub); white-space: nowrap; }
   .cal-row .ct-del { border: none; background: none; color: var(--sub); font-size: 14px; cursor: pointer; padding: 0 2px; flex: none; }
   .cal-row.custom .ct-t { color: var(--ink); }
-  .cal-empty { text-align: center; color: var(--sub); font-size: 12px; padding: 18px 0 6px; }
+  /* 本月重点清单 */
+  .cal-mt { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--sub); margin: 4px 2px 8px; }
+  .cal-mt em { margin-left: auto; font-style: normal; font-weight: 600; font-size: 11px; }
+  .cal-mtag { font-size: 10px; font-weight: 700; color: #fff; background: #dfa32a; border-radius: 5px; padding: 1px 6px; }
+.cal-empty { text-align: center; color: var(--sub); font-size: 12px; padding: 18px 0 6px; }
   /* ---------- 财报日历 ---------- */
   .earn-next {
     background: var(--card); border-radius: 16px; padding: 13px 15px 12px;
@@ -810,7 +863,7 @@
 <body>
 
 <div class="page-head">
-  <h1>浮乐 (fuley) · 页面模型（对齐 v1.5.2）</h1>
+  <h1>浮乐 (fuley) · 页面模型（对齐 v1.5.3）</h1>
   <p>规划 · 提醒 · 记录 — 可点击交互预览（Tab 切换 / 添加弹层 / 深浅色切换）</p>
   <button class="theme-btn" onclick="toggleTheme()">切换深浅色</button>
 </div>
@@ -893,6 +946,7 @@
           <button class="cal-nav" onclick="calMove(1)">›</button>
         </div>
         <div class="cal-grid" id="calGrid"></div>
+        <div id="calMonthList"></div>
         <div class="cal-sec" id="calSelTitle" style="font-size:12px;font-weight:700;color:var(--sub);margin:2px 2px 8px">当日事件</div>
         <div id="calEvents"></div>
         <button class="qadd" onclick="openCalEvent()">+ 标记事件</button>
@@ -1078,6 +1132,7 @@
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
         <button class="on" data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
+        <button data-pane="build" onclick="sigTab(this)">建仓法则</button>
         <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
       </div>
 
@@ -1094,7 +1149,34 @@
         <div id="quizList"></div>
         <button class="qadd" onclick="addQuizItem()">+ 自定义题目</button>
         <button class="qreset" onclick="resetQuiz()">重置，再来一轮</button>
-        <div class="hintbar">加仓 / 减仓各十道题 · 打勾计分，得 8 分及以上判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」</div>
+        <div class="hintbar">加仓 / 减仓各十道题 · 打勾计分，8 分及以上判定为「加仓 / 减仓」，不到 8 分为「不建议」<br>题库依据公开分享的加减仓体系整理：选股「第一或唯一」· 仓位 7–8.5 成 · 金字塔加减仓（档差 8%–15%）· 卖出四情形 · 2-3-3-2 节奏 · 仅作纪律检查清单，非投资建议</div>
+      </div>
+
+      <div id="buildPane" style="display:none">
+        <div class="bseg" id="bseg">
+          <button class="on" data-m="add" onclick="bSetMode('add')">正金字塔 · 加仓</button>
+          <button data-m="trim" onclick="bSetMode('trim')">倒金字塔 · 减仓</button>
+        </div>
+        <div class="bhint" id="bhint"></div>
+
+        <div class="bfig" id="bfig"></div>
+
+        <div class="bctl">
+          <label>现价 <input type="number" id="bBase" value="100" min="0" step="0.01" oninput="bRender()"></label>
+          <label>档差 % <input type="number" id="bGap" value="10" min="1" max="50" step="0.5" oninput="bRender()"></label>
+        </div>
+
+        <div class="bsec"><span>各档比例（可改）</span><button class="blink" onclick="bReset()">恢复默认</button></div>
+        <div class="bratio" id="bratio"></div>
+
+        <div class="bsum" id="bsum"></div>
+
+        <div class="pnl-t">两条纪律</div>
+        <div class="listcard bc-laws">
+          <div class="bc-law"><span class="bc-no">1</span><span>先定这只标的的总预算，再排档位；至少分 5 档，别两三次打完</span></div>
+          <div class="bc-law"><span class="bc-no">2</span><span>永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓</span></div>
+        </div>
+        <div class="hintbar">参数取自公开分享的加减仓体系 · 仅作纪律参考，不构成投资建议</div>
       </div>
 
       <div id="panicPane" style="display:none">
@@ -1165,7 +1247,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v">v1.5.2</span>
+          <span class="mrow-v">v1.5.3</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
@@ -1959,7 +2041,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   function collectData() {
     function txt(sel, root) { var el = (root || document).querySelector(sel); return el ? el.textContent.trim() : ''; }
     return {
-      app: 'fuley', version: 'v1.5.2', exportedAt: new Date().toISOString(),
+      app: 'fuley', version: 'v1.5.3', exportedAt: new Date().toISOString(),
       plans: [].map.call(document.querySelectorAll('#view-plan .lrow'), function (r) {
         return { day: txt('.d', r), name: txt('.lname', r), code: txt('.lsub', r), amount: txt('.v1', r), next: txt('.v2', r) };
       }),
@@ -2240,31 +2322,31 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   }
 
   /* ---------- 加减仓条件：加仓 / 减仓两套十题，得分 ≥ 8（含）得出结论 ---------- */
-  var QUIZ_BUY_KEY = 'fuley_quiz_buy_v1';
-  var QUIZ_SELL_KEY = 'fuley_quiz_sell_v1';
+  var QUIZ_BUY_KEY = 'fuley_quiz_buy_v2';
+  var QUIZ_SELL_KEY = 'fuley_quiz_sell_v2';
   var QUIZ_BUY_DEFAULT = [
-    '这笔操作在计划名单内，不是临时起意？',
-    '加仓触发条件（价格 / 市盈率 / 时间）已确认满足？',
-    '加仓后单一标的仓位仍不超过总仓位 20%？',
-    '应急金与日常开支不受这笔钱影响？',
-    '投入的资金 3 年内不需要动用？',
-    '当前估值相对历史分位仍处于偏低区间？',
-    '若反向波动 10%，能按原计划执行、不情绪化操作？',
-    '没有陷入「这次不一样」的追高叙事？',
-    '金额与计划比例一致，没有被情绪放大？',
-    '这笔操作敢不敢被未来的自己复盘？'
+    '标的属于「第一或唯一」：市占率第一，且护城河不易被复制？',
+    '这一档的买入节点与资金体量，事先已经排好（不是临时起意）？',
+    '现价较上一档回落，价差已拉开到 8%–15% 的档位？',
+    '越跌越买：本档买入量大于上一档（金字塔加仓）？',
+    '加仓后总仓位仍不超过 8 成（常态 7–7.5 成）？',
+    '这笔钱不是应急金，3 年内不需要动用？',
+    '三表健康：有息负债低、净现金为正、经营现金流为正？',
+    '估值讲得清：远期 PE / PEG / FCF 增长可解释，PEG 未接近 2？',
+    '不是在追高：若已高于上档 30% 以上，理由是趋势确认而非怕错过？',
+    '若再跌 10%，仍能按计划加下一档而不动摇？'
   ];
   var QUIZ_SELL_DEFAULT = [
-    '这笔卖出在计划名单内，不是临时起意？',
-    '减仓触发条件（价格 / 市盈率 / 时间）已确认满足？',
-    '卖出理由属于计划内动作（估值过高 / 逻辑破坏 / 再平衡）？',
-    '卖出后现有持仓仍能覆盖原定的配置目标？',
-    '不依赖这笔资金应付已知的近期开支？',
-    '当前估值相对历史分位已进入偏高区间？',
-    '若继续上涨 10%，不会因为卖飞而追回？',
-    '没有陷入「再等等能卖更高」的贪婪叙事？',
-    '卖出比例与计划一致，没有被情绪放大？',
-    '这笔操作敢不敢被未来的自己复盘？'
+    '卖出属于四类之一：做 T 小减、PEG≥2、有更好标的、基本面恶化？',
+    '持仓已有 30% 以上涨幅（小体量再平衡除外）？',
+    'PEG 已 ≥ 2，成长速度跟不上股价？',
+    '基本面出现恶化迹象（现金流 / 毛利率 / 订单）？',
+    '出现了确定性更高、性价比更好的标的（机会成本）？',
+    '总仓位已超 8 成，需要再平衡、转配置防御型资产？',
+    '按倒金字塔卖出：本档卖出量大于上一档？',
+    '按 2-3-3-2 节奏：30–50% 阶段只卖约 20%，不是一次清仓？',
+    '趋势确实走坏：震荡区反复无法突破且无确定性利好？',
+    '若卖出后继续涨 10%，不会因卖飞而追回？'
   ];
   var curQuizSide = 'buy';
   function quizKey() { return curQuizSide === 'sell' ? QUIZ_SELL_KEY : QUIZ_BUY_KEY; }
@@ -2379,11 +2461,12 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     document.querySelectorAll('#sigTabs button').forEach(function (b) { b.classList.remove('on'); });
     btn.classList.add('on');
     document.getElementById('quizPane').style.display = pane === 'quiz' ? '' : 'none';
+    document.getElementById('buildPane').style.display = pane === 'build' ? '' : 'none';
     document.getElementById('panicPane').style.display = pane === 'panic' ? '' : 'none';
     curSigPane = pane;
     // FAB：信号提醒 = 添加提醒；条件页 = 添加题目；恐慌级别 = 无添加动作 → 隐藏
     var fab = document.getElementById('fab');
-    fab.classList.toggle('hide', pane === 'panic');
+    fab.classList.toggle('hide', pane === 'panic' || pane === 'build');
     fab.setAttribute('title', pane === 'quiz' ? '自定义题目' : '添加加减仓提醒');
     if (pane === 'quiz') renderQuiz();
     if (pane === 'panic') renderPanic();
@@ -3099,6 +3182,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     var gridEl = document.getElementById('calGrid');
     gridEl.className = 'cal-grid' + (monthHasErn ? ' ern-month' : '');
     gridEl.innerHTML = html;
+    renderMonthList();
     document.getElementById('calSelTitle').textContent = calSel + ' 事件';
     renderCalEvents();
   }
@@ -3123,6 +3207,41 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     box.querySelectorAll('.cal-row').forEach(function (row, i) {
       row.querySelector('.ct-t').textContent = evs[i].title;
     });
+  }
+  /* 本月重点：当月所有日程按日期排成清单 */
+  function monthEvents() {
+    var pre = calY + '-' + (calM + 1 < 10 ? '0' : '') + (calM + 1);
+    var out = [];
+    CAL_EVENTS.forEach(function (e) {
+      if (String(e.d).indexOf(pre) === 0) out.push({ d: e.d, t: e.t, title: e.title, note: e.note });
+    });
+    calCustom.forEach(function (c) {
+      if (String(c.d).indexOf(pre) === 0) out.push({ d: c.d, t: c.t, title: c.title, note: '自定义' });
+    });
+    out.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+    return out;
+  }
+  function renderMonthList() {
+    var box = document.getElementById('calMonthList');
+    if (!box) return;
+    var evs = monthEvents();
+    var hasErn = evs.some(function (e) { return e.t === 'earnings'; });
+    var h = '<div class="cal-mt">' + (calM + 1) + ' 月重点'
+      + (hasErn ? '<span class="cal-mtag">财报季</span>' : '')
+      + '<em>' + evs.length + ' 件</em></div>';
+    if (!evs.length) {
+      h += '<div class="cal-empty">本月没有预置日程 · 可点下方「标记事件」补充</div>';
+    } else {
+      evs.forEach(function (e) {
+        var tp = CAL_TYPES[e.t] || CAL_TYPES.custom;
+        h += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '" onclick="calSelect(\'' + e.d + '\')">'
+          + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
+          + '<div class="ct-t">' + e.d.slice(5) + ' ' + (e.title || '') + '</div>'
+          + '<span class="ct-n">' + (e.note || '') + '</span>'
+          + '</div>';
+      });
+    }
+    box.innerHTML = h;
   }
   function calSelect(ds) { calSel = ds; renderCal(); }
   function calMove(delta) {
@@ -3190,6 +3309,66 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   vixFetchUpdate();
   renderEconCycle();
   renderGold();
+</script>
+<script>
+(function () {
+  var MODES = {
+    add:  { tag: '正金字塔 · 加仓', hint: '应对下跌：越跌买越多，低位重仓摊薄成本。档差建议 8%–15%，至少分 5 档。',
+            ratios: [10, 10, 15, 20, 20, 25], dir: -1, color: '#e04a4a' },
+    trim: { tag: '倒金字塔 · 减仓', hint: '应对上涨：越涨卖越多，先收回本金，剩下的才是利润在跑。涨幅 30% 以上再启动。',
+            ratios: [30, 50, 80], dir: 1, color: '#4a7fd4' }
+  };
+  var cur = 'add', ratios = MODES.add.ratios.slice();
+
+  window.bSetMode = function (m) {
+    cur = m; ratios = MODES[m].ratios.slice();
+    document.querySelectorAll('#bseg button').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-m') === m);
+    });
+    bRender();
+  };
+  window.bReset = function () { ratios = MODES[cur].ratios.slice(); bRender(); };
+  window.bSetRatio = function (i, v) {
+    var n = parseFloat(v);
+    ratios[i] = isFinite(n) && n > 0 ? n : 0;
+    bRender(true);
+  };
+  window.bRender = function (keepFocus) {
+    var m = MODES[cur];
+    var base = parseFloat(document.getElementById('bBase').value) || 0;
+    var gap = parseFloat(document.getElementById('bGap').value) || 0;
+    var max = Math.max.apply(null, ratios.concat([1]));
+    var sum = ratios.reduce(function (a, b) { return a + b; }, 0);
+
+    document.getElementById('bhint').textContent = m.tag + ' · ' + m.hint;
+
+    var f = '';
+    ratios.forEach(function (r, i) {
+      var px = base > 0 ? base * Math.pow(1 + m.dir * gap / 100, i) : 0;
+      var w = Math.max(6, r / max * 100);
+      f += '<div class="brow">'
+        + '<span class="bno">第 ' + (i + 1) + ' 档</span>'
+        + '<span class="bpx">' + (px > 0 ? px.toFixed(2) : '—') + '</span>'
+        + '<span class="bbar"><i style="width:' + w.toFixed(1) + '%;background:' + m.color + '"></i></span>'
+        + '<span class="bpct">' + (sum > 0 ? (r / sum * 100).toFixed(0) : 0) + '%</span>'
+        + '</div>';
+    });
+    document.getElementById('bfig').innerHTML = f;
+
+    var e = '';
+    ratios.forEach(function (r, i) {
+      e += '<label><span>第 ' + (i + 1) + ' 档</span>'
+        + '<input type="number" min="0" step="1" value="' + r + '" onchange="bSetRatio(' + i + ',this.value)"></label>';
+    });
+    document.getElementById('bratio').innerHTML = e;
+
+    document.getElementById('bsum').innerHTML =
+      '合计权重 <b>' + sum + '</b> · 图中百分比为归一化后的实际占比'
+      + (Math.abs(sum - 100) > 0.5 ? ' · <span class="warn">与 100 不等，按比例摊分</span>' : '');
+  };
+
+  bRender();
+})();
 </script>
 </body>
 </html>
