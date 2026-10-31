@@ -140,6 +140,9 @@
     /* ---- v1.5.4 交易法则 / 走势截图标注 / 恐慌引导 ---- */
     '绿线 · 重复': 'Green · Repeat',
     '交易法则': 'Trading Rules',
+    '耐心　信心　恒心': 'Patience \u00b7 Faith \u00b7 Perseverance',
+    '耐心 信心 恒心': 'Patience \u00b7 Faith \u00b7 Perseverance',
+    '等 ': 'Wait for ',
     '加减仓法则': 'Scale Rules',
     '应对下跌（正金字塔加仓）': 'Falling (pyramid add)',
     '应对上涨（倒金字塔减仓）': 'Rising (inverted-pyramid trim)',
