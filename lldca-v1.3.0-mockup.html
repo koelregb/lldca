@@ -252,19 +252,16 @@
   .bseg button.on { background: var(--accent); color: #fff; }
   .bhint { font-size: 11.5px; color: var(--sub); margin: 0 2px 10px; line-height: 1.5; }
   .bfig { background: var(--card); border-radius: 16px; padding: 12px 12px 10px; box-shadow: var(--shadow); margin-bottom: 10px; }
-  .brow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-  .brow:last-child { margin-bottom: 0; }
-  .brow .bno { width: 34px; flex: none; font-size: 10.5px; font-weight: 700; color: var(--sub); }
-  .brow .bpx { width: 58px; flex: none; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
-  .brow .bbar { flex: 1; height: 22px; background: var(--chip); border-radius: 6px; overflow: hidden; display: flex; }
-  .brow .bbar i { display: block; height: 100%; border-radius: 6px; }
-  .brow .bpct { width: 46px; flex: none; text-align: right; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .bctl { display: flex; gap: 8px; margin-bottom: 10px; }
-  .bctl label {
-    flex: 1; display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--sub); white-space: nowrap;
-    background: var(--card); border-radius: 10px; padding: 7px 10px; box-shadow: var(--shadow);
+  /* 金字塔形状 */
+  .bpyr { display: flex; flex-direction: column; gap: 2px; padding: 10px 0 4px; }
+  .btier { position: relative; height: 31px; }
+  .bt-bg { position: absolute; inset: 0; }
+  .bt-lab {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    gap: 7px; color: #fff; white-space: nowrap; pointer-events: none;
   }
-  .bctl input { width: 58px; border: none; background: none; font-size: 13px; font-weight: 700; color: var(--ink); text-align: right; outline: none; }
+  .bt-no { font-size: 10px; font-weight: 700; opacity: .95; }
+  .bt-pc { font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
   .bsec { display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--sub); margin: 0 2px 7px; }
   .bsec .blink { margin-left: auto; border: none; background: none; color: var(--accent); font-size: 11.5px; font-weight: 700; cursor: pointer; }
   .bratio { display: flex; gap: 6px; margin-bottom: 8px; }
@@ -1160,11 +1157,6 @@
         <div class="bhint" id="bhint"></div>
 
         <div class="bfig" id="bfig"></div>
-
-        <div class="bctl">
-          <label>现价 <input type="number" id="bBase" value="100" min="0" step="0.01" oninput="bRender()"></label>
-          <label>档差 % <input type="number" id="bGap" value="10" min="1" max="50" step="0.5" oninput="bRender()"></label>
-        </div>
 
         <div class="bsec"><span>各档比例（可改）</span><button class="blink" onclick="bReset()">恢复默认</button></div>
         <div class="bratio" id="bratio"></div>
@@ -3313,9 +3305,9 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 <script>
 (function () {
   var MODES = {
-    add:  { tag: '正金字塔 · 加仓', hint: '应对下跌：越跌买越多，低位重仓摊薄成本。档差建议 8%–15%，至少分 5 档。',
+    add:  { tag: '正金字塔 · 加仓', hint: '应对下跌：越跌买越多，最大一档压在底部（最低价），低位重仓摊薄成本。至少分 5 档。',
             ratios: [10, 10, 15, 20, 20, 25], dir: -1, color: '#e04a4a' },
-    trim: { tag: '倒金字塔 · 减仓', hint: '应对上涨：越涨卖越多，先收回本金，剩下的才是利润在跑。涨幅 30% 以上再启动。',
+    trim: { tag: '倒金字塔 · 减仓', hint: '应对上涨：先在高位卖大头，最大一档压在最顶上（最高价），先收回本金。涨幅 30% 以上再启动。',
             ratios: [30, 50, 80], dir: 1, color: '#4a7fd4' }
   };
   var cur = 'add', ratios = MODES.add.ratios.slice();
@@ -3335,25 +3327,33 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   };
   window.bRender = function (keepFocus) {
     var m = MODES[cur];
-    var base = parseFloat(document.getElementById('bBase').value) || 0;
-    var gap = parseFloat(document.getElementById('bGap').value) || 0;
+    var n = ratios.length;
     var max = Math.max.apply(null, ratios.concat([1]));
     var sum = ratios.reduce(function (a, b) { return a + b; }, 0);
 
     document.getElementById('bhint').textContent = m.tag + ' · ' + m.hint;
 
+    // 展示顺序：加仓为正常金字塔（顶尖朝上）；减仓倒置，使最大档在最上方、尖端朝下
+    var disp = ratios.slice();
+    if (cur === 'trim') disp.reverse();
+    var w = disp.map(function (r) { return Math.max(0.16, r / max); });
+    // 边界宽度：正常金字塔顶端收尖；倒金字塔底端收尖
+    var B = w.slice();
+    if (cur === 'add') B.unshift(0); else B.push(0);
+
     var f = '';
-    ratios.forEach(function (r, i) {
-      var px = base > 0 ? base * Math.pow(1 + m.dir * gap / 100, i) : 0;
-      var w = Math.max(6, r / max * 100);
-      f += '<div class="brow">'
-        + '<span class="bno">第 ' + (i + 1) + ' 档</span>'
-        + '<span class="bpx">' + (px > 0 ? px.toFixed(2) : '—') + '</span>'
-        + '<span class="bbar"><i style="width:' + w.toFixed(1) + '%;background:' + m.color + '"></i></span>'
-        + '<span class="bpct">' + (sum > 0 ? (r / sum * 100).toFixed(0) : 0) + '%</span>'
+    for (var i = 0; i < n; i++) {
+      var srcIdx = (cur === 'trim') ? (n - 1 - i) : i;
+      var pct = sum > 0 ? (ratios[srcIdx] / sum * 100) : 0;
+      var t = B[i] * 100, b = B[i + 1] * 100;
+      var clip = 'polygon(' + (50 - t / 2).toFixed(2) + '% 0,' + (50 + t / 2).toFixed(2) + '% 0,'
+        + (50 + b / 2).toFixed(2) + '% 100%,' + (50 - b / 2).toFixed(2) + '% 100%)';
+      f += '<div class="btier">'
+        + '<div class="bt-bg" style="clip-path:' + clip + ';background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.05)),' + m.color + '"></div>'
+        + '<div class="bt-lab"><span class="bt-no">第 ' + (srcIdx + 1) + ' 档</span><span class="bt-pc">' + pct.toFixed(0) + '%</span></div>'
         + '</div>';
-    });
-    document.getElementById('bfig').innerHTML = f;
+    }
+    document.getElementById('bfig').innerHTML = '<div class="bpyr">' + f + '</div>';
 
     var e = '';
     ratios.forEach(function (r, i) {
@@ -3363,7 +3363,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     document.getElementById('bratio').innerHTML = e;
 
     document.getElementById('bsum').innerHTML =
-      '合计权重 <b>' + sum + '</b> · 图中百分比为归一化后的实际占比'
+      '共 <b>' + n + '</b> 档 · 合计权重 <b>' + sum + '</b> · 里面的百分比是各档实际占比（自动归一化）'
       + (Math.abs(sum - 100) > 0.5 ? ' · <span class="warn">与 100 不等，按比例摊分</span>' : '');
   };
 
