@@ -1500,12 +1500,18 @@ function renderNotes() { renderNoteList('red'); renderNoteList('green'); renderN
 function lampSeg(btn, dir) {
   lampDir = dir;
   btn.parentElement.querySelectorAll('button').forEach(function (b) {
-    b.classList.remove('on', 'red', 'green');
+    b.classList.remove('on', 'red', 'green', 'rule');
   });
-  if (dir === 0) { btn.classList.add('on'); }
-  else { btn.classList.add('on', dir > 0 ? 'red' : 'green'); }
-  var editor = document.querySelector('#view-notes .editor');
-  if (editor) editor.style.display = dir === 2 ? 'none' : '';
+  btn.classList.add('on');
+  if (dir === 1) btn.classList.add('red');
+  else if (dir === -1) btn.classList.add('green');
+  else if (dir === 2) btn.classList.add('rule');
+  // 交易法则页只隐藏录入框与底部计数（注意：不能隐藏 .editor，它包含 lampSeg 切换条本身）
+  var showEditor = dir !== 2;
+  var taEl = document.getElementById('noteInput');
+  if (taEl) taEl.style.display = showEditor ? '' : 'none';
+  var efEl = document.querySelector('#view-notes .efoot');
+  if (efEl) efEl.style.display = showEditor ? '' : 'none';
   document.getElementById('noteListRed').style.display = dir === 1 ? '' : 'none';
   document.getElementById('noteListGreen').style.display = dir === -1 ? '' : 'none';
   document.getElementById('noteListCase').style.display = dir === 0 ? '' : 'none';
@@ -1753,10 +1759,12 @@ function sigTab(btn) {
   btn.classList.add('on');
   document.getElementById('quizPane').style.display = pane === 'quiz' ? '' : 'none';
   document.getElementById('buildPane').style.display = pane === 'build' ? '' : 'none';
+  var pyrEl = document.getElementById('pyrPane');
+  if (pyrEl) pyrEl.style.display = pane === 'pyr' ? '' : 'none';
   document.getElementById('panicPane').style.display = pane === 'panic' ? '' : 'none';
   curSigPane = pane;
   var fab = document.getElementById('fab');
-  fab.classList.toggle('hide', pane === 'panic' || pane === 'build');
+  fab.classList.toggle('hide', pane === 'panic' || pane === 'build' || pane === 'pyr');
   fab.setAttribute('title', L('自定义题目', 'Custom question'));
   if (pane === 'quiz') renderQuiz();
   if (pane === 'build') renderBuildRules();
@@ -3206,4 +3214,147 @@ function toast(msg) {
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
     navigator.serviceWorker.register('sw.js').catch(function () { /*  ignore */ });
   }
+})();
+
+/* ---------- 加减仓法则（交互式金字塔，与页面模型一致） ---------- */
+function IS_EN() { return (typeof i18n !== 'undefined' && i18n.isEn) ? i18n.isEn() : false; }
+(function () {
+  // trigs: 各档触发涨跌幅（正数，加仓=跌幅、减仓=涨幅；0=建仓起点）
+  // ratios: 各档买入/卖出比例（占总预算 / 期初持仓的 %）
+  var MODES = {
+    add:  { laws: ['先定这只标的的总预算，再排档位；至少分 4 档，别两三次打完', '永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓'],
+          rec: '建议 <b>4–8 档</b>：第 1 档建仓，之后以建仓价为基准每跌 5%–10% 加一档，越跌买越多。例：10 万预算按 1/2/3/4 万递增排 4 档。',
+          tag: '应对下跌（正金字塔加仓）', hint: '以建仓价为起点设跌幅阈值，第 1 档建底仓，每跌一档买得更多，低位重仓摊薄成本。比例是各档买入金额占总预算的 %。',
+          verb: '跌', act: '补', secT: '各档触发与买入比例（以建仓价为起点）', unit1: '跌幅%', unit2: '买入%',
+            trigs: [0, 5, 10, 15], ratios: [10, 20, 30, 40], color: '#e04a4a' },
+    trim: { laws: ['越涨越卖时先收回本金，卖到成本出清后，剩下的仓位才是利润在跑', '跌破启动价（或回撤 10%）就停止卖出计划，别把底部筹码也交出去'],
+          rec: '建议 <b>3–4 档</b>：以建仓价（底部）为基准，每涨 5%–10% 卖一档，累计涨 20% 以上清到只剩底仓。',
+          tag: '应对上涨（倒金字塔减仓）', hint: '以建仓价为起点设涨幅阈值，越高卖得越多，先收回本金，最后只留底仓跟随行情。比例是各档卖出量占期初持仓的 %。',
+          verb: '涨', act: '卖', secT: '各档触发与卖出比例（以建仓价为起点）', unit1: '涨幅%', unit2: '卖出%',
+            trigs: [5, 10, 15, 20], ratios: [10, 20, 30, 30], color: '#4a7fd4' }
+  };
+  var cur = 'add';
+  var trigs = MODES.add.trigs.slice(), ratios = MODES.add.ratios.slice();
+
+  window.bSetMode = function (m) {
+    cur = m;
+    trigs = MODES[m].trigs.slice(); ratios = MODES[m].ratios.slice();
+    document.querySelectorAll('#bseg button').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-m') === m);
+    });
+    document.getElementById('bSecT').textContent = MODES[m].secT;
+    bRender(); bSyncCycle();
+  };
+  window.bSyncCycle = function () {
+    document.getElementById('cyAdd').classList.toggle('on', cur === 'add');
+    document.getElementById('cyTrim').classList.toggle('on', cur === 'trim');
+    document.getElementById('cyArcDown').classList.toggle('dim', cur === 'trim');
+    document.getElementById('cyArcUp').classList.toggle('dim', cur === 'add');
+  };
+  window.bReset = function () {
+    trigs = MODES[cur].trigs.slice(); ratios = MODES[cur].ratios.slice();
+    bRender();
+  };
+  window.bAddTier = function (d) {
+    var n = ratios.length + d;
+    if (n < 2 || n > 10) return;
+    if (d > 0) {
+      var lastT = trigs[trigs.length - 1];
+      var lastR = ratios[ratios.length - 1];
+      // 新档默认：触发递增一档（默认步长 5），比例继承末档，均可直接改
+      trigs.push(lastT === 0 ? 5 : lastT + 5);
+      ratios.push(lastR || 10);
+    } else {
+      trigs.pop(); ratios.pop();
+    }
+    bRender();
+  };
+  window.bSetTrig = function (i, v) {
+    var x = parseFloat(v);
+    trigs[i] = isFinite(x) && x >= 0 ? x : 0;
+    bRender(true);
+  };
+  window.bSetRatio = function (i, v) {
+    var x = parseFloat(v);
+    ratios[i] = isFinite(x) && x > 0 ? x : 0;
+    bRender(true);
+  };
+
+  window.bRender = function (keepFocus) {
+    var m = MODES[cur];
+    var n = ratios.length;
+    var max = Math.max.apply(null, ratios.concat([1]));
+    var sum = ratios.reduce(function (a, b) { return a + b; }, 0);
+
+    document.getElementById('bhint').textContent = m.tag + ' · ' + m.hint;
+    document.getElementById('bN').textContent = n;
+    document.getElementById('bRec').innerHTML = m.rec;
+    document.getElementById('bLawT').textContent = m.tag + ' · 两条纪律';
+    document.getElementById('bLaws').innerHTML = m.laws.map(function (t, i) {
+      return '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + t + '</span></div>';
+    }).join('');
+
+    // 展示顺序：加仓为正常金字塔（顶尖朝上）；减仓倒置，使最大档在最上方、尖端朝下
+    var disp = ratios.slice();
+    if (cur === 'trim') disp.reverse();
+    var w = disp.map(function (r) { return Math.max(0.34, r / max); });
+    // 边界宽度：正常金字塔顶端收尖；倒金字塔底端收尖
+    var B = w.slice();
+    if (cur === 'add') B.unshift(0); else B.push(0);
+
+    var f = '';
+    for (var i = 0; i < n; i++) {
+      var srcIdx = (cur === 'trim') ? (n - 1 - i) : i;
+      var pct = ratios[srcIdx];
+      var tg = trigs[srcIdx];
+      var trigTxt = (tg === 0) ? '建仓' : ((cur === 'trim' ? '+' : '-') + tg.toFixed(0) + '%');
+      var t = B[i] * 100, b = B[i + 1] * 100;
+      var clip = 'polygon(' + (50 - t / 2).toFixed(2) + '% 0,' + (50 + t / 2).toFixed(2) + '% 0,'
+        + (50 + b / 2).toFixed(2) + '% 100%,' + (50 - b / 2).toFixed(2) + '% 100%)';
+      var labCls = 'bt-lab';
+      if (i === 0 && cur === 'add') labCls += ' bot';
+      if (i === n - 1 && cur === 'trim') labCls += ' top';
+      f += '<div class="btier">'
+        + '<div class="bt-bg" style="clip-path:' + clip + ';background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.05)),' + m.color + '"></div>'
+        + '<div class="' + labCls + '">' + (tg === 0 ? '' : '<span class="bt-no">' + (IS_EN ? 'Tier ' + (srcIdx + 1) + ' · ' + trigTxt : '第 ' + (srcIdx + 1) + ' 档 · ' + trigTxt) + '</span>') + '<span class="bt-pc">' + pct.toFixed(0) + '%</span></div>'
+        + '</div>';
+    }
+    var cap = (cur === 'add')
+      ? '塔尖第 1 层 = 建仓（0%），越往下跌幅越大、买得越多'
+      : '塔底为建仓价 0% 起点，越往上涨幅越大、卖得越多';
+    document.getElementById('bfig').innerHTML = '<div class="bpyr">' + f + '</div><div class="pcap">' + cap + '</div>';
+
+    // 逐档编辑表：档位 | 触发% | 比例%
+    var e = '<div class="btr bth"><span class="bth1">档位</span><span class="bth2">' + m.unit1 + '</span><span class="bthu"></span><span class="bth2">' + m.unit2 + '</span><span class="bthu"></span></div>';
+    for (var k = 0; k < n; k++) {
+      var noTxt = (cur === 'add' && k === 0) ? (IS_EN ? 'Tier 1<i>open</i>' : '第 1 档<i>建仓</i>') : ((IS_EN ? 'Tier ' + (k + 1) : '第 ' + (k + 1) + ' 档'));
+      e += '<div class="btr">'
+        + '<span class="bno">' + noTxt + '</span>'
+        + '<input type="number" min="0" step="0.5" value="' + trigs[k] + '" onchange="bSetTrig(' + k + ',this.value)">'
+        + '<span class="bunit">%</span>'
+        + '<input type="number" min="0" step="1" value="' + ratios[k] + '" onchange="bSetRatio(' + k + ',this.value)">'
+        + '<span class="bunit">%</span>'
+        + '</div>';
+    }
+    document.getElementById('bratio').innerHTML = '<div class="btab">' + e + '</div>';
+
+    var sumTxt;
+    if (cur === 'add') {
+      sumTxt = (IS_EN ? 'Total <b>' + n + '</b> tiers (incl. open) · budget <b>' + sum + '%</b>'
+               : '共 <b>' + n + '</b> 档（含建仓）· 预算合计 <b>' + sum + '%</b>')
+        + (sum < 99.5 ? (IS_EN ? ' · <b>' + (100 - sum).toFixed(0) + '%</b> cash left'
+            : ' · 还剩 <b>' + (100 - sum).toFixed(0) + '%</b> 现金')
+           : (sum > 100.5 ? (IS_EN ? ' · <span class="warn">over budget, lower it</span>'
+            : ' · <span class="warn">超出预算，请调低</span>') : (IS_EN ? ' · budget fully allocated' : ' · 预算全部排完')));
+    } else {
+      sumTxt = (IS_EN ? 'Total <b>' + n + '</b> tiers · cumulative sold <b>' + sum + '%</b> · keep <b>' + Math.max(0, 100 - sum).toFixed(0) + '%</b> core'
+               : '共 <b>' + n + '</b> 档 · 累计卖出 <b>' + sum + '%</b> 持仓 · 保留 <b>' + Math.max(0, 100 - sum).toFixed(0) + '%</b> 底仓')
+        + (sum > 100.5 ? (IS_EN ? ' · <span class="warn">exceeds holding, lower it</span>' : ' · <span class="warn">超过持仓，请调低</span>') : '');
+    }
+    document.getElementById('bsum').innerHTML = sumTxt;
+  };
+
+  document.getElementById('bSecT').textContent = MODES.add.secT;
+  bSyncCycle();
+  bRender();
 })();

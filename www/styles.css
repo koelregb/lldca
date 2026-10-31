@@ -12,6 +12,7 @@
   --up: #e04a4a;            /* 涨/盈利 → 红 */
   --down: #1a9e5c;          /* 跌/亏损 → 绿 */
   --accent: #d05b5b;
+  --rule: #d99a2b;          /* 交易法则 → 金 */
   --chip: #f4f6fa;
   --tabbg: rgba(255, 255, 255, .92);
   --sheet: #ffffff;
@@ -32,7 +33,8 @@
   --sheet: #1a2130;
   --shadow: 0 2px 10px rgba(0, 0, 0, .32);
   --outside: #0a0d13;
-}
+
+  --rule: #e0b15a;}
 
 * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
@@ -1073,3 +1075,67 @@ input, select, textarea { font-family: inherit; }
   .rule-block ul {  margin: 0; padding-left: 18px;  }
   .rule-block li {  font-size: 12.5px; line-height: 1.7; color: var(--ink); margin-bottom: 5px;  }
   .rule-block li b {  color: var(--accent);  }
+
+/* ---- v1.5.4: 交易法则按钮金色高亮 / 卡片标签 ---- */
+.lampseg button.on.rule { background: var(--rule); color: #fff; }
+.lampseg button.on.rule .lamp { background: rgba(255,255,255,.9); }
+.notecard .lamprow .lt.rule { color: var(--rule); }
+
+
+/* ---- v1.5.4: 加减仓法则（交互式金字塔） ---- */
+.bseg button { flex: 1 1 0; max-width: 190px; border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+    border-radius: 14px; padding: 11px 8px; font-size: 13px; font-weight: 800; line-height: 1.25; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; transition: background .2s, color .2s, border-color .2s, box-shadow .2s; }
+.bseg button small { display: block; font-size: 10px; font-weight: 600; opacity: .85; margin-top: 2px; letter-spacing: .2px; }
+.bseg button.on { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+.bseg button.on[data-m="add"] { background: #e04a4a; border-color: #e04a4a; color: #fff; }
+.bseg button.on[data-m="trim"] { background: #4a7fd4; border-color: #4a7fd4; color: #fff; }
+.bcycle svg { display: block; width: 100%; height: auto; }
+.cy-node { opacity: .4; transition: opacity .25s; }
+.cy-node.on { opacity: 1; }
+.cy-arc { transition: opacity .25s; }
+.cy-arc.dim { opacity: .28; }
+.cy-t1 { font-size: 9px; fill: rgba(255,255,255,.85); text-anchor: middle; font-weight: 600; }
+.cy-t2 { font-size: 11.5px; fill: #fff; text-anchor: middle; font-weight: 800; }
+.cy-cap { font-size: 10px; fill: #e04a4a; text-anchor: middle; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 2px; }
+.cy-cap2 { font-size: 10px; fill: #4a7fd4; text-anchor: middle; font-weight: 800; paint-order: stroke; stroke: #fff; stroke-width: 2px; }
+.bhint { font-size: 11.5px; color: var(--sub); margin: 0 2px 10px; line-height: 1.5; }
+.bfig { background: var(--card); border-radius: 16px; padding: 12px 12px 10px; box-shadow: var(--shadow); margin-bottom: 10px; }
+.btier { position: relative; height: 40px; }
+.bt-bg { position: absolute; inset: 0; }
+.bt-lab { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: #fff; white-space: nowrap; pointer-events: none; line-height: 1.25; }
+.bt-lab.bot { justify-content: flex-end; padding-bottom: 3px; }
+.bt-lab.top { justify-content: flex-start; padding-top: 3px; }
+.pcap { text-align: center; font-size: 9.5px; color: var(--sub); padding: 4px 6px 2px; line-height: 1.4; }
+.bt-no { font-size: 9px; font-weight: 700; opacity: .92; letter-spacing: .2px; }
+.bt-pc { font-size: 13.5px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+.bsec { display: flex; align-items: center; font-size: 12px; font-weight: 700; color: var(--sub); margin: 0 2px 7px; }
+.bsec .blink { margin-left: auto; border: none; background: none; color: var(--accent); font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.bncard { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 10px;
+    padding: 7px 12px; box-shadow: var(--shadow); margin-bottom: 8px; }
+.bn-lab { font-size: 11.5px; font-weight: 700; color: var(--sub); }
+.bn-btn { width: 26px; height: 26px; flex: none; border: none; border-radius: 8px; font-size: 15px; font-weight: 800;
+    background: var(--chip); color: var(--ink); cursor: pointer; line-height: 1; padding: 0; }
+.bn-btn:active { opacity: .6; }
+.bn-num { min-width: 18px; text-align: center; font-size: 15px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.btab .btr { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.btab .bth { font-size: 9.5px; font-weight: 700; color: var(--sub); margin-bottom: 2px; }
+.btab .bno { width: 40px; flex: none; font-size: 10.5px; font-weight: 700; color: var(--sub); }
+.btab .bno i { display: block; font-style: normal; font-size: 8.5px; font-weight: 600; opacity: .8; }
+.btab .bunit { width: 12px; flex: none; font-size: 9.5px; font-weight: 700; color: var(--sub); text-align: left; }
+.btab .bth1 { width: 40px; flex: none; }
+.btab .bth2 { flex: 1; text-align: center; }
+.btab .bth3 { flex: 1; text-align: center; }
+.btab .bthu { width: 12px; flex: none; }
+.bn-tip { margin-left: auto; font-size: 10px; color: var(--sub); }
+.bn-rec { font-size: 11px; color: var(--sub); margin: -2px 2px 10px; line-height: 1.5; }
+.bn-rec b { color: var(--ink); }
+.bratio { display: block; }
+.bratio label { flex: 1; background: var(--card); border-radius: 9px; padding: 6px 4px; text-align: center; box-shadow: var(--shadow); }
+.bratio span { display: block; font-size: 9.5px; color: var(--sub); }
+.bratio input { width: 100%; border: none; background: none; text-align: center; outline: none;
+    font-size: 13px; font-weight: 800; color: var(--ink); font-variant-numeric: tabular-nums; }
+.bsum { font-size: 11.5px; color: var(--sub); margin: 0 2px 10px; line-height: 1.5; }
+.bsum b { color: var(--ink); }
+.bsum .warn { color: var(--up); font-weight: 700; }
