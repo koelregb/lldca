@@ -743,6 +743,30 @@
   .rchart .ma2 { fill: none; stroke: #3a7fd4; stroke-width: 1.8; stroke-linejoin: round; }
   .rchart .ma3 { fill: none; stroke: #e0703b; stroke-width: 1.4; stroke-dasharray: 4 2; stroke-linejoin: round; }
 
+  /* 交易法则子tab（右侧 / 左侧） */
+  .rule-subseg { display: flex; justify-content: center; gap: 10px; margin: 12px 0 12px; }
+  .rule-subseg button {
+    flex: 1; max-width: 150px; padding: 9px 0; border: 1.5px solid var(--line);
+    border-radius: 20px; background: var(--card); color: var(--ink);
+    font-size: 13.5px; font-weight: 700; box-shadow: var(--shadow);
+  }
+  .rule-subseg button.on[data-r="right"] { background: var(--up); border-color: var(--up); color: #fff; }
+  .rule-subseg button.on[data-r="left"] { background: var(--down); border-color: var(--down); color: #fff; }
+  .rule-pane { }
+  .rule-block {
+    background: var(--card); border-radius: 12px; padding: 11px 12px 9px;
+    box-shadow: var(--shadow); margin-bottom: 10px;
+  }
+  .rule-block .rb-h {
+    font-size: 13.5px; font-weight: 800; margin-bottom: 7px;
+    display: flex; align-items: center; gap: 7px; color: var(--ink);
+  }
+  .rule-block .rb-h .bar { width: 4px; height: 15px; border-radius: 3px; flex: none; }
+  .rule-block .rb-h .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .rule-block ul { margin: 0; padding-left: 18px; }
+  .rule-block li { font-size: 12.5px; line-height: 1.7; color: var(--ink); margin-bottom: 5px; }
+  .rule-block li b { color: var(--accent); }
+
   /* ---------- FAB ---------- */
   .fab {
     position: absolute; right: 16px; bottom: 78px; width: 48px; height: 48px; border: none;
@@ -784,7 +808,16 @@
     display: none; place-items: center; padding: 26px 22px; overflow-y: auto;
   }
   .reglock.on { display: grid; animation: fadein .25s ease; }
-  .rl-card { width: 100%; max-width: 340px; text-align: center; }
+  .rl-card { width: 100%; max-width: 340px; text-align: center; position: relative; }
+  .rl-lang {
+    display: inline-flex; gap: 0; margin: 0 auto 10px; border: 1px solid var(--bd);
+    background: var(--card); border-radius: 999px; overflow: hidden; font-size: 12px;
+  }
+  .rl-lang button {
+    border: 0; background: transparent; color: var(--sub); padding: 5px 13px;
+    cursor: pointer; font-size: 12px; line-height: 1;
+  }
+  .rl-lang button.on { background: var(--accent); color: #fff; font-weight: 700; }
   .rl-logo {
     min-width: 74px; height: 56px; border-radius: 17px; margin: 0 auto 14px;
     padding: 0 14px;
@@ -885,6 +918,10 @@
   .mrow > svg { width: 17px; height: 17px; color: var(--sub); flex: none; }
   .mrow-l { flex: 1; font-size: 13.5px; font-weight: 600; }
   .mrow-v { font-size: 11px; color: var(--sub); }
+  .me-lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; flex: none; }
+  .me-lang button { border: none; background: var(--bg); color: var(--sub); font-size: 12px; font-weight: 650; padding: 5px 12px; cursor: pointer; font-family: inherit; }
+  .me-lang button + button { border-left: 1px solid var(--line); }
+  .me-lang button.on { background: var(--accent); color: #fff; }
   .toast {
     position: absolute; left: 50%; bottom: 92px; transform: translateX(-50%) translateY(10px);
     background: rgba(20,26,38,.88); color: #fff; font-size: 12px; font-weight: 600;
@@ -1133,25 +1170,65 @@
         </div>
       </div>
       <div id="noteListRule" style="display:none">
-        <div class="notecard">
-          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
-          <div class="nt">顺势而为：只在上升趋势确认后（右侧）加仓，不在下跌途中接飞刀；下跌用正金字塔分批，上涨用倒金字塔减仓。</div>
+        <div class="rule-subseg" id="ruleSubSeg">
+          <button class="on" data-r="right" onclick="ruleSub(this,'right')">右侧交易 · 顺势</button>
+          <button data-r="left" onclick="ruleSub(this,'left')">左侧交易 · 逆向</button>
         </div>
-        <div class="notecard">
-          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
-          <div class="nt">仓位即态度：单笔风险不超过总资金 2%，单只个股不超过总仓位 20%，永不满仓（常态 7–8 成，留两成现金等回调）。</div>
+        <div id="ruleRight" class="rule-pane">
+          <div class="rule-block">
+            <div class="rb-h"><span class="bar" style="background:var(--up)"></span><span class="dot" style="background:var(--up)"></span>适用人群</div>
+            <ul>
+              <li>大多数普通投资者——资金、研究深度、心态都有限时，<b>右侧是最优解</b>。</li>
+              <li>不擅长抄底、怕"抄在半山腰"的人。</li>
+              <li>追求胜率优先、不想在下跌途中"接飞刀"的人。</li>
+            </ul>
+          </div>
+          <div class="rule-block">
+            <div class="rb-h"><span class="bar" style="background:var(--up)"></span><span class="dot" style="background:var(--up)"></span>适用场景</div>
+            <ul>
+              <li>等<b>筑底信号明确</b>后再进场：缩量下跌、假破位能收回、筹码稳定（俗称"想跌却跌不动"）。</li>
+              <li>趋势反转确认、均线（MA5/10/20）金叉后<b>顺势突破</b>。</li>
+              <li>图中<b>红点</b>：突破·顺势买——右侧交易点。</li>
+            </ul>
+          </div>
+          <div class="rule-block">
+            <div class="rb-h"><span class="bar" style="background:var(--up)"></span><span class="dot" style="background:var(--up)"></span>交易法则</div>
+            <ul>
+              <li>不猜底，等市场自己走出来再跟进，<b>只做确认</b>。</li>
+              <li>只用右侧信号加仓，<b>不在下跌途中接飞刀</b>。</li>
+              <li>突破 / 金叉后买入，用三条均线辅助判断趋势强弱。</li>
+              <li>顺势跟随，不追高也不逆势；便宜不是充分条件，<b>估值够低 + 市场确认</b>才动手。</li>
+              <li>当市场围绕反复震荡、<b>跌不动了、多次探底</b>，可认为已达底部；目前市场极其敏感，<b>快起快落</b>——这种场景不多见了。</li>
+            </ul>
+          </div>
         </div>
-        <div class="notecard">
-          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
-          <div class="nt">止损先于盈利：建仓同时写下止损线，触发即执行，不找例外；亏损扩大前先离场，保住本金才能再战。</div>
-        </div>
-        <div class="notecard">
-          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
-          <div class="nt">计划交易：买卖点、仓位、止损提前写进计划，盘中只执行不临时决策；情绪高涨、热闹时不加仓。</div>
-        </div>
-        <div class="notecard">
-          <div class="nd"><span class="lamprow"><span class="lamp" style="background:var(--rule)"></span><span class="lt rule">法则</span><span class="dt">原则</span></span><button class="del" title="删除" onclick="delNote(this)">×</button></div>
-          <div class="nt">概率思维：没有必胜策略，只做正期望的重复动作；接受小亏，让利润随趋势奔跑，不赌单次对错。</div>
+        <div id="ruleLeft" class="rule-pane" style="display:none">
+          <div class="rule-block">
+            <div class="rb-h"><span class="bar" style="background:var(--down)"></span><span class="dot" style="background:var(--down)"></span>适用人群</div>
+            <ul>
+              <li>资金充裕、经验丰富、有<b>深度研究</b>的投资者（如金渐成本人）。</li>
+              <li>具备<b>强大心理承受力 + 充足现金储备</b>的人。</li>
+              <li><b>不适合普通投资者</b>：容易接飞刀、抄在半山腰，或接刀耗尽现金。</li>
+            </ul>
+          </div>
+          <div class="rule-block">
+            <div class="rb-h"><span class="bar" style="background:var(--down)"></span><span class="dot" style="background:var(--down)"></span>适用场景</div>
+            <ul>
+              <li>下跌途中、行情<b>左侧</b>，价格进入价值区间后逢低逆向买入。</li>
+              <li><b>越跌越买、越买越多</b>，摊薄持仓成本。</li>
+              <li>图中<b>绿点</b>：逢低·逆向买——左侧交易点。</li>
+            </ul>
+          </div>
+          <div class="rule-block">
+            <div class="rb-h"><span class="bar" style="background:var(--down)"></span><span class="dot" style="background:var(--down)"></span>交易法则</div>
+            <ul>
+              <li>在预期价格范围内逐步买入（<b>金字塔加仓</b>，每跌约 10% 加一层）。</li>
+              <li>必须有充足现金储备，避免"接飞刀"耗尽弹药、底部到来时无钱可买。</li>
+              <li>控制组合集中度，<b>不要无限加仓</b>导致仓位失控。</li>
+              <li>从"价格决定仓位"转向"<b>风险预算决定仓位</b>"：单只 / 行业 / 账户各设最大可承受风险。</li>
+              <li>便宜是必要条件非充分条件，<b>大仓位留待右侧确认</b>（左侧试仓 + 右侧加仓）。</li>
+            </ul>
+          </div>
         </div>
       </div>
       <div class="hintbar">红线 = 绝不做 · 绿线 = 重复 · 交易法则 = 纪律原则 · 案例 = 复盘存档</div>
@@ -1245,54 +1322,65 @@
         <div class="me-avatar" id="meAvatar">浮</div>
         <div class="me-uinfo">
           <div class="me-uname" id="meUname">未登录</div>
-          <div class="me-usub" id="meUsub">注册账号后可多设备云端同步</div>
+          <div class="me-usub" id="meUsub"></div>
         </div>
         <button class="btn" id="meAuthBtn" onclick="meAuth()">登录</button>
       </div>
 
-      <div class="me-sec">数据管理</div>
+      <div class="me-sec" data-i18n="sec.data">数据管理</div>
       <div class="listcard">
         <div class="mrow" onclick="exportData()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11M7.5 9.5 12 14l4.5-4.5"/><path d="M4.5 17.5v2h15v-2"/></svg>
-          <div class="mrow-l">导出数据</div>
-          <span class="mrow-v">「文档」目录 · JSON</span>
+          <div class="mrow-l" data-i18n="export">导出数据</div>
+          <span class="mrow-v" data-i18n="export.v">「文档」目录 · JSON</span>
         </div>
         <div class="mrow" onclick="backupData()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="7.5" ry="2.8"/><path d="M4.5 6v12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8V6"/><path d="M4.5 12c0 1.6 3.4 2.8 7.5 2.8s7.5-1.2 7.5-2.8"/></svg>
-          <div class="mrow-l">备份数据</div>
+          <div class="mrow-l" data-i18n="backup">备份数据</div>
           <span class="mrow-v" id="backupState">「文档」目录 · 自动覆盖</span>
         </div>
         <div class="mrow" onclick="pickRestoreFile()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14.5v-11M7.5 8.5 12 4l4.5 4.5"/><path d="M4.5 17.5v2h15v-2"/></svg>
-          <div class="mrow-l">恢复数据</div>
-          <span class="mrow-v">选择备份文件</span>
+          <div class="mrow-l" data-i18n="restore">恢复数据</div>
+          <span class="mrow-v" data-i18n="restore.v">选择备份文件</span>
         </div>
         <input type="file" id="restoreFile" accept=".json,application/json" style="display:none" onchange="restoreData(this)">
       </div>
 
-      <div class="me-sec">授权</div>
+      <div class="me-sec" data-i18n="sec.lic">授权</div>
       <div class="listcard">
         <div class="mrow" onclick="openLicense()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.6 18.6 6v5.2c0 4.3-2.9 7.3-6.6 9.2-3.7-1.9-6.6-4.9-6.6-9.2V6L12 3.6z"/><path d="M9.3 11.9 11.2 13.8 15 9.9"/></svg>
-          <div class="mrow-l">授权许可</div>
+          <div class="mrow-l" data-i18n="license">授权许可</div>
           <span class="mrow-v" id="licState">已授权 · 剩 342 天</span>
         </div>
       </div>
 
-      <div class="me-sec">关于</div>
+      <div class="me-sec" data-i18n="sec.about">关于</div>
       <div class="listcard">
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
-          <div class="mrow-l">当前版本</div>
-          <span class="mrow-v">v1.5.3</span>
+          <div class="mrow-l" data-i18n="version">当前版本</div>
+          <span class="mrow-v" data-i18n="version.v">v1.5.3</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
-          <div class="mrow-l">检查更新</div>
-          <span class="mrow-v">已是最新</span>
+          <div class="mrow-l" data-i18n="update">检查更新</div>
+          <span class="mrow-v" data-i18n="update.v">已是最新</span>
         </div>
       </div>
-      <div class="hintbar">数据仅保存在本机 · 导出 / 备份可用于换机迁移</div>
+      <div class="me-sec" data-i18n="sec.general">通用</div>
+      <div class="listcard">
+        <div class="mrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.8 5.8 3.8 8.5S14.5 18.1 12 20.5C9.5 18.1 8.2 14.9 8.2 12S9.5 5.9 12 3.5z"/></svg>
+          <div class="mrow-l" data-i18n="language">语言</div>
+          <div class="me-lang" id="meLang">
+            <button class="on" data-lang="zh" onclick="setLang('zh')">中文</button>
+            <button data-lang="en" onclick="setLang('en')">EN</button>
+          </div>
+        </div>
+      </div>
+      <div class="hintbar" data-i18n="hint.data">数据仅保存在本机 · 导出 / 备份可用于换机迁移</div>
     </div>
 
     <!-- FAB（走势页隐藏：无个股可添加） -->
@@ -1315,7 +1403,11 @@
     <!-- 首次打开注册门（无账号时阻塞，注册/登录后才能使用） -->
     <div class="reglock" id="regGate">
       <div class="rl-card">
-        <div class="rl-logo">浮乐</div>
+        <div class="rl-lang" id="rgLang">
+          <button type="button" data-lang="zh" onclick="setLang('zh')">中文</button>
+          <button type="button" data-lang="en" onclick="setLang('en')">EN</button>
+        </div>
+        <div class="rl-logo" id="rgLogo">浮乐</div>
         <div class="rl-t" id="rgTitle">欢迎使用浮乐</div>
         <div class="rl-s" id="rgSub">注册账号后即可使用 · 数据仅保存在本机</div>
         <div id="rgForm"></div>
@@ -1391,7 +1483,529 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 
   var titles = { home: '走势', plan: '仓位提醒', notes: '红绿灯', signals: '加减仓', me: '我的' };
   var curTab = 'home';
+
+  /* ---------- 中 / 英 语言切换 ---------- */
+  var LANG = (function () { try { return localStorage.getItem('fuley.lang') || 'zh'; } catch (e) { return 'zh'; } })();
+  var I18N = {
+    zh: {
+      'tab.home': '走势', 'tab.plan': '仓位提醒', 'tab.notes': '红绿灯', 'tab.signals': '加减仓', 'tab.me': '我的',
+      'sec.data': '数据管理', 'sec.lic': '授权', 'sec.about': '关于', 'sec.general': '通用',
+      'export': '导出数据', 'export.v': '「文档」目录 · JSON',
+      'backup': '备份数据', 'backup.v': '「文档」目录 · 自动覆盖', 'backup.done': '刚刚已备份',
+      'restore': '恢复数据', 'restore.v': '选择备份文件',
+      'license': '授权许可', 'license.v': '已授权 · 剩 342 天',
+      'version': '当前版本', 'version.v': 'v1.5.3',
+      'update': '检查更新', 'update.v': '已是最新',
+      'language': '语言',
+      'hint.data': '数据仅保存在本机 · 导出 / 备份可用于换机迁移',
+      'me.login': '登录', 'me.logout': '登出', 'me.register': '注册', 'me.uname': '未登录',
+      'me.usub2': '账号 {acc} · 数据可云端同步', 'me.avatar': '浮', 'brand': '浮乐',
+      'rg.welcome': '欢迎使用浮乐', 'rg.login': '登录浮乐',
+      'rg.subReg': '注册账号后即可使用 · 数据仅保存在本机', 'rg.subLogin': '欢迎回来，登录后继续使用',
+      'f.account': '账号', 'f.accountHint': '账号（3-20 位字母 / 数字 / 下划线）', 'f.accountPh': '如 fuley2026', 'f.accountPh2': '请输入账号',
+      'f.name': '昵称', 'f.namePh': '怎么称呼你',
+      'f.pass': '密码（6-32 位，仅字母 / 数字）', 'f.passPh': '••••••',
+      'f.pass2': '确认密码', 'f.pass2Ph': '再输一次',
+      'rg.regBtn': '注册并开始', 'rg.loginBtn': '登录',
+      'rg.hasAcc': '已有账号？', 'rg.noAcc': '没有账号？', 'rg.goLogin': '去登录', 'rg.goReg': '去注册',
+      'auth.regTitle': '注册浮乐账号', 'auth.loginTitle': '登录浮乐', 'auth.regSave': '注册', 'auth.loginSave': '登录',
+      'toast.accFmt': '账号需 3-20 位字母 / 数字 / 下划线', 'toast.needName': '请填写昵称',
+      'toast.passFmt': '密码需 6-32 位，仅含字母和数字', 'toast.passDiff': '两次密码不一致',
+      'toast.accExists': '该账号已注册，请直接登录', 'toast.accNotFound': '账号不存在，请先注册',
+      'toast.passWrong': '密码不正确', 'toast.regOk': '注册成功，已登录', 'toast.loginOk': '登录成功', 'toast.logout': '已退出登录',
+      'trial.title': '试用期 30 天',
+      'trial.body': '注册成功，欢迎加入浮乐！<br>当前为试用版，有效期 30 天，功能全部开放；到期后输入激活码可授权使用 1 年。',
+      'trial.ok': '知道了', 'trial.later': '以后再说'
+    },
+    en: {
+      'tab.home': 'Market', 'tab.plan': 'Positions', 'tab.notes': 'Red/Green', 'tab.signals': 'Buy/Sell', 'tab.me': 'Me',
+      'sec.data': 'Data', 'sec.lic': 'License', 'sec.about': 'About', 'sec.general': 'General',
+      'export': 'Export', 'export.v': 'Documents · JSON',
+      'backup': 'Backup', 'backup.v': 'Documents · auto-overwrite', 'backup.done': 'Backed up just now',
+      'restore': 'Restore', 'restore.v': 'Choose backup file',
+      'license': 'License', 'license.v': 'Licensed · 342 days left',
+      'version': 'Version', 'version.v': 'v1.5.3',
+      'update': 'Check Update', 'update.v': 'Up to date',
+      'language': 'Language',
+      'hint.data': 'Data stored locally only · Export/Backup for device migration',
+      'me.login': 'Sign In', 'me.logout': 'Sign Out', 'me.register': 'Sign Up', 'me.uname': 'Not signed in',
+      'me.usub2': 'Account {acc} · synced to cloud', 'me.avatar': '浮', 'brand': 'Fuley',
+      'rg.welcome': 'Welcome to Fuley', 'rg.login': 'Sign in to Fuley',
+      'rg.subReg': 'Sign up to start · data stored on this device only', 'rg.subLogin': 'Welcome back, sign in to continue',
+      'f.account': 'Account', 'f.accountHint': 'Account (3-20 letters / digits / underscore)', 'f.accountPh': 'e.g. fuley2026', 'f.accountPh2': 'Enter account',
+      'f.name': 'Nickname', 'f.namePh': 'What should we call you',
+      'f.pass': 'Password (6-32 chars, letters/digits only)', 'f.passPh': '••••••',
+      'f.pass2': 'Confirm password', 'f.pass2Ph': 'Enter again',
+      'rg.regBtn': 'Sign Up & Start', 'rg.loginBtn': 'Sign In',
+      'rg.hasAcc': 'Already have an account?', 'rg.noAcc': "Don't have an account?", 'rg.goLogin': 'Sign In', 'rg.goReg': 'Sign Up',
+      'auth.regTitle': 'Create Fuley Account', 'auth.loginTitle': 'Sign in to Fuley', 'auth.regSave': 'Sign Up', 'auth.loginSave': 'Sign In',
+      'toast.accFmt': 'Account must be 3-20 letters/digits/underscore', 'toast.needName': 'Please enter a nickname',
+      'toast.passFmt': 'Password must be 6-32 chars, letters/digits only', 'toast.passDiff': 'Passwords do not match',
+      'toast.accExists': 'Account already registered, please sign in', 'toast.accNotFound': 'Account not found, please sign up first',
+      'toast.passWrong': 'Incorrect password', 'toast.regOk': 'Signed up, logged in', 'toast.loginOk': 'Signed in', 'toast.logout': 'Signed out',
+      'trial.title': '30-Day Trial',
+      'trial.body': 'Welcome to Fuley!<br>This is a trial version valid for 30 days with all features open; enter an activation code after expiry to authorize 1 year of use.',
+      'trial.ok': 'Got it', 'trial.later': 'Later'
+    }
+  };
+  // 取当前语言文案，缺失时回退中文、再缺失回退 key 本身
+  function A(k) {
+    var v = I18N[LANG] && I18N[LANG][k];
+    if (v != null) return v;
+    return I18N.zh[k] != null ? I18N.zh[k] : k;
+  }
+  // 读取全页英化词典 TR；英文时命中即返回英文，否则返回原词（供动态生成器内直接拼英文）
+  function T(k) {
+    if (typeof TR !== 'undefined' && TR[k] != null && LANG === 'en') return TR[k];
+    return k;
+  }
+  function applyLang() {
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var k = el.getAttribute('data-i18n');
+      if (I18N[LANG][k] != null) el.textContent = I18N[LANG][k];
+    });
+    titles.home = I18N[LANG]['tab.home']; titles.plan = I18N[LANG]['tab.plan'];
+    titles.notes = I18N[LANG]['tab.notes']; titles.signals = I18N[LANG]['tab.signals']; titles.me = I18N[LANG]['tab.me'];
+    document.querySelectorAll('.tab').forEach(function (t) {
+      var sp = t.querySelector('span'), id = t.getAttribute('data-tab');
+      if (sp && I18N[LANG]['tab.' + id]) sp.textContent = I18N[LANG]['tab.' + id];
+    });
+    if (document.getElementById('tbTitle')) document.getElementById('tbTitle').textContent = titles[curTab] || '';
+    var bs = document.getElementById('backupState');
+    if (bs) {
+      var bt = bs.textContent;
+      bs.textContent = (bt === I18N.zh['backup.done'] || bt === I18N.en['backup.done']) ? I18N[LANG]['backup.done'] : I18N[LANG]['backup.v'];
+    }
+    var ls = document.getElementById('licState');
+    if (ls) ls.textContent = I18N[LANG]['license.v'];
+    if (typeof renderMe === 'function') renderMe();
+    document.querySelectorAll('#meLang button').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-lang') === LANG);
+    });
+    // 注册/登录门的语言切换同步
+    document.querySelectorAll('#rgLang button').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-lang') === LANG);
+    });
+    var gate = document.getElementById('regGate');
+    if (gate) {
+      var ir = authMode === 'register';
+      var rgT = document.getElementById('rgTitle'), rgS = document.getElementById('rgSub'), rgL = document.getElementById('rgLogo');
+      if (rgT) rgT.textContent = ir ? A('rg.welcome') : A('rg.login');
+      if (rgS) rgS.textContent = ir ? A('rg.subReg') : A('rg.subLogin');
+      if (rgL) rgL.textContent = A('brand');
+      if (gate.classList.contains('on') && typeof renderRegGate === 'function') renderRegGate();
+    }
+    // 语言切换后重渲染动态内容（日历/仓位占比/恐慌/康波/黄金/加减仓金字塔与汇总）
+    // 注意：仅在页面完整初始化（langInited=true，脚本末尾置位）后才重渲染；
+    // 初始化阶段（applyLang 首次调用）这些渲染器依赖的数据尚未定义，提前调用会抛异常中断脚本。
+    if (langInited) {
+      try { if (typeof renderCal === 'function') renderCal(); } catch (e) {}
+      try { if (typeof renderPosAlloc === 'function') renderPosAlloc(); } catch (e) {}
+      try { if (typeof renderPanicCard === 'function') renderPanicCard(); } catch (e) {}
+      try { if (typeof renderEconCycle === 'function') renderEconCycle(); } catch (e) {}
+      try { if (typeof renderGold === 'function') renderGold(); } catch (e) {}
+      try { if (typeof window.bRender === 'function') window.bRender(); } catch (e) {}
+    }
+    if (typeof walkTranslate === 'function') walkTranslate();
+  }
+  function setLang(l) {
+    LANG = l;
+    try { localStorage.setItem('fuley.lang', l); } catch (e) {}
+    applyLang();
+    if (typeof walkTranslate === 'function') walkTranslate();
+  }
+
+  /* ================= 全页内容英化（TR 词典 + 遍历） ================= */
+  // 键=中文(可含HTML/变量占位)，值=英文。运行时按长度降序替换，避免短键先命中破坏长句。
+  var TR = {
+    '耐心　信心　恒心': 'Patience · Faith · Perseverance',
+    '耐心 信心 恒心': 'Patience · Faith · Perseverance',
+    '走势': 'Market', '仓位': 'Positions', '仓位提醒': 'Price Alerts', '红绿灯': 'Traffic Light',
+    '加减仓': 'Scale In/Out', '我的': 'Me',
+    '周期': 'Cycle', '黄金': 'Gold', '日历': 'Calendar',
+    '标普500': 'S&P 500', '纳斯达克': 'Nasdaq', '上证指数': 'Shanghai Index', '恒生指数': 'Hang Seng',
+    '仓位计划': 'Position Plan', '仓位占比': 'Allocation',
+    '加减仓法则': 'Scaling Rules', '恐慌级别评估': 'Panic Level Assessment',
+    '红线 · 禁忌': 'Red · Forbidden', '绿线 · 重复': 'Green · Repeat', '案例': 'Cases',
+    '红线 · 禁忌': 'Red · Forbidden', '交易法则': 'Trading Rules',
+    '红线': 'Red Rule', '绿线': 'Green Rule', '法则': 'Rule',
+    '适用人群': 'Who It Fits', '适用场景': 'When to Use', '交易法则': 'Trading Rules',
+    '右侧交易 · 顺势': 'Right-side · Trend-following', '左侧交易 · 逆向': 'Left-side · Contrarian',
+    '右侧交易': 'Right-side Trading', '左侧交易': 'Left-side Trading',
+    '长期': 'Long-term',
+    '2020 年': '2020', '2021 年': '2021', '2022 年': '2022', '2024 年': '2024', '2026 年': '2026', '2027 年': '2027', '2028 年': '2028', '2029 年': '2029', '2030 年': '2030',
+    '仓位占比': 'Allocation', '标的仓位占比': 'Allocation by asset', '仓位计划': 'Position Plan', '价格提醒 · 建仓价 $': 'Price alert · entry $', '价格提醒': 'Price Alert',
+    'NVDA · 美股': 'NVDA · US', '510300 · A股': '510300 · A-share', '00700 · 港股': '00700 · HK',
+    '英伟达 · 美股': 'NVIDIA · US', '沪深300 ETF · A股': 'CSI 300 ETF · A-share', '腾讯控股 · 港股': 'Tencent · HK',
+    '应对下跌': 'Falling', '应对上涨': 'Rising',
+    '正金字塔加仓': 'Pyramid Up', '倒金字塔减仓': 'Inverted-Pyramid Down',
+    '应对下跌（正金字塔加仓）': 'Falling (pyramid add)', '应对上涨（倒金字塔减仓）': 'Rising (inverted-pyramid trim)',
+    '下跌加仓 · 摊薄成本': 'Add on dips · average down', '上涨减仓 · 收回本金再循环': 'Trim on rallies · take back principal & recycle',
+    '各档触发与比例（可改）': 'Tier triggers & ratios (editable)', '恢复默认': 'Reset defaults',
+    '档数': 'Tiers', '档位': 'Tier', ' 档': ' tiers', '档 · ': ' tiers · ',
+    '2–10 档，比例随档数增减': '2–10 tiers, ratios adjust with count',
+    '适用人群': 'Who It Fits', '适用场景': 'When to Use', '交易法则': 'Trading Rules',
+    '英伟达': 'NVIDIA', '沪深300 ETF': 'CSI 300 ETF', '腾讯控股': 'Tencent',
+    'A股': 'A-share', '港股': 'HK', '美股': 'US',
+    '价格提醒 · 建仓价 $120.00': 'Price alert · entry $120.00',
+    '价格提醒 · 建仓价 $4.50': 'Price alert · entry $4.50',
+    '价格提醒 · 建仓价 $52.00': 'Price alert · entry $52.00',
+    '到价自动提醒 · 点击条目可编辑建仓价格': 'Auto-alerts at price · tap an item to edit the entry price',
+    '标的仓位占比': 'Allocation by asset', '合计 ': 'Total ',
+    '点击条目可修改 / 删除 · 合计不满 100% 标橙、超出 100% 标红 · 右下角 + 可添加仓位': 'Tap to edit/delete · total <100% amber, >100% red · "+" adds an allocation',
+    '价格提醒': 'Price Alert', '建仓价': 'Entry price',
+    '康波周期 · 当前所处阶段': 'Kondratiev Cycle · Current Phase', '第五次长波 · 处于萧条期': '5th Long Wave · Depression Phase',
+    '信息技术 / AI 主导 · 新一轮回升的孕育窗口': 'IT / AI-driven · incubating window for the next upswing',
+    '长波曲线（1782 – 2050）': 'Long-wave curve (1782 – 2050)',
+    '阶段特征': 'Phase Characteristics', '五次长波与第六波猜想': 'Five Long Waves & a 6th-Wave Speculation',
+    '周期长度与阶段划分为学术参考（周金涛 / 陈长江等流派，各家略有差异）· 仅供学习，非投资建议': 'Cycle lengths & phases are academic reference only · for learning, not investment advice',
+    '处于萧条期': 'Depression Phase', '萧条': 'Depression', '回升': 'Recovery', '繁荣': 'Prosperity', '衰退': 'Recession',
+    '第六康波 · 畅想': '6th Kondratiev · Vision', '第六康波猜想': '6th-Wave Speculation',
+    '今 ': 'Now ', '（预测 ': ' (projected ', '年）': 'yr)', '年<': 'yr<', ' 年': ' yr',
+    '第一次工业革命': '1st Industrial Revolution', '第二次工业革命中': '2nd Industrial Revolution',
+    '电力 · 内燃机 · 化工': 'Electricity · Engines · Chemicals', '电力和汽车周期': 'Electricity & Auto cycle',
+    '纺织和蒸汽周期': 'Textile & Steam cycle', '纺织机 · 蒸汽机': 'Looms · Steam engines',
+    '铁路 · 钢铁 · 煤炭': 'Rail · Steel · Coal', '钢铁和铁路周期': 'Steel & Rail cycle',
+    '石油 · 汽车 · 航空 · 电子': 'Oil · Auto · Aviation · Electronics', '信息技术周期': 'IT cycle',
+    '半导体、计算机周期': 'Semiconductor & Computer cycle', '信息技术 · 互联网 · AI': 'IT · Internet · AI',
+    '德国、美国崛起': 'Rise of Germany & US', '日本、苏联崛起': 'Rise of Japan & USSR',
+    '确立英国霸主地位': 'Britain ascends to dominance', '“亚洲四小龙”崛起': 'Rise of the "Four Asian Tigers"',
+    '第六康波猜想': '6th-Wave Speculation', '新技术周期孕育中': 'A new tech cycle is incubating',
+    '黄金 / 成长资产率先表现': 'Gold / growth assets lead', '增长强劲 · 通胀温和': 'Strong growth · mild inflation',
+    '现金 / 黄金避险 · 孕育下一代技术': 'Cash / gold safe-haven · incubating next-gen tech',
+    '商品 / 实物资产韧性强': 'Commodities / real assets resilient',
+    '增长放缓 · 政策收紧': 'Growth slowing · policy tightening',
+    '过剩出清 · 债务违约频发': 'Overcapacity cleared · debt defaults frequent',
+    '经济触底反弹 · 货币宽松': 'Economy bottoming · easy money', '权益资产最佳阶段': 'Best phase for equities',
+    '预测': 'Projected', '官方日程': 'Official', '自录': 'Custom', '样本': 'Sample', '预计': 'Est.',
+    '本月': 'This month', '下月': 'Next month', ' 月重点': ' key events', '：浮乐(fuley) v1.5.3': 'Fuley v1.5.3',
+    '当月 / 下月重点随日历翻动更新 · 财报 / 经济指标 / 选举日程已预置 · 底部按钮可自定义标记': 'Monthly highlights update as you flip the calendar · earnings/macro/vote dates preloaded · "+" button adds custom events',
+    '+ 标记事件': '+ Mark Event', '标记事件': 'Mark Event',
+    '本月没有预置日程 · 可点下方「标记事件」补充': 'No preset events this month · use "Mark Event" below',
+    '下月没有预置日程': 'No preset events next month',
+    '财报': 'Earnings', '经济': 'Macro', '选举': 'Vote', '自定义': 'Custom', '官方日程': 'Official',
+    '财报季': 'Earnings', '事件标题': 'Event title', '请选择日期': 'Please pick a date', '请填写事件标题': 'Please enter an event title',
+    '英伟达 Q3 FY27 财报': 'NVIDIA Q3 FY27 earnings', '英伟达 Q4 FY27 财报': 'NVIDIA Q4 FY27 earnings',
+    '苹果 Q1 FY27 财报': 'Apple Q1 FY27 earnings', '苹果 Q4 FY26 财报': 'Apple Q4 FY26 earnings',
+    '微软 Q1 FY27 财报': 'Microsoft Q1 FY27 earnings', '微软 Q2 FY27 财报': 'Microsoft Q2 FY27 earnings',
+    '微软': 'Microsoft', '苹果': 'Apple',
+    '亚马逊 Q3 2026 财报': 'Amazon Q3 2026 earnings', '谷歌 Q3 2026 财报': 'Alphabet Q3 2026 earnings',
+    '特斯拉 Q3 2026 财报': 'Tesla Q3 2026 earnings', 'Meta Q3 2026 财报': 'Meta Q3 2026 earnings',
+    '美国 CPI 物价指数': 'US CPI', '美国非农就业报告': 'US Nonfarm Payrolls',
+    '美联储 FOMC 利率决议': 'Fed FOMC decision', '美国中期选举': 'US Midterms',
+    '美国总统大选': 'US Presidential Election', '国会改选': 'Congressional elections',
+    '约每月首个周五': '~1st Friday monthly', '约中旬发布': '~mid-month release',
+    '市场恐慌等级(自评)': 'Market Panic Level (self-rating)',
+    '围绕当前市场的恐慌情况做 1–10 级自评：1 = 几乎无恐慌，10 = 极度恐慌。级别越高，越要按纪律而非情绪操作。': 'Rate the current market panic 1–10: 1 = no panic, 10 = extreme panic. The higher the level, the more you act by discipline, not emotion.',
+    '点击上方数字，评估当前的市场恐慌程度（1 几乎无恐慌 → 10 极度恐慌）': 'Tap a number to rate current market panic (1 no panic → 10 extreme)',
+    '市场恐慌等级：': 'Panic level: ', '市场几乎无恐慌 · 贪婪区': 'No panic · Greed zone',
+    '恐慌升温 · 抛压加大': 'Panic rising · selling pressure', '极度恐慌 · 危机模式': 'Extreme panic · crisis mode',
+    '历史性机会区，果断出手': 'Historic opportunity zone, act decisively',
+    '可启动分批加仓': 'Can start staged buying', '留意潜在加仓机会': 'Watch for potential add',
+    '维持正常投入节奏': 'Keep normal investing pace', '按计划照常投入，切忌追高': 'Invest as planned, no chasing highs',
+    'Kübler-Ross 哀伤五阶段': 'Kübler-Ross Five Stages of Grief',
+    '市场恐慌时的情绪地图：多数人在 1-5 级时追涨杀跌 · 级别越高越接近底部，也越需要按纪律执行': 'The panic emotion map: most people chase & dump at levels 1–5 · the higher the level, the closer to a bottom and the more you must follow discipline',
+    '否认': 'Denial', '愤怒': 'Anger', '讨价还价': 'Bargaining', '抑郁': 'Depression', '接受': 'Acceptance',
+    '“这不是真的”“只是暂时回调”“不看账户就没亏”': '"Not real, just a dip, not watching the account"',
+    '“全都在跌”': '"Everything is falling"', '“是不是要调整了？”': '"Is it going to correct?"',
+    '“反弹到成本价我就卖”“再跌一点我就补仓”': '"I\'ll sell at break-even, buy more if it dips"',
+    '“正常波动”': '"Normal fluctuation"', '“这市场有病”': '"This market is sick"',
+    '“都怪美联储”“都怪空头”“都怪财报造假”': '"Blame the Fed, shorts, fake earnings"',
+    '“算了不看账户了”': '"Whatever, not looking at the account"',
+    '“先出来再说”': '"Get out first"', '“基本??没变”': '"Fundamentals unchanged"',
+    '“我没买过股票”': '"I never owned stocks"', '“股市关了算了”': '"Just close the market"',
+    '卸载软件，假装没开户': 'Uninstall the app, pretend I never opened an account',
+    '沉默、无力、不想看账户、觉得没救了': 'Silent, powerless, hopeless, want to give up',
+    '承认现实，重新评估仓位，该割割、该拿拿': 'Accept reality, re-assess positions, cut what must be cut, keep the rest',
+    '频繁看盘，群聊变多': 'Watching screens constantly, group chats exploding',
+    '吐槽咒骂': 'Ranting & cursing', '强作镇定': 'Forced calm', '心如死灰': 'Emotionally dead',
+    '欲哭无泪': 'Past tears', '无言以对': 'Speechless', '抱头鼠窜': 'In panic', '鬼哭狼嚎': 'Wall & wail',
+    '谈笑风生': 'Chatting & laughing', '躁动不安': 'Restless', '深度回撤，麻木': 'Deep drawdown, numb',
+    '骂美联储 / 财报 / 庄家': 'Cursing the Fed / earnings / market makers',
+    '恐惧升温 · 抛压加大': 'Fear rising · pressure building',
+    '（同名自动覆盖）': ' (auto-overwrite if same name)', '已标记 ': 'Marked ',
+    '事件标题': 'Event title', '输入题目内容': 'Enter question text',
+    '以下载': 'below',
+    '红线 = 绝不做 · 绿线 = 重复 · 交易法则 = 纪律原则 · 案例 = 复盘存档': 'Red = never do · Green = repeat · Rules = discipline · Cases = post-mortems',
+    '录入红线 / 绿线 / 交易法则 / 案例，如：单只个股不超过总仓位 20%；不追高，跌破成本 8% 必须止损……': 'Enter a red/green/rule/case line, e.g. "No single stock >20% of total position; cut losses at 8% below cost…"',
+    '保存': 'Save', '取消': 'Cancel', '重置': 'Reset',
+    '模型说明': 'About this model',
+    '：浮乐(fuley) v1.5.3 页面模型预览。手机壳内可切换底部 5 个 tab 体验交互；首次打开需注册/登录。各 tab 背景竖排「耐心 信心 恒心」水印，不挡操作。': 'Fuley v1.5.3 page-model preview. Inside the phone you can switch the 5 bottom tabs to try the interaction; first open needs sign-up/sign-in. The vertical "Patience · Faith · Perseverance" watermark on each tab never blocks taps.',
+    '浮乐 (fuley) · 页面模型（对齐 v1.5.3）': 'Fuley (fuley) · Page model (aligned to v1.5.3)',
+    '规划 · 提醒 · 记录 — 可点击交互预览（Tab 切换 / 添加弹层 / 深浅色切换）': 'Plan · Remind · Record — clickable interactive preview (tabs / add-sheet / theme toggle)',
+    '切换深浅色': 'Toggle theme',
+    '刷新行情': 'Refresh quotes',
+    '（左侧试仓 + 右侧加仓）。': ' (left-side trial + right-side add).',
+    '后提升胜率、上大仓位': ' then raise win-rate and go big',
+    '这是投资领域最经典也是最稳妥的一种交易思想。': 'This is the most classic and safest trading philosophy.',
+    '难易程度：★★★☆☆': 'Difficulty: ★★★☆☆',
+    '优点：风险低，胜率高，省心。': 'Pros: low risk, high win rate, low effort.',
+    '缺点：买在中间，赚得少。': 'Cons: buys mid-way, earns less.',
+    '最新': 'Latest', '最高': 'High', '最低': 'Low', '昨收': 'Prev close', '今开': 'Open',
+    '振幅': 'Range', '涨跌': 'Chg', '均价': 'Avg', '分时': 'Intraday', '日K': 'Daily', '周K': 'Weekly', '月K': 'Monthly', '季K': 'Quarterly', '年K': 'Yearly',
+    '全部': 'All', '近一年': '1Y', '今日分时': 'Today', '全部至今': 'All-time',
+    '五日': '5D', '一年区间 ': '1Y range ',
+    '伦敦金现': 'Spot Gold', '纽约期金': 'NY Gold', '美元/盎司': 'USD/oz',
+    '外盘价来自腾讯行情 · 沪金 ETF（518880）曲线反映国内金价（人民币/克）· 分时为当日已成交部分': 'Offshore prices via Tencent · SH Gold ETF (518880) curve reflects CNY/g domestic price · intraday shows completed trades',
+    '多头排列': 'Bullish stack', '空头排列': 'Bearish stack', '均线交织，方向不明': 'MAs tangled, direction unclear',
+    '价 > MA20 > MA60': 'Price > MA20 > MA60', '价 < MA20 < MA60': 'Price < MA20 < MA60',
+    '更多': 'More', '已经到底啦': 'That is all',
+    '点击修改': 'Tap to edit', '点击删除': 'Tap to delete',
+    '添加仓位': 'Add Allocation', '添加仓位占比': 'Add Allocation', '编辑仓位占比': 'Edit Allocation',
+    '添加仓位提醒': 'Add Price Alert', '添加加减仓提醒': 'Add Scale Alert',
+    '删除该仓位': 'Delete this allocation',
+    '标的名称': 'Asset name', '代码': 'Ticker', '仓位占比（%）': 'Allocation (%)',
+    '如 英伟达 / 沪深300 ETF': 'e.g. NVIDIA / CSI 300 ETF', 'NVDA / 510300 / 00700': 'NVDA / 510300 / 00700',
+    '名称 / 代码 / 占比 均可自定义': 'Name / ticker / % all customizable',
+    '＋ 添加仓位': '+ Add Allocation',
+    '建仓价格（美元）': 'Entry price (USD)', '建仓数量': 'Entry quantity', '建仓日期': 'Entry date',
+    '如 120.00': 'e.g. 120.00', '如 100': 'e.g. 100', '如 2026-10-01（默认今天）': 'e.g. 2026-10-01 (defaults to today)',
+    '代码（可选，填了自动联网取现价）': 'Ticker (optional, auto-fetch live price)', '代码（填了自动联网取现价）': 'Ticker (fetches live price)',
+    '触发价（价格触发时填写）': 'Trigger price (for price-trigger)', '触发类型': 'Trigger type',
+    '价格触发': 'Price trigger', '定时提醒': 'Time reminder', '定时（定时提醒时填写）': 'Time (for reminders)',
+    '如 每周五 14:30': 'e.g. every Fri 14:30', '股票名称': 'Stock name', '建仓股价': 'Entry price',
+    '如 186.50': 'e.g. 186.50', '当日价格': 'Today\'s price',
+    '价格触发支持标普500 / 纳斯达克与任意代码：A股 6 位 / 港股 5 位 / 美股字母 · 列表显示现价、涨跌与距触发幅度，到价即提醒': 'Price trigger supports S&P500/Nasdaq & any ticker: A-share 6-digit / HK 5-digit / US letters · list shows price, change & distance to trigger',
+    '加入仓位占比': 'Add allocation', '已添加「': 'Added "', '已添加第 ': 'Added tier ',
+    '已保存「': 'Saved "', '已删除「': 'Deleted "', '已删除': 'Deleted', '已确认': 'Confirmed',
+    '已导出 ': 'Exported ', ' 条 · 保存在「文档」目录：': ' items · saved to Documents: ',
+    '恢复成功，共 ': 'Restored, ', ' 条': ' items',
+    '备份成功 · 保存在「文档」目录：': 'Backup OK · saved to Documents: ', '备份失败：': 'Backup failed: ',
+    '备份文件无效，恢复失败': 'Invalid backup file, restore failed',
+    '恢复将用备份文件覆盖当前数据，确定继续？': 'Restore will overwrite current data with the backup. Continue?',
+    '确定': 'OK', '已是最新版本': 'Already up to date',
+    '剩余授权': 'License', '授权还有 ': 'License: ', ' 天到期': ' days left',
+    '试用期剩余 ': 'Trial left: ', '试用中 · 剩 ': 'Trial · ', '天': 'd', ' 天': ' days',
+    '一年一签，请及时续签以免功能被锁定': 'Annual license, renew in time to avoid lockout',
+    '到期后将以锁定功能，发送设备识别码给作者获取激活码': 'Feature lock after expiry; send device ID for activation code',
+    '去激活': 'Activate', '去续签': 'Renew', '去授权': 'Authorize', '去登录': 'Sign In',
+    '授权将用备份文件覆盖当前数据': 'Authorizing will overwrite current data',
+    '剩余天数': 'days left', '激活': 'Activate', '正式授权': 'Licensed',
+    '激活码': 'Activation code', '激活码格式不正确': 'Invalid activation code format',
+    '激活成功，授权有效期 1 年': 'Activated, license valid 1 year',
+    '设备识别码（长按复制，发给作者获取激活码）': 'Device ID (long-press to copy, send to author for code)',
+    'FULEY-XXXX-XXXX-XXXX-XXXX': 'FULEY-XXXX-XXXX-XXXX-XXXX',
+    '已授权 · 剩 342 天': 'Licensed · 342 days left', '已授权 · 剩 ': 'Licensed · ', ' 天': ' days',
+    '已过期 · 点击续签': 'Expired · tap to renew', '试用期 30 天': '30-Day Trial',
+    '试用期': 'Trial', '当前授权将于 <b>': 'Current license valid until <b>',
+    ' 天</b>。一年一签，请及时续签以免功能被锁定。': ' days</b>. Annual license, renew in time.',
+    ' 天到期': ' days left',
+    '微信授权': 'WeChat license',
+    '通用': 'General', '语言': 'Language',
+    '中文': '中文', '更多功能': 'More',
+    '未登录': 'Not signed in', '登录': 'Sign In', '注册': 'Sign Up',
+    '市场': 'Market', '已收盘 ': 'Closed ',
+    '截止 ': 'as of ', '截至 ': 'as of ',
+    '加仓': 'Add', '减仓': 'Trim',
+    '买入%': 'Buy %', '卖出%': 'Sell %', '涨幅%': 'Gain %', '跌幅%': 'Loss %', '涨': 'Up', '跌': 'Down',
+    '合计 ': 'Total ',
+    '建议 <b>4–8 档</b>：第 1 档建仓，之后以建仓价为基准每跌 5%–10% 加一档，越跌买越多。例：10 万预算按 1/2/3/4 万递增排 4 档。': 'Suggested <b>4–8 tiers</b>: tier 1 opens, then add one tier every 5–10% below entry, buying more as it falls. e.g. ¥100k budget split 1/2/3/4 into 4 tiers.',
+    '建议 <b>3–4 档</b>：以建仓价（底部）为基准，每涨 5%–10% 卖一档，累计涨 20% 以上清到只剩底仓。': 'Suggested <b>3–4 tiers</b>: sell one tier every 5–10% above entry, and above +20% trim down to a bare core.',
+    '第 1 档<i>建仓</i>': 'Tier 1 <i>open</i>',
+    '以建仓价为起点设跌幅阈值，第 1 档建底仓，每跌一档买得更多，低位重仓摊薄成本。比例是各档买入金额占总预算的 %。': 'Set drop thresholds from entry; tier 1 builds the base, buying more each drop to average down. Ratios = each tier\'s buy as % of total budget.',
+    '以建仓价为起点设涨幅阈值，越高卖得越多，先收回本金，最后只留底仓跟随行情。比例是各档卖出量占期初持仓的 %。': 'Set gain thresholds from entry; sell more as it rises, recover principal first, keep only a core. Ratios = each tier\'s sell as % of initial holding.',
+    '塔尖第 1 层 = 建仓（0%），越往下跌幅越大、买得越多': 'Peak tier 1 = open (0%); the deeper the fall, the more you buy',
+    '塔底为建仓价 0% 起点，越往上涨幅越大、卖得越多': 'Base = 0% entry; the higher the rise, the more you sell',
+    '越跌越买：本档买入量大于上一档（金字塔加仓）？': 'Buy more each dip: this tier\'s buy > previous tier (pyramid)?',
+    '越涨越卖时先收回本金，卖到成本出清后，剩下的仓位才是利润在跑': 'When trimming, recover principal first; after cost is out, the rest is pure profit',
+    '跌破启动价（或回撤 10%）就停止卖出计划，别把底部筹码也交出去': 'Stop the sell plan if price breaks below start (or -10%); don\'t give up the cheap base',
+    '现价较上一档回落，价差已拉开到 8%–15% 的档位？': 'Price has pulled back 8–15% to the next tier level?',
+    '若再跌 10%，仍能按计划加下一档而不动摇？': 'If it falls another 10%, can you still add the next tier without wavering?',
+    '这一档的买入节点与资金体量，事先已经排好（不是临时起意）？': 'Was this tier\'s buy point & amount pre-planned (not impulsive)?',
+    '若卖出后继续涨 10%，不会因卖飞而追回？': 'If it keeps rising 10% after you sell, will you not chase it back?',
+    '按倒金字塔卖出：本档卖出量大于上一档？': 'Inverted pyramid: this tier\'s sell > previous tier?',
+    '按 2-3-3-2 节奏：30–50% 阶段只卖约 20%，不是一次清仓？': '2-3-3-2 rhythm: sell only ~20% in the 30–50% stage, not all at once?',
+    '先定这只标的的总预算，再排档位；至少分 4 档，别两三次打完': 'Set the total budget first, then tiers; use at least 4, don\'t finish in 2–3 shots',
+    '永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓': 'Never go full-in: keep 30% cash, stop adding above 80% total',
+    '总仓位已超 8 成，需要再平衡、转配置防御型资产？': 'Total >80%, need rebalancing into defensive assets?',
+    '加仓后总仓位仍不超过 8 成（常态 7–7.5 成）？': 'After adding, total still ≤80% (normally 70–75%)?',
+    '这笔钱不是应急金，3 年内不需要动用？': 'This money isn\'t an emergency fund; not needed for 3 years?',
+    '持仓已有 30% 以上涨幅（小体量再平衡除外）？': 'Position already up 30%+ (except small rebalances)?',
+    '出现了确定性更高、性价比更好的标的（机会成本）？': 'Found a higher-certainty, better-value asset (opportunity cost)?',
+    '基本面出现恶化迹象（现金流 / 毛利率 / 订单）？': 'Fundamentals deteriorating (cash flow / margin / orders)?',
+    '标的属于「第一或唯一」：市占率第一，且护城河不易被复制？': 'Asset is #1 or unique: top share & hard-to-copy moat?',
+    '估值讲得清：远期 PE / PEG / FCF 增长可解释，PEG 未接近 2？': 'Valuation is explainable: forward PE/PEG/FCF growth clear, PEG not near 2?',
+    '三表健康：有息负债低、净现金为正、经营现金流为正？': 'Three statements healthy: low debt, net cash positive, positive OCF?',
+    'PEG 已 ≥ 2，成长速度跟不上股价？': 'PEG ≥ 2, growth can\'t keep up with the price?',
+    '这不是在追高：若已高于上档 30% 以上，理由是趋势确认而非怕错过？': 'Not chasing: if already 30% above the last tier, is the reason trend-confirmation, not FOMO?',
+    '利好不涨，利空暴跌': 'Good news doesn\'t lift, bad news crashes',
+    '卖出属于四类之一：做 T 小减、PEG≥2、有更好标的、基本面恶化？': 'This sell is one of the four: trim T, PEG≥2, better asset, or deteriorating fundamentals?',
+    'VIX 低位，回调当上车': 'Low VIX, dips are buying opportunities',
+    '开始看宏观解释': 'Start reading the macro explanation',
+    '看宏观解释': 'Read macro',
+    '宏观经济解释': 'Macro explanation',
+    '十题全部完成，纪律确认通过': 'All 10 done, discipline check passed',
+    '纪律确认达标': 'Discipline check passed',
+    '得分 <b>': 'Score <b>',
+    '：通过线 ': ': pass line ', '：当前分位 ': ': percentile ',
+    '未达标，暂缓操作': 'Not passing, hold off',
+    '题已重置，可以再来一轮': 'Quiz reset, run again',
+    '自定义题目': 'Custom Question', '自定义加仓题目': 'Custom Add Question', '自定义减仓题目': 'Custom Trim Question',
+    '请先输入题目内容': 'Please enter the question first',
+    '题目内容': 'Question', '题目': 'Question', ' 题': ' questions',
+    '：单只 / 行业 / 账户各设最大可承受风险。': ': set max acceptable risk for single/industry/account.',
+    '追加到当前': 'append to current', '删除本题': 'Delete this question',
+    '补': 'add', '买': 'buy', '卖': 'sell', '建仓': 'Open', '减仓': 'Trim',
+    '第 1 档': 'Tier 1',
+    '更多': 'More', '长线': 'Long-term', '区间': 'Range', '波动': 'Volatility',
+    '备注': 'Note', '留言': 'Message', '标题': 'Title', '内容': 'Content',
+    '成交萎缩 / 流动性差': 'Volume dried up / poor liquidity', '恐慌指数飙升，相关性趋 1': 'VIX spiking, correlation → 1',
+    '正常': 'Normal', '温和': 'Mild', '极端': 'Extreme', '高波动': 'High vol',
+    '轻微波动 · 情绪平稳': 'Mild move · calm sentiment',
+    '中等波动 · 多空分歧': 'Moderate move · bulls vs bears', '震荡整理': 'Consolidation',
+    '平静': 'Calm', '日': 'd',
+    '以上为内部记录，仅作复盘参考': 'Internal records, for review only',
+    '以上为后台配置，仅作预览参考': 'Backend config, preview only',
+    '详细数据': 'Details', '简要数据': 'Summary',
+    '本节为页面模型说明，不在手机壳内': 'This section is page-model description, outside the phone',
+    '这个页面': 'This page',
+    '操作': 'Actions', '记录': 'Logs', '提醒': 'Reminders', '规划': 'Planning',
+    '公式': 'Formula', '比例': 'Ratio', '数量': 'Qty', '金额': 'Amount',
+    '策略': 'Strategy', '纪律': 'Discipline', '原则': 'Principle',
+    '向作者提交数据（生成截图）': 'Submit data to author (for screenshot)',
+    '本周': 'This week', '上周': 'Last week', '今日': 'Today', '昨日': 'Yesterday',
+    '确认': 'Confirm', '继续': 'Continue', '跳过': 'Skip', '知道了': 'Got it', '以后再说': 'Later',
+    '并立即激活': 'and activate now', '登录成功': 'Signed in', '注册成功，已登录': 'Registered & signed in',
+    '两次密码不一致': 'Passwords do not match', '密码不正确': 'Incorrect password',
+    '账号不存在，请先注册': 'Account not found, please sign up',
+    '该账号已注册，请直接登录': 'Account already registered, please sign in',
+    '请填写昵称': 'Please enter a nickname', '请填写标的名称': 'Please enter an asset name',
+    '账号需 3-20 位字母 / 数字 / 下划线': 'Account must be 3-20 letters/digits/underscore',
+    '密码需 6-32 位，仅含字母和数字': 'Password must be 6-32 chars, letters/digits only',
+    '已填入最新现价': 'Filled with latest price', '已是最新': 'Up to date', '当前版本': 'Version',
+    '已是最新版本': 'Already up to date',
+    '检查更新': 'Check Update', '导出数据': 'Export Data', '恢复数据': 'Restore Data',
+    '备份数据': 'Backup Data', '数据管理': 'Data', '授权': 'License', '授权许可': 'License',
+    '关于': 'About', '版本': 'Version', '剩余': 'remaining',
+    '这个模型': 'This model', '页面模型': 'Page model',
+    '金渐成': 'Jin Jiancheng', '浮乐': 'Fuley', '浮': 'F',
+    '总仓位': 'Total position', '现金': 'Cash', '底仓': 'core', '持仓': 'holding',
+    '仓位': 'Position', '标的': 'Asset', '名称': 'Name',
+    '占比': 'Allocation', '（%）：': '(%):', ' 0-100，可自定义填写': ' 0-100, custom OK',
+    '百分比': 'percent', '数值': 'number', '其他': 'other',
+    '已提交': 'Submitted', '提交中': 'Submitting', '失败': 'Failed', '成功': 'Success',
+    '简体': 'Simplified', '繁体': 'Traditional', '英文': 'English', '语言切换': 'Language',
+    '换机迁移': 'device migration', '仅保存在本机': 'stored locally only',
+    '参数取自公开分享的加减仓体系 · 仅作纪律参考，不构成投资建议': 'Parameters from a publicly-shared scaling system · discipline reference only, not investment advice',
+    '满仓': 'Full', '空仓': 'Empty', '半仓': 'Half',
+    '警戒': 'Alert', '机会': 'Opportunity', '底部': 'Bottom', '顶部': 'Top',
+    '左侧交易': 'Left-side Trading', '右侧交易': 'Right-side Trading',
+    '左侧交易点': 'Left-side point', '右侧交易点': 'Right-side point',
+    '突破·顺势买': 'Breakout · trend-follow buy', '逢低·逆向买': 'Dip · contrarian buy',
+    '顺势': 'Trend-following', '逆向': 'Contrarian',
+    '绿点 ': 'Green dot ', '红点 ': 'Red dot ',
+    '：下跌途中（行情左侧）逢低逆向买入，越跌越买摊薄成本；红点': ': contrarian buy on the left (falling) side, average down; the red dot ',
+    '：底部反转、均线金叉后顺势突破买入。图中真实走势：高位回落后中段触底强势拉升，右段冲高回落创新低——可分别作为左右交易的教学示例。红阳绿阴，三条均线（MA5/10/20）辅助判断趋势强弱。': ': trend-follow breakout after bottom reversal & MA golden cross. The real chart shows a high pullback → strong mid-lift → right-side rally then new low; a teaching example of both sides. Red up / green down candles, MA5/10/20 for trend strength.',
+    '右侧交易 · 顺势': 'Right-side · Trend-following', '左侧交易 · 逆向': 'Left-side · Contrarian',
+    '适用人群': 'Who It Fits', '适用场景': 'When to Use',
+    '交易法则': 'Trading Rules',
+    '大多数普通投资者——资金、研究深度、心态都有限时，': 'For most ordinary investors — with limited capital, research depth & mindset, ',
+    '右侧是最优解': 'right-side is the best solution',
+    '不擅长抄底、怕"抄在半山腰"的人。': 'Those who can\'t bottom-fish and fear "catching a falling knife".',
+    '追求胜率优先、不想在下跌途中"接飞刀"的人。': 'Those who prioritize win-rate and don\'t want to "catch a falling knife".',
+    '等<b>筑底信号明确</b>后再进场：缩量下跌、假破位能收回、筹码稳定（俗称"想跌却跌不动"）。': 'Enter only after <b>clear bottom signals</b>: shrinking-volume declines, reclaimed false breakdowns, stable chips ("wants to fall but won\'t").',
+    '趋势反转确认、均线（MA5/10/20）金叉后<b>顺势突破</b>。': '<b>Trend-follow breakout</b> after confirmed reversal & MA(5/10/20) golden cross.',
+    '图中<b>红点</b>：突破·顺势买——右侧交易点。': 'The <b>red dot</b>: breakout · trend-follow buy — the right-side point.',
+    '不猜底，等市场自己走出来再跟进，<b>只做确认</b>。': 'Don\'t guess the bottom; follow after the market moves, <b>confirm only</b>.',
+    '只用右侧信号加仓，<b>不在下跌途中接飞刀</b>。': 'Add only on right-side signals; <b>don\'t catch falling knives</b>.',
+    '突破 / 金叉后买入，用三条均线辅助判断趋势强弱。': 'Buy on breakouts/golden crosses, use the three MAs for trend strength.',
+    '顺势跟随，不追高也不逆势；便宜不是充分条件，<b>估值够低 + 市场确认</b>才动手。': 'Follow the trend, don\'t chase highs or fight it; cheap isn\'t sufficient — <b>low valuation + market confirmation</b> before acting.',
+    '当市场围绕反复震荡、<b>跌不动了、多次探底</b>，可认为已达底部；目前市场极其敏感，<b>快起快落</b>——这种场景不多见了。': 'When the market keeps oscillating, <b>won\'t fall further, bottoming repeatedly</b>, it can be a bottom; today\'s market is extremely sensitive, <b>spikes up and down</b> — such scenes are getting rare.',
+    '资金充裕、经验丰富、有<b>深度研究</b>的投资者（如金渐成本人）。': 'Investors with ample capital, experience & <b>deep research</b> (e.g. Jin Jiancheng).',
+    '具备<b>强大心理承受力 + 充足现金储备</b>的人。': 'Those with <b>strong psychology + ample cash reserves</b>.',
+    '<b>不适合普通投资者</b>：容易接飞刀、抄在半山腰，或接刀耗尽现金。': '<b>Not for ordinary investors</b>: easy to catch knives, buy mid-fall, or burn all cash catching.',
+    '下跌途中、行情<b>左侧</b>，价格进入价值区间后逢低逆向买入。': 'On the falling <b>left side</b>, buy contra-trend once price enters the value zone.',
+    '<b>越跌越买、越买越多</b>，摊薄持仓成本。': '<b>Buy more as it falls</b>, averaging down your cost.',
+    '图中<b>绿点</b>：逢低·逆向买——左侧交易点。': 'The <b>green dot</b>: dip · contrarian buy — the left-side point.',
+    '在预期价格范围内逐步买入（<b>金字塔加仓</b>，每跌约 10% 加一层）。': 'Buy step-by-step within your price range (<b>pyramid add</b>, one layer every ~10% drop).',
+    '必须有充足现金储备，避免"接飞刀"耗尽弹药、底部到来时无钱可买。': 'Keep ample cash reserves so catching knives never drains you dry before the bottom.',
+    '控制组合集中度，<b>不要无限加仓</b>导致仓位失控。': 'Control concentration; <b>don\'t add without limit</b> into an uncontrolled position.',
+    '从"价格决定仓位"转向"<b>风险预算决定仓位</b>"：单只 / 行业 / 账户各设最大可承受风险。': 'Shift from "price sets position" to "<b>risk budget sets position</b>": set max acceptable risk for single/industry/account.',
+    '便宜是必要条件非充分条件，<b>大仓位留待右侧确认</b>（左侧试仓 + 右侧加仓）。': 'Cheap is necessary but not sufficient; <b>keep big positions for right-side confirmation</b> (left-side trial + right-side add).',
+    '【红线】': '[Red] ', '【绿线】': '[Green] ', '【红线案例】': '[Red case] ', '【绿线案例】': '[Green case] ', '【心得】': '[Note] ',
+    '红线 = 绝不做 · 绿线 = 重复 · 交易法则 = 纪律原则 · 案例 = 复盘存档': 'Red = never do · Green = repeat · Rules = discipline · Cases = post-mortems',
+    '红线 = 绝不做 · 绿线 = 重复 · 交易法则 = 纪律原则 · 案例 = 复盘存档': 'Red = never do · Green = repeat · Rules = discipline · Cases = post-mortems',
+    '单一个股不超过总仓位 20%，跌破成本价 8% 无条件止损。': 'No single stock over 20% of total position; cut losses unconditionally at 8% below cost.',
+    'NVDA 回调到 178 附近是这轮加仓区，按计划执行，不情绪化补仓。': 'NVDA pullback near 178 is this round\'s add zone; follow the plan, no emotional topping-up.',
+    'NVDA 跌破成本价 8% 时抱着「再等等」的想法没有止损，最终亏损扩大到 40%。教训：止损线写下来就要执行，不找例外。': 'Held "wait a bit" at -8% and didn\'t stop out; loss grew to 40%. Lesson: write the stop line and execute it, no exceptions.',
+    '听信「这次不一样」的叙事，在情绪高点追高加仓，买在山顶。教训：换手率越高，收益越差；热闹时不加仓。': 'Bought the "this time is different" story at an emotional high. Lesson: high turnover kills returns; don\'t add when it\'s noisy.',
+    '2020 年 3 月暴跌，按事前写好的分批计划在恐慌中执行买入，一年后组合收益 +80%。教训：计划的价值在极端行情里兑现。': 'March 2020 crash; followed the pre-written staged plan and bought in the panic; +80% a year later. Lesson: plans pay off in extremes.',
+    '每月定投沪深 300，五年间无视所有短期波动，年化跑赢身边所有「择时高手」。教训：简单动作重复做，就是最难的事。': 'Monthly DCA into CSI 300, ignored all short-term noise for 5 years, beat every "market-timer" around. Lesson: repeating a simple act is the hardest thing.',
+    '模型说明': 'About this model',
+    '红线 = 绝不做 · 绿线 = 重复 · 交易法则 = 纪律原则 · 案例 = 复盘存档': 'Red = never do · Green = repeat · Rules = discipline · Cases = post-mortems'
+  };
+  // 去标签 + 归一空白 的纯文本键，用于“整块精确匹配”
+  function _plain(s) { return (s || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim(); }
+  var TR_PLAIN = {};
+  Object.keys(TR).forEach(function (k) { var p = _plain(k); if (p) TR_PLAIN[p] = k; });
+  // 参与“子串替换”的安全键：无内联标签、长度≥2、且非单个汉字键；长度≥3 的短语 + 若干 2 字词（公司名/常见词）允许替换
+  var TR_SAFE = Object.keys(TR).filter(function (k) {
+    if (k.indexOf('<') !== -1) return false;
+    if (!/[\u4e00-\u9fff]/.test(k)) return false; // 必须含中文才参与
+    if (k.length < 2) return false; // 单字符/超短不做
+    if (/^[\u4e00-\u9fff]$/.test(k)) return false; // 单个汉字不做
+    // 含空白包裹的 2 字键（如 " 档"、"第 "、" 年"）风险高，单独用精确键处理，这里排除
+    if (k.length === 2 && /[\s\u4e00-\u9fff]/.test(k) && k !== k.trim()) return false;
+    return true;
+  }).sort(function (a, b) { return b.length - a.length; });
+
+  function walkTranslate() {
+    if (LANG === 'zh') return;
+    walkNode(document.getElementById('phone'));
+    walkNode(document.getElementById('legend') || document.body);
+  }
+  function walkNode(root) {
+    if (!root) return;
+    // 第 1 遍：整块精确匹配（用 textContent 含内联标签的完整句子），保留标签
+    var blocks = root.querySelectorAll('h1,h2,h3,h4,h5,p,li,div,span,button,th,td,option,label,b,strong,em,small,text');
+    blocks.forEach(function (el) {
+      var tk = el.getAttribute('data-i18n');
+      if (tk && I18N[LANG][tk] != null) return; // 已由 applyLang 处理
+      // 保护：元素内部含表单控件（input/select/textarea）时绝不用 innerHTML 整块替换，
+      // 否则会把输入框一起删掉（如 .field 内 label 恰好命中词典键的场景）；其 label 子元素会被单独遍历翻译
+      if (el.querySelector && el.querySelector('input,select,textarea')) return;
+      var plain = _plain(el.textContent);
+      if (!plain || !/[\u4e00-\u9fff]/.test(plain)) return;
+      if (TR_PLAIN[plain]) {
+        var orig = TR[TR_PLAIN[plain]];
+        // 仅当目标不含该键本身时替换，避免套娃
+        if (el.innerHTML !== orig) el.innerHTML = orig;
+      }
+    });
+    // 第 2 遍：对仍残留中文的文本节点做“安全短语”子串替换
+    var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var n; var nodes = [];
+    while ((n = tw.nextNode())) nodes.push(n);
+    nodes.forEach(function (tn) {
+      var t = tn.nodeValue;
+      if (!t || !/[\u4e00-\u9fff]/.test(t)) return;
+      var out = t;
+      TR_SAFE.forEach(function (k) {
+        if (out.indexOf(k) !== -1) out = out.split(k).join(TR[k]);
+      });
+      if (out !== t) tn.nodeValue = out;
+    });
+    // title / placeholder 属性翻译（安全短语）
+    var els = root.querySelectorAll('[title],[placeholder]');
+    els.forEach(function (el) {
+      ['title', 'placeholder'].forEach(function (attr) {
+        var v = el.getAttribute(attr);
+        if (v && /[\u4e00-\u9fff]/.test(v)) {
+          var o = v;
+          TR_SAFE.forEach(function (k) { if (o.indexOf(k) !== -1) o = o.split(k).join(TR[k]); });
+          if (o !== v) el.setAttribute(attr, o);
+        }
+      });
+    });
+  }
+  // 观察 DOM 变化，动态内容渲染后自动英化
+  (function () {
+    if (typeof MutationObserver === 'undefined') return;
+    var mo = new MutationObserver(function () { if (LANG === 'en') walkTranslate(); });
+    mo.observe(document.getElementById('phone') || document.body, { childList: true, subtree: true, characterData: true });
+  })();
   var lampDir = 1; // 1 = 红线(禁忌)  -1 = 绿线(重复)  0 = 案例
+  var langInited = false; // 页面动态内容初始化完成标志：置 true 后 applyLang 才会重渲染动态区块
 
   /* ---------- 指数数据（行情值 = 2026-10-22 腾讯真实点位；历史曲线见 IDX_KLINES） ---------- */
   var INDICES = [
@@ -2207,29 +2821,32 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     openAuthSheet();
   }
   function renderMe() {
-    document.getElementById('meUname').textContent = meUser ? meUser.name : '未登录';
-    document.getElementById('meUsub').textContent = meUser ? '账号 ' + meUser.account + ' · 数据可云端同步' : '注册账号后可多设备云端同步';
-    document.getElementById('meAuthBtn').textContent = meUser ? '登出' : (loadAccount() ? '登录' : '注册');
-    document.getElementById('meAvatar').textContent = meUser ? meUser.name.charAt(0) : '浮';
+    var T = (typeof I18N !== 'undefined') ? I18N[LANG] : null;
+    document.getElementById('meUname').textContent = meUser ? meUser.name : (T ? T['me.uname'] : '未登录');
+    document.getElementById('meUsub').textContent = meUser
+      ? (T ? T['me.usub2'].replace('{acc}', meUser.account) : ('账号 ' + meUser.account + ' · 数据可云端同步'))
+      : '';
+    document.getElementById('meAuthBtn').textContent = meUser ? (T ? T['me.logout'] : '登出') : (loadAccount() ? (T ? T['me.login'] : '登录') : (T ? T['me.register'] : '注册'));
+    document.getElementById('meAvatar').textContent = meUser ? meUser.name.charAt(0) : (T ? T['me.avatar'] : '浮');
   }
   function openAuthSheet() {
     var isReg = authMode === 'register';
     sheetMode = 'auth';
-    document.getElementById('sheetSave').textContent = isReg ? '注册' : '登录';
-    document.getElementById('sheetTitle').textContent = isReg ? '注册浮乐账号' : '登录浮乐';
+    document.getElementById('sheetSave').textContent = isReg ? A('auth.regSave') : A('auth.loginSave');
+    document.getElementById('sheetTitle').textContent = isReg ? A('auth.regTitle') : A('auth.loginTitle');
     var body = '';
     if (isReg) {
-      body += '<div class="field"><label>账号（3-20 位字母 / 数字 / 下划线）</label><input type="text" id="auAccount" maxlength="20" placeholder="如 fuley2026" autocomplete="off"></div>'
-        + '<div class="field"><label>昵称</label><input type="text" id="auName" maxlength="20" placeholder="怎么称呼你"></div>';
+      body += '<div class="field"><label>' + A('f.accountHint') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + A('f.accountPh') + '" autocomplete="off"></div>'
+        + '<div class="field"><label>' + A('f.name') + '</label><input type="text" id="auName" maxlength="20" placeholder="' + A('f.namePh') + '"></div>';
     } else {
-      body += '<div class="field"><label>账号</label><input type="text" id="auAccount" maxlength="20" placeholder="请输入账号" autocomplete="off"></div>';
+      body += '<div class="field"><label>' + A('f.account') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + A('f.accountPh2') + '" autocomplete="off"></div>';
     }
-    body += '<div class="field"><label>密码（6-32 位，仅字母 / 数字）</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
+    body += '<div class="field"><label>' + A('f.pass') + '</label><input type="password" id="auPass" maxlength="32" placeholder="' + A('f.passPh') + '"></div>';
     if (isReg) {
-      body += '<div class="field"><label>确认密码</label><input type="password" id="auPass2" maxlength="32" placeholder="再输一次"></div>';
+      body += '<div class="field"><label>' + A('f.pass2') + '</label><input type="password" id="auPass2" maxlength="32" placeholder="' + A('f.pass2Ph') + '"></div>';
     }
     body += '<div class="field"><button class="btn ghost" style="width:100%" onclick="authMode=\'' + (isReg ? 'login' : 'register') + '\';openAuthSheet()">'
-      + (isReg ? '已有账号？去登录' : '没有账号？去注册') + '</button></div>';
+      + (isReg ? A('rg.hasAcc') + ' ' + A('rg.goLogin') : A('rg.noAcc') + ' ' + A('rg.goReg')) + '</button></div>';
     document.getElementById('sheetBody').innerHTML = body;
     document.getElementById('backdrop').classList.add('on');
     document.getElementById('sheet').classList.add('on');
@@ -2239,12 +2856,12 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     var name = (document.getElementById('auName').value || '').trim();
     var p1 = document.getElementById('auPass').value || '';
     var p2 = document.getElementById('auPass2').value || '';
-    if (!/^[a-zA-Z0-9_]{3,20}$/.test(account)) { toast('账号需 3-20 位字母 / 数字 / 下划线'); return; }
-    if (!name) { toast('请填写昵称'); return; }
-    if (!/^[a-zA-Z0-9]{6,32}$/.test(p1)) { toast('密码需 6-32 位，仅含字母和数字'); return; }
-    if (p1 !== p2) { toast('两次密码不一致'); return; }
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(account)) { toast(A('toast.accFmt')); return; }
+    if (!name) { toast(A('toast.needName')); return; }
+    if (!/^[a-zA-Z0-9]{6,32}$/.test(p1)) { toast(A('toast.passFmt')); return; }
+    if (p1 !== p2) { toast(A('toast.passDiff')); return; }
     var exist = loadAccount();
-    if (exist && exist.account === account) { toast('该账号已注册，请直接登录'); authMode = 'login'; openAuthSheet(); return; }
+    if (exist && exist.account === account) { toast(A('toast.accExists')); authMode = 'login'; openAuthSheet(); return; }
     var acc = { account: account, name: name, pass: hashPass(p1) };
     try {
       localStorage.setItem(ACCOUNT_KEY, JSON.stringify(acc));
@@ -2253,7 +2870,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     meUser = { account: account, name: name };
     renderMe();
     closeSheet();
-    toast('注册成功，已登录');
+    toast(A('toast.regOk'));
     hideRegGate();
     showTrialWelcome();
   }
@@ -2261,20 +2878,20 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     var account = (document.getElementById('auAccount').value || '').trim();
     var p1 = document.getElementById('auPass').value || '';
     var acc = loadAccount();
-    if (!acc || acc.account !== account) { toast('账号不存在，请先注册'); return; }
-    if (acc.pass !== hashPass(p1)) { toast('密码不正确'); return; }
+    if (!acc || acc.account !== account) { toast(A('toast.accNotFound')); return; }
+    if (acc.pass !== hashPass(p1)) { toast(A('toast.passWrong')); return; }
     try { localStorage.setItem(SESSION_KEY, JSON.stringify({ account: account, name: acc.name })); } catch (e) { /* ignore */ }
     meUser = { account: account, name: acc.name };
     renderMe();
     closeSheet();
-    toast('登录成功');
+    toast(A('toast.loginOk'));
     hideRegGate();
   }
   function logout() {
     meUser = null;
     try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
     renderMe();
-    toast('已退出登录');
+    toast(A('toast.logout'));
   }
   /* ---------- 首次打开注册门 + 试用提示 + 最后一周每日提醒 ---------- */
   var TRIAL_NOTICE_KEY = 'fuley.trialNotice.v1';
@@ -2297,30 +2914,31 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   }
   function renderRegGate() {
     var isReg = authMode === 'register';
-    document.getElementById('rgTitle').textContent = isReg ? '欢迎使用浮乐' : '登录浮乐';
-    document.getElementById('rgSub').textContent = isReg ? '注册账号后即可使用 · 数据仅保存在本机' : '欢迎回来，登录后继续使用';
+    document.getElementById('rgTitle').textContent = isReg ? A('rg.welcome') : A('rg.login');
+    document.getElementById('rgSub').textContent = isReg ? A('rg.subReg') : A('rg.subLogin');
     var f = '';
     if (isReg) {
-      f += '<div class="field"><label>账号（3-20 位字母 / 数字 / 下划线）</label><input type="text" id="auAccount" maxlength="20" placeholder="如 fuley2026" autocomplete="off"></div>'
-        + '<div class="field"><label>昵称</label><input type="text" id="auName" maxlength="20" placeholder="怎么称呼你"></div>';
+      f += '<div class="field"><label>' + A('f.accountHint') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + A('f.accountPh') + '" autocomplete="off"></div>'
+        + '<div class="field"><label>' + A('f.name') + '</label><input type="text" id="auName" maxlength="20" placeholder="' + A('f.namePh') + '"></div>';
     } else {
-      f += '<div class="field"><label>账号</label><input type="text" id="auAccount" maxlength="20" placeholder="请输入账号" autocomplete="off"></div>';
+      f += '<div class="field"><label>' + A('f.account') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + A('f.accountPh2') + '" autocomplete="off"></div>';
     }
-    f += '<div class="field"><label>密码（6-32 位，仅字母 / 数字）</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
-    if (isReg) f += '<div class="field"><label>确认密码</label><input type="password" id="auPass2" maxlength="32" placeholder="再输一次"></div>';
-    f += '<button class="btn" onclick="rgSubmit()">' + (isReg ? '注册并开始' : '登录') + '</button>';
+    f += '<div class="field"><label>' + A('f.pass') + '</label><input type="password" id="auPass" maxlength="32" placeholder="' + A('f.passPh') + '"></div>';
+    if (isReg) f += '<div class="field"><label>' + A('f.pass2') + '</label><input type="password" id="auPass2" maxlength="32" placeholder="' + A('f.pass2Ph') + '"></div>';
+    f += '<button class="btn" onclick="rgSubmit()">' + (isReg ? A('rg.regBtn') : A('rg.loginBtn')) + '</button>';
     document.getElementById('rgForm').innerHTML = f;
     document.getElementById('rgSwitch').innerHTML = isReg
-      ? '已有账号？<a onclick="authMode=\'login\';renderRegGate()">去登录</a>'
-      : '没有账号？<a onclick="authMode=\'register\';renderRegGate()">去注册</a>';
+      ? A('rg.hasAcc') + ' <a onclick="authMode=\'login\';renderRegGate()">' + A('rg.goLogin') + '</a>'
+      : A('rg.noAcc') + ' <a onclick="authMode=\'register\';renderRegGate()">' + A('rg.goReg') + '</a>';
   }
   function rgSubmit() { if (authMode === 'register') doRegister(); else doSignIn(); }
   function showTrialNotice(opt) {
     opt = opt || {};
-    document.getElementById('tnT').textContent = opt.title || '试用期 30 天';
-    document.getElementById('tnS').innerHTML = opt.body || '注册成功，欢迎加入浮乐！<br>当前为试用版，有效期 30 天，功能全部开放；到期后输入激活码可授权使用 1 年。';
+    document.getElementById('tnT').textContent = opt.title || A('trial.title');
+    document.getElementById('tnS').innerHTML = opt.body || A('trial.body');
     document.getElementById('tnLater').style.display = opt.later ? '' : 'none';
-    document.getElementById('tnOk').textContent = opt.okText || '知道了';
+    document.getElementById('tnLater').textContent = A('trial.later');
+    document.getElementById('tnOk').textContent = opt.okText || A('trial.ok');
     document.getElementById('trialNotice').classList.add('on');
   }
   function closeTrialNotice() { document.getElementById('trialNotice').classList.remove('on'); }
@@ -2378,9 +2996,26 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     document.getElementById('noteListCase').style.display = dir === 0 ? '' : 'none';
     document.getElementById('noteListRule').style.display = dir === 2 ? '' : 'none';
     document.getElementById('noteRuleChart').style.display = dir === 2 ? '' : 'none';
+    // 交易法则页隐藏输入框，并复位到"右侧交易"子tab
+    var showEditor = dir !== 2;
+    document.getElementById('noteInput').style.display = showEditor ? '' : 'none';
+    var ef = document.querySelector('#view-notes .efoot');
+    if (ef) ef.style.display = showEditor ? '' : 'none';
+    if (dir === 2) {
+      var rs = document.querySelectorAll('#ruleSubSeg button');
+      if (rs[0]) ruleSub(rs[0], 'right');
+    }
+  }
+  function ruleSub(btn, which) {
+    btn.parentElement.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+    btn.classList.add('on');
+    document.getElementById('ruleRight').style.display = which === 'right' ? '' : 'none';
+    document.getElementById('ruleLeft').style.display = which === 'left' ? '' : 'none';
   }
   // 初始化：默认选中红线，显示红线列表
   lampSeg(document.querySelectorAll('#lampSeg button')[0], 1);
+  // 初始化语言（中/英切换）：应用已保存语言到全局与「我的」页
+  applyLang();
   function delNote(btn) {
     btn.closest('.notecard').remove();
   }
@@ -3245,13 +3880,18 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     return out;
   }
   function renderCal() {
-    document.getElementById('calTitle').textContent = calY + '年' + (calM + 1) + '月';
+    var MON_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    var WD_EN = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    document.getElementById('calTitle').textContent = (LANG === 'en')
+      ? MON_EN[calM] + ' ' + calY
+      : calY + '年' + (calM + 1) + '月';
     var first = new Date(calY, calM, 1);
     var startDow = (first.getDay() + 6) % 7; // 周一=0
     var daysInMonth = new Date(calY, calM + 1, 0).getDate();
     var today = new Date();
     var todayStr = today.getFullYear() + '-' + (today.getMonth() + 1 < 10 ? '0' : '') + (today.getMonth() + 1) + '-' + (today.getDate() < 10 ? '0' : '') + today.getDate();
-    var html = ['一', '二', '三', '四', '五', '六', '日'].map(function (w) { return '<div class="cal-wd">' + w + '</div>'; }).join('');
+    var wd = (LANG === 'en') ? WD_EN : ['一', '二', '三', '四', '五', '六', '日'];
+    var html = wd.map(function (w) { return '<div class="cal-wd">' + w + '</div>'; }).join('');
     var b;
     for (b = 0; b < startDow; b++) html += '<div class="cal-day blank"></div>';
     for (var day = 1; day <= daysInMonth; day++) {
@@ -3507,7 +4147,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
       if (i === n - 1 && cur === 'trim') labCls += ' top';
       f += '<div class="btier">'
         + '<div class="bt-bg" style="clip-path:' + clip + ';background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(0,0,0,.05)),' + m.color + '"></div>'
-        + '<div class="' + labCls + '">' + (tg === 0 ? '' : '<span class="bt-no">第 ' + (srcIdx + 1) + ' 档 · ' + trigTxt + '</span>') + '<span class="bt-pc">' + pct.toFixed(0) + '%</span></div>'
+        + '<div class="' + labCls + '">' + (tg === 0 ? '' : '<span class="bt-no">' + (LANG === 'en' ? 'Tier ' + (srcIdx + 1) + ' · ' + trigTxt : '第 ' + (srcIdx + 1) + ' 档 · ' + trigTxt) + '</span>') + '<span class="bt-pc">' + pct.toFixed(0) + '%</span></div>'
         + '</div>';
     }
     var cap = (cur === 'add')
@@ -3518,7 +4158,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     // 逐档编辑表：档位 | 触发% | 比例%
     var e = '<div class="btr bth"><span class="bth1">档位</span><span class="bth2">' + m.unit1 + '</span><span class="bthu"></span><span class="bth2">' + m.unit2 + '</span><span class="bthu"></span></div>';
     for (var k = 0; k < n; k++) {
-      var noTxt = (cur === 'add' && k === 0) ? '第 1 档<i>建仓</i>' : '第 ' + (k + 1) + ' 档';
+      var noTxt = (cur === 'add' && k === 0) ? (LANG === 'en' ? 'Tier 1<i>open</i>' : '第 1 档<i>建仓</i>') : ((LANG === 'en' ? 'Tier ' + (k + 1) : '第 ' + (k + 1) + ' 档'));
       e += '<div class="btr">'
         + '<span class="bno">' + noTxt + '</span>'
         + '<input type="number" min="0" step="0.5" value="' + trigs[k] + '" onchange="bSetTrig(' + k + ',this.value)">'
@@ -3531,12 +4171,16 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 
     var sumTxt;
     if (cur === 'add') {
-      sumTxt = '共 <b>' + n + '</b> 档（含建仓）· 预算合计 <b>' + sum + '%</b>'
-        + (sum < 99.5 ? ' · 还剩 <b>' + (100 - sum).toFixed(0) + '%</b> 现金'
-           : (sum > 100.5 ? ' · <span class="warn">超出预算，请调低</span>' : ' · 预算全部排完'));
+      sumTxt = (LANG === 'en' ? 'Total <b>' + n + '</b> tiers (incl. open) · budget <b>' + sum + '%</b>'
+               : '共 <b>' + n + '</b> 档（含建仓）· 预算合计 <b>' + sum + '%</b>')
+        + (sum < 99.5 ? (LANG === 'en' ? ' · <b>' + (100 - sum).toFixed(0) + '%</b> cash left'
+            : ' · 还剩 <b>' + (100 - sum).toFixed(0) + '%</b> 现金')
+           : (sum > 100.5 ? (LANG === 'en' ? ' · <span class="warn">over budget, lower it</span>'
+            : ' · <span class="warn">超出预算，请调低</span>') : (LANG === 'en' ? ' · budget fully allocated' : ' · 预算全部排完')));
     } else {
-      sumTxt = '共 <b>' + n + '</b> 档 · 累计卖出 <b>' + sum + '%</b> 持仓 · 保留 <b>' + Math.max(0, 100 - sum).toFixed(0) + '%</b> 底仓'
-        + (sum > 100.5 ? ' · <span class="warn">超过持仓，请调低</span>' : '');
+      sumTxt = (LANG === 'en' ? 'Total <b>' + n + '</b> tiers · cumulative sold <b>' + sum + '%</b> · keep <b>' + Math.max(0, 100 - sum).toFixed(0) + '%</b> core'
+               : '共 <b>' + n + '</b> 档 · 累计卖出 <b>' + sum + '%</b> 持仓 · 保留 <b>' + Math.max(0, 100 - sum).toFixed(0) + '%</b> 底仓')
+        + (sum > 100.5 ? (LANG === 'en' ? ' · <span class="warn">exceeds holding, lower it</span>' : ' · <span class="warn">超过持仓，请调低</span>') : '');
     }
     document.getElementById('bsum').innerHTML = sumTxt;
   };
@@ -3545,6 +4189,9 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   bSyncCycle();
   bRender();
 })();
+// 全部动态内容初始化完成：此后语言切换可安全重渲染
+langInited = true;
+if (LANG === 'en' && typeof walkTranslate === 'function') walkTranslate();
 </script>
 </body>
 </html>
