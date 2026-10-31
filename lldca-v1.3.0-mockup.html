@@ -1171,32 +1171,16 @@
       <div class="hintbar">红线 = 绝不做 · 绿线 = 可重复 · 案例 = 复盘存档</div>
     </div>
 
-    <!-- ============ 加减仓页（建仓清仓条件 / 恐慌级别） ============ -->
+    <!-- ============ 加减仓页（加减仓法则 / 恐慌级别） ============ -->
     <div class="view" id="view-signals">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
-        <button class="on" data-pane="quiz" onclick="sigTab(this)">建仓清仓条件</button>
-        <button data-pane="build" onclick="sigTab(this)">加减仓法则</button>
+        <button class="on" data-pane="build" onclick="sigTab(this)">加减仓法则</button>
         <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
       </div>
 
-      <div id="quizPane">
-        <div class="dimseg quiz-sub" id="quizSubTabs">
-          <button class="on" data-side="buy" onclick="quizSub(this)">加仓</button>
-          <button data-side="sell" onclick="quizSub(this)">减仓</button>
-        </div>
-        <div class="quiz-head">
-          <div class="qh-l">已完成 <b id="qDone">0</b> / <span id="qTotal">10</span></div>
-          <div class="qbar"><i id="qFill"></i></div>
-        </div>
-        <div class="quiz-verdict" id="quizVerdict"></div>
-        <div id="quizList"></div>
-        <button class="qadd" onclick="addQuizItem()">+ 自定义题目</button>
-        <button class="qreset" onclick="resetQuiz()">重置，再来一轮</button>
-        <div class="hintbar">加仓 / 减仓各十道题 · 打勾计分，8 分及以上判定为「加仓 / 减仓」，不到 8 分为「不建议」<br>题库依据公开分享的加减仓体系整理：选股「第一或唯一」· 仓位 7–8.5 成 · 金字塔加减仓（档差 8%–15%）· 卖出四情形 · 2-3-3-2 节奏 · 仅作纪律检查清单，非投资建议</div>
-      </div>
 
-      <div id="buildPane" style="display:none">
+      <div id="buildPane">
         <div class="bseg" id="bseg">
           <button class="on" data-m="add" onclick="bSetMode('add')">应对下跌<small>正金字塔加仓</small></button>
           <button data-m="trim" onclick="bSetMode('trim')">应对上涨<small>倒金字塔减仓</small></button>
@@ -2389,7 +2373,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     noteCount.textContent = '0 / 500';
   }
 
-  /* ---------- 建仓清仓条件：加仓 / 减仓两套十题，得分 ≥ 8（含）得出结论 ---------- */
+  /* ---------- 加减仓法则 / 恐慌级别（题库已下线，代码保留） ---------- */
   var QUIZ_BUY_KEY = 'fuley_quiz_buy_v2';
   var QUIZ_SELL_KEY = 'fuley_quiz_sell_v2';
   var QUIZ_BUY_DEFAULT = [
@@ -2475,8 +2459,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     curQuizSide = btn.getAttribute('data-side') === 'sell' ? 'sell' : 'buy';
     btn.parentElement.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
     btn.classList.add('on');
-    renderQuiz();
-  }
+    }
   function toggleQ(i) {
     var items = quizItemsFor(curQuizSide);
     items[i].done = !items[i].done;
@@ -2528,7 +2511,6 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     var pane = btn.getAttribute('data-pane');
     document.querySelectorAll('#sigTabs button').forEach(function (b) { b.classList.remove('on'); });
     btn.classList.add('on');
-    document.getElementById('quizPane').style.display = pane === 'quiz' ? '' : 'none';
     document.getElementById('buildPane').style.display = pane === 'build' ? '' : 'none';
     document.getElementById('panicPane').style.display = pane === 'panic' ? '' : 'none';
     curSigPane = pane;
@@ -2536,11 +2518,9 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     var fab = document.getElementById('fab');
     fab.classList.toggle('hide', pane === 'panic' || pane === 'build');
     fab.setAttribute('title', pane === 'quiz' ? '自定义题目' : '添加加减仓提醒');
-    if (pane === 'quiz') renderQuiz();
     if (pane === 'panic') renderPanic();
   }
   var curSigPane = 'sig';
-  renderQuiz();
 
   /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
   var PANIC_KEY = 'fuley_panic_v1';
