@@ -365,6 +365,76 @@ return A.fetchInvestQuotes().then(function (changed) {
   ok('日历含英伟达财报', ev.some(function (e) { return e.t === 'earnings' && e.zh.indexOf('英伟达') >= 0; }), JSON.stringify(ev));
   ok('日历备注区分确认/预计', ev.length > 0 && /预计|已确认/.test(ev[ev.length - 1].note || ''));
 }).then(function () {
+  /* ============ 定投页改版：去掉 已定投 / 收益，仓位比可手动加标的 ============ */
+  const htmlSrc = fs.readFileSync(path.join(www, 'index.html'), 'utf8');
+  ok('已移除已定投面板', htmlSrc.indexOf('id="invPane"') < 0 && htmlSrc.indexOf('id="invList"') < 0);
+  ok('已移除收益面板', htmlSrc.indexOf('id="pnlPane"') < 0 && htmlSrc.indexOf('id="pnlRank"') < 0);
+  ok('定投页只剩 2 个子 tab', (htmlSrc.match(/data-pane="(list|pos|inv|pnl)"/g) || []).length === 2,
+    (htmlSrc.match(/data-pane="(list|pos|inv|pnl)"/g) || []).join(','));
+  ok('仓位比页保留占比容器', htmlSrc.indexOf('id="posAlloc"') >= 0);
+
+  /* 空态 */
+  A.allocs.length = 0;
+  A.renderPosRatio();
+  ok('占比空态引导', els['posAlloc'].innerHTML.indexOf('还没有标的占比') >= 0, els['posAlloc'].innerHTML.slice(0, 160));
+
+  /* 新增：股票名称 + 占比 */
+  el('afName').value = '英伟达'; el('afCode').value = 'nvda'; el('afPct').value = '30';
+  A.openAllocForm();
+  A.sheetSave();
+  eq('新增一条占比', A.allocs.length, 1);
+  eq('名称正确', A.allocs[0].name, '英伟达');
+  eq('代码转大写', A.allocs[0].code, 'NVDA');
+  eq('占比数值', A.allocs[0].pct, 30);
+  ok('占比落盘', (localStorageStub.getItem('fuley.alloc.v1') || '').indexOf('英伟达') >= 0);
+
+  el('afName').value = '苹果'; el('afCode').value = 'AAPL'; el('afPct').value = '45';
+  A.openAllocForm(); A.sheetSave();
+  el('afName').value = '微软'; el('afCode').value = 'MSFT'; el('afPct').value = '25';
+  A.openAllocForm(); A.sheetSave();
+  eq('合计三条', A.allocs.length, 3);
+  eq('合计占比 100', A.allocTotal(), 100);
+
+  /* 校验：空名称 / 超范围占比 */
+  const n0 = A.allocs.length;
+  el('afName').value = '  '; el('afPct').value = '10';
+  A.openAllocForm(); A.sheetSave();
+  eq('空名称不加', A.allocs.length, n0);
+  el('afName').value = '测试'; el('afPct').value = '130';
+  A.openAllocForm(); A.sheetSave();
+  eq('占比超 100 不加', A.allocs.length, n0);
+  el('afName').value = '测试'; el('afPct').value = '0';
+  A.openAllocForm(); A.sheetSave();
+  eq('占比为 0 不加', A.allocs.length, n0);
+
+  /* 编辑 */
+  const firstId = A.allocs[0].id;
+  A.openAllocForm(firstId);
+  el('afPct').value = '40';
+  A.sheetSave();
+  eq('编辑后占比更新', A.allocs.filter(function (a) { return a.id === firstId; })[0].pct, 40);
+  eq('编辑不新增', A.allocs.length, 3);
+
+  /* 渲染：合计超 100 标红 + 折算金额 */
+  A.plans.length = 0;
+  A.plans.push({ id: 'p1', name: '计划A', code: '510300', day: 1, amount: 2000 });
+  A.posCfg.override = 100;                 // 固定 100%，折算可预期
+  A.renderPosRatio();
+  const allocHtml = els['posAlloc'].innerHTML;
+  ok('合计超 100% 标红', allocHtml.indexOf('pos-alloc-sum over') >= 0, allocHtml.slice(0, 200));
+  ok('显示合计数值 110%', allocHtml.indexOf('110%') >= 0);
+  ok('折算金额 = 2000×40%', allocHtml.indexOf('800') >= 0, allocHtml);
+  ok('行可点编辑', allocHtml.indexOf('openAllocForm(') >= 0);
+
+  /* 删除 */
+  A.openAllocForm(firstId);
+  A.delAlloc();
+  eq('删除后剩两条', A.allocs.length, 2);
+  eq('删除后合计 70', A.allocTotal(), 70);
+  A.renderPosRatio();
+  ok('合计不足不标 over', els['posAlloc'].innerHTML.indexOf('over') < 0);
+  A.posCfg.override = null;
+}).then(function () {
   console.log('\n结果: ' + pass + ' 通过, ' + fail + ' 失败');
   process.exit(fail ? 1 : 0);
 }).catch(function (e) {
