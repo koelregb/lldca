@@ -948,17 +948,17 @@
         <div class="lrow">
           <div class="daychip"><div><div class="d">1</div><div class="m">每月</div></div></div>
           <div class="linfo"><div class="lname">英伟达</div><div class="lsub">NVDA · 美股</div></div>
-          <div class="lval"><div class="v1">¥2,000</div><div class="v2">下次提醒 11-01</div></div>
+          <div class="lval"><div class="v2">下次提醒 11-01</div></div>
         </div>
         <div class="lrow">
           <div class="daychip"><div><div class="d">10</div><div class="m">每月</div></div></div>
           <div class="linfo"><div class="lname">沪深300 ETF</div><div class="lsub">510300 · A股</div></div>
-          <div class="lval"><div class="v1">¥3,000</div><div class="v2">下次提醒 11-10</div></div>
+          <div class="lval"><div class="v2">下次提醒 11-10</div></div>
         </div>
         <div class="lrow">
           <div class="daychip"><div><div class="d">15</div><div class="m">每月</div></div></div>
           <div class="linfo"><div class="lname">腾讯控股</div><div class="lsub">00700 · 港股</div></div>
-          <div class="lval"><div class="v1">¥1,500</div><div class="v2">下次提醒 11-15</div></div>
+          <div class="lval"><div class="v2">下次提醒 11-15</div></div>
         </div>
       </div>
       <div class="hintbar">到定投日自动推送本地通知 · 点击条目可编辑</div>
@@ -984,29 +984,23 @@
           </div>
         </div>
 
-        <div class="pos-sum">
-          <div class="ps"><div class="ps-k">每月定投总额</div><div class="ps-v">¥6,500</div></div>
-          <div class="ps"><div class="ps-k">本期建议投入</div><div class="ps-v accent">¥4,550</div></div>
-          <div class="ps"><div class="ps-k">留存现金</div><div class="ps-v">¥1,950</div></div>
-        </div>
-
         <div class="pos-alloc-head"><span>标的仓位占比</span><span class="pos-alloc-sum short">合计 90%</span></div>
         <div class="listcard">
           <div class="lrow pos-row" onclick="openAllocForm()">
-            <div class="linfo"><div class="lname">英伟达<span class="inv-code">NVDA</span></div><div class="lsub">本期 ¥720</div></div>
-            <div class="lval"><div class="v1">30%</div><div class="v2">占比</div></div>
+            <div class="linfo"><div class="lname">英伟达<span class="inv-code">NVDA</span></div><div class="lsub">仓位占比</div></div>
+            <div class="lval"><div class="v1">30%</div><div class="v2">目标</div></div>
           </div>
           <div class="lrow pos-row" onclick="openAllocForm()">
-            <div class="linfo"><div class="lname">苹果<span class="inv-code">AAPL</span></div><div class="lsub">本期 ¥600</div></div>
-            <div class="lval"><div class="v1">25%</div><div class="v2">占比</div></div>
+            <div class="linfo"><div class="lname">苹果<span class="inv-code">AAPL</span></div><div class="lsub">仓位占比</div></div>
+            <div class="lval"><div class="v1">25%</div><div class="v2">目标</div></div>
           </div>
           <div class="lrow pos-row" onclick="openAllocForm()">
-            <div class="linfo"><div class="lname">微软<span class="inv-code">MSFT</span></div><div class="lsub">本期 ¥480</div></div>
-            <div class="lval"><div class="v1">20%</div><div class="v2">占比</div></div>
+            <div class="linfo"><div class="lname">微软<span class="inv-code">MSFT</span></div><div class="lsub">仓位占比</div></div>
+            <div class="lval"><div class="v1">20%</div><div class="v2">目标</div></div>
           </div>
           <div class="lrow pos-row" onclick="openAllocForm()">
-            <div class="linfo"><div class="lname">Meta<span class="inv-code">META</span></div><div class="lsub">本期 ¥360</div></div>
-            <div class="lval"><div class="v1">15%</div><div class="v2">占比</div></div>
+            <div class="linfo"><div class="lname">Meta<span class="inv-code">META</span></div><div class="lsub">仓位占比</div></div>
+            <div class="lval"><div class="v1">15%</div><div class="v2">目标</div></div>
           </div>
         </div>
         <div class="hintbar">点击条目可修改名称 / 代码 / 占比 · 合计超过 100% 会标红提示</div>
@@ -1019,7 +1013,7 @@
             <button onclick="posSet(this)">70%</button>
             <button onclick="posSet(this)">100%</button>
           </div>
-          <div class="hintbar">仓位比 = 本期实际投入 ÷ 每月计划金额 · 剩余留作现金 · 依据上证位置分位与 VIX 情绪</div>
+          <div class="hintbar">仓位比 = 本期投入比例 · 剩余留作现金 · 依据上证位置分位与 VIX 情绪</div>
         </div>
       </div>
 
@@ -1295,7 +1289,7 @@
   红 = 涨，绿 = 跌 · 曲线可左右拖动平移、滚轮 / 双指缩放、双击重置，单击看全屏大图<br>
   恒生 / 上证 = 腾讯真实历史数据（2000 年至今）· 标普 / 纳指 = 公开历史锚点插值<br>
   红绿灯页 = 选色切换列表（红线 · 禁忌 / 绿线 · 可重复 / 案例）<br>
-  定投页 = 定投计划（每月定投日 / 每期金额 / 到日推送本地通知）+ 定投仓位比（市场温度→建议仓位比 20%-100%，可手动 50 / 70 / 100%；标的仓位占比可手动添加「股票名称 + 代码 + 占比」，合计 ≠ 100% 标橙、> 100% 标红，折算金额 = 本期投入 × 占比）<br>  「已定投」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
+  定投页 = 定投计划（标的 / 每月定投日 / 到日推送本地通知，只记标的与日期不记金额）+ 定投仓位比（市场温度→建议仓位比 20%-100%，可手动 50 / 70 / 100%；标的仓位占比可手动添加「股票名称 + 代码 + 占比」，只记比例不记金额，合计 ≠ 100% 标橙、> 100% 标红）<br>  「已定投」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
   加减仓页 = 信号提醒 + 加减仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别（十级自评 + Kübler-Ross 五阶段）<br>
   加减仓信号 = 价格触发 + 定时提醒，可附加市盈率 P/E 条件（≤ / ≥）显示在价格后 · 价格触发可关联四大指数或任意代码（A 股 6 位 / 港股 5 位 / 美股字母），列表显示代码徽章 + 现价 + 涨跌 + 距触发幅度，到价推送本地通知<br>
   我的页：导出 / 备份完成后 toast 提示保存路径（「文档」目录，如 fuley-export-2026-10-28.json），并弹出系统分享面板可保存或发送<br>
@@ -1862,7 +1856,6 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
       body: '<div class="field"><label>标的名称</label><input type="text" placeholder="如 英伟达 / 沪深300 ETF"></div>'
         + '<div class="field"><label>代码</label><input type="text" placeholder="NVDA / 510300 / 00700"></div>'
         + '<div class="field"><label>每月定投日</label><input type="number" min="1" max="31" placeholder="1 - 31"></div>'
-        + '<div class="field"><label>每期金额（元）</label><input type="number" placeholder="如 2000"></div>'
     },
     signals: {
       title: '添加加减仓提醒',
