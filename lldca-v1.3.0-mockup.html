@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>浮乐 (fuley) 页面模型 · 对齐 v1.4.5</title>
+<title>浮乐 (fuley) 页面模型 · 对齐 v1.5.0</title>
 <style>
   :root {
     --bg: #eef1f6; --card: #ffffff; --ink: #1a2233; --sub: #8a93a6; --line: #e8ecf3;
@@ -246,7 +246,7 @@
   .pos-alloc-sum.over { color: #fff; background: var(--up); }
   .pos-alloc-sum.short { color: var(--accent); background: var(--chip); }
 
-  /* ---------- 已定投：定投记录 / 浮盈浮亏 ---------- */
+  /* ---------- 已定投：定投记录 / 浮盈浮亏（页面 v1.5.0 下线，样式保留） ---------- */
   .inv-card {
     background: var(--card); border-radius: 14px; padding: 12px 14px 6px;
     box-shadow: 0 2px 8px rgba(30,40,60,.04); margin-bottom: 10px;
@@ -796,7 +796,7 @@
 <body>
 
 <div class="page-head">
-  <h1>浮乐 (fuley) v1.3.0 · 页面模型</h1>
+  <h1>浮乐 (fuley) · 页面模型（对齐 v1.5.0）</h1>
   <p>大盘走势 + 提醒工具 — 可点击交互预览（Tab 切换 / 走势图 / 添加弹层）</p>
   <button class="theme-btn" onclick="toggleTheme()">切换深浅色</button>
 </div>
@@ -935,7 +935,7 @@
       </div>
     </div>
 
-    <!-- ============ 定投页（定投计划 / 定投仓位比 / 已定投 / 收益） ============ -->
+    <!-- ============ 定投页（定投计划 / 定投仓位比） ============ -->
     <div class="view" id="view-plan">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain t4" id="planTabs">
@@ -1189,7 +1189,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v">v1.3.0</span>
+          <span class="mrow-v">v1.5.0</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
@@ -1290,11 +1290,12 @@
   注册成功提示「试用期 30 天」· 试用最后一周（剩 ≤7 天）每次打开提醒一次剩余天数（按天去重，「去激活」直达授权弹层）<br>
   授权改为一年有效 / 一年一签：激活码内置到期日，到期前 15 天每天提示一次续签，到期后锁定需重新签署<br>
   走势页仅保留四大指数，个股自选与新高新低横幅已移除<br>
+  走势页第 6 个子 tab = 财报：七巨头财报日历（28 条节奏表）+ 距今天数 + 一键「财报前一天 21:00」系统提醒，与事件日历同一数据源<br>
   走势页首个子 tab = 股票：指数切换 + 大字报价头（已收盘状态）+ 分时 / 五日 / 日K / 周K / 月K / 季K / 年K / 更多 + 面积主图（昨收虚线 + 右侧百分比轴）+ 九宫格统计<br>
   红 = 涨，绿 = 跌 · 曲线可左右拖动平移、滚轮 / 双指缩放、双击重置，单击看全屏大图<br>
   恒生 / 上证 = 腾讯真实历史数据（2000 年至今）· 标普 / 纳指 = 公开历史锚点插值<br>
   红绿灯页 = 选色切换列表（红线 · 禁忌 / 绿线 · 可重复 / 案例）<br>
-  定投页 = 定投计划 + 定投仓位比（市场温度→建议仓位比 20%-100% + 按计划折算本期投入 + 手动微调）+ 已定投（股票名称 / 代码 / 定投数量 / 定投股价 / 现价 / 市值 / 浮盈浮亏，现价自动联网，红 = 浮盈 绿 = 浮亏）+ 收益（累计投入 / 当前市值 / 浮动盈亏 / 总收益率 + 按标的收益排行 + 按月投入占比条）<br>
+  定投页 = 定投计划（每月定投日 / 每期金额 / 到日推送本地通知）+ 定投仓位比（市场温度→建议仓位比 20%-100%，可手动 50 / 70 / 100%；标的仓位占比可手动添加「股票名称 + 代码 + 占比」，合计 ≠ 100% 标橙、> 100% 标红，折算金额 = 本期投入 × 占比）<br>  「已定投」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
   加减仓页 = 信号提醒 + 加减仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别（十级自评 + Kübler-Ross 五阶段）<br>
   加减仓信号 = 价格触发 + 定时提醒，可附加市盈率 P/E 条件（≤ / ≥）显示在价格后 · 价格触发可关联四大指数或任意代码（A 股 6 位 / 港股 5 位 / 美股字母），列表显示代码徽章 + 现价 + 涨跌 + 距触发幅度，到价推送本地通知<br>
   我的页：导出 / 备份完成后 toast 提示保存路径（「文档」目录，如 fuley-export-2026-10-28.json），并弹出系统分享面板可保存或发送<br>
@@ -1796,7 +1797,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   })();
 
   /* ---------- Tab 切换 ---------- */
-  var curPlanPane = 'list';   // 定投页子 tab：list=定投计划 pos=定投仓位比 inv=已定投 pnl=收益
+  var curPlanPane = 'list';   // 定投页子 tab：list=定投计划 pos=定投仓位比（已定投 / 收益 已下线）
   /* 原型占位：实际 App 中弹出「股票名称 / 代码 / 占比」表单 */
   function openAllocForm() { toast('原型：实际 App 中点击可编辑名称 / 代码 / 占比'); }
 
@@ -1880,7 +1881,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
         + '<div class="hintbar" style="margin:0">价格触发支持四大指数（标普500 / 纳斯达克 / 恒生指数 / 上证指数）与任意代码：A股 6 位 / 港股 5 位 / 美股字母 · 列表显示现价、涨跌与距触发幅度，到价即提醒</div>'
     }
   };
-  /* 记录定投（已定投子 tab 的 +）：股票名称 / 代码 / 定投数量 / 定投股价 */
+  /* 记录定投（旧「已定投」子 tab 的表单，页面已下线，代码保留供参考） */
   function openInvestSheet() {
     sheetMode = 'form';
     document.getElementById('sheetSave').textContent = '添加';
@@ -1987,7 +1988,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   function collectData() {
     function txt(sel, root) { var el = (root || document).querySelector(sel); return el ? el.textContent.trim() : ''; }
     return {
-      app: 'fuley', version: 'v1.4.5', exportedAt: new Date().toISOString(),
+      app: 'fuley', version: 'v1.5.0', exportedAt: new Date().toISOString(),
       plans: [].map.call(document.querySelectorAll('#view-plan .lrow'), function (r) {
         return { day: txt('.d', r), name: txt('.lname', r), code: txt('.lsub', r), amount: txt('.v1', r), next: txt('.v2', r) };
       }),
