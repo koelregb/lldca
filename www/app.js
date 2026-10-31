@@ -391,12 +391,6 @@ function refreshQuotes() {
     refreshGold();
     renderIndices();
     if (curTab === 'plan' && curPlanPane === 'pos') renderPosRatio();
-    if (curTab === 'plan' && curPlanPane === 'inv') {
-      fetchInvestQuotes().then(function () { renderInvests(); }, function () { renderInvests(); });
-    }
-    if (curTab === 'plan' && curPlanPane === 'pnl') {
-      fetchInvestQuotes().then(function () { renderPnl(); }, function () { renderPnl(); });
-    }
     /* 加减仓关联行情：自定义代码每轮联网刷新，价格变动即重判触发 */
     fetchSignalQuotes().then(function (changed) {
       if (changed) {
@@ -641,7 +635,6 @@ function switchTab(btn) {
   // FAB 显隐：定投=添加计划；加减仓=添加提醒(条件页=添加题目，恐慌页隐藏)；走势-日历=标记事件；红绿灯/我的=无
   var hideFab = id === 'notes' || id === 'me'
     || (id === 'home' && curHomePane !== 'cal')
-    || (id === 'plan' && (curPlanPane === 'pos' || curPlanPane === 'pnl'))
     || (id === 'signals' && curSigPane === 'panic');
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', hideFab);
@@ -653,7 +646,7 @@ function switchTab(btn) {
   } else if (id === 'home') {
     fab.setAttribute('title', L('标记事件', 'Add event'));
   } else if (id === 'plan') {
-    fab.setAttribute('title', curPlanPane === 'inv' ? L('记录定投', 'Log DCA') : L('添加定投提醒', 'Add plan'));
+    fab.setAttribute('title', curPlanPane === 'pos' ? L('添加标的占比', 'Add allocation') : L('添加定投提醒', 'Add plan'));
   }
 }
 
@@ -667,8 +660,7 @@ function openSheet() {
   if (curTab === 'home' && curHomePane === 'cal') { openCalEvent(); return; }
   if (curTab === 'signals' && curSigPane === 'quiz') { openQuizSheet(); return; }
   if (curTab === 'plan') {
-    if (curPlanPane === 'pos') return;      // 仓位比页无新增动作
-    if (curPlanPane === 'inv') { editInvId = null; openInvestForm(); return; }
+    if (curPlanPane === 'pos') { editAllocId = null; openAllocForm(); return; }   // 仓位比页：添加标的占比
     editPlanId = null; openPlanForm(); return;
   }
   if (curTab === 'signals') { editSigId = null; openSignalForm(); return; }
@@ -687,6 +679,7 @@ function sheetSave() {
   if (sheetMode === 'calev') { calSave(); return; }
   if (sheetMode === 'license') { activateLicense(); return; }
   if (sheetMode === 'plan') { savePlanForm(); return; }
+  if (sheetMode === 'alloc') { saveAllocForm(); return; }
   if (sheetMode === 'inv') { saveInvForm(); return; }
   if (sheetMode === 'signal') { saveSignalForm(); return; }
   closeSheet();
@@ -829,6 +822,63 @@ function dcaPosModel() {
     auto: auto, use: manual ? posCfg.override : auto, manual: manual, ok: idxPct != null
   };
 }
+/* ---------- 标的仓位占比（手动维护：股票名称 + 占比） ---------- */
+var ALLOC_KEY = 'fuley.alloc.v1';
+var allocs = loadJSON(ALLOC_KEY, []);
+if (!Array.isArray(allocs)) allocs = [];
+var editAllocId = null;
+function saveAllocs() { saveJSON(ALLOC_KEY, allocs); }
+function fmtPct1(v) { var n = Number(v) || 0; return n % 1 ? n.toFixed(1) : String(n); }
+function allocTotal() {
+  var t = 0;
+  allocs.forEach(function (a) { t += Number(a.pct) || 0; });
+  return t;
+}
+function openAllocForm(id) {
+  var a = id ? allocs.filter(function (x) { return x.id === id; })[0] : null;
+  editAllocId = a ? a.id : null;
+  sheetMode = 'alloc';
+  document.getElementById('sheetSave').textContent = a ? '保存' : '添加';
+  document.getElementById('sheetTitle').textContent = a ? '编辑标的占比' : '添加标的占比';
+  var body = '';
+  if (a) body += '<button class="btn ghost btn-block" style="margin-bottom:12px" onclick="delAlloc()">删除此标的</button>';
+  body += '<div class="field"><label>' + L('股票名称', 'Name') + '</label><input type="text" id="afName" maxlength="30" placeholder="' + L('如 英伟达 / 苹果', 'e.g. NVIDIA / Apple') + '" value="' + esc(a ? a.name : '') + '"></div>'
+    + '<div class="field"><label>' + L('代码（可选）', 'Code (optional)') + '</label><input type="text" id="afCode" maxlength="20" placeholder="NVDA / AAPL" value="' + esc(a ? (a.code || '') : '') + '"></div>'
+    + '<div class="field"><label>' + L('仓位占比（%）', 'Weight (%)') + '</label><input type="number" id="afPct" min="0.1" max="100" step="0.1" placeholder="' + L('如 25', 'e.g. 25') + '" value="' + (a ? a.pct : '') + '"></div>'
+    + '<div class="quick">' + [10, 15, 20, 25, 30].map(function (v) {
+        return '<span onclick="document.getElementById(\'afPct\').value=' + v + '">' + v + '%</span>';
+      }).join('') + '</div>'
+    + '<div class="hintbar" style="margin:0">' + L('占比为手动设置，全部标的合计建议 100%；折算金额 = 本期投入 × 占比', 'Weights are manual; aim for 100% in total. Amount = this period × weight') + '</div>';
+  document.getElementById('sheetBody').innerHTML = body;
+  showSheet();
+}
+function saveAllocForm() {
+  var name = (document.getElementById('afName').value || '').trim();
+  var code = (document.getElementById('afCode').value || '').trim().toUpperCase();
+  var pct = Number(document.getElementById('afPct').value);
+  if (!name) { toast(L('请填写股票名称', 'Enter a name')); return; }
+  if (!isFinite(pct) || pct <= 0 || pct > 100) { toast(L('占比需在 0.1% - 100% 之间', 'Weight must be 0.1% - 100%')); return; }
+  if (editAllocId) {
+    allocs.forEach(function (a) { if (a.id === editAllocId) { a.name = name; a.code = code; a.pct = pct; } });
+  } else {
+    allocs.push({ id: genId(), name: name, code: code, pct: pct });
+  }
+  saveAllocs();
+  renderPosRatio();
+  closeSheet();
+  toast(editAllocId ? L('已保存', 'Saved') : L('已添加 ' + name, 'Added ' + name));
+  editAllocId = null;
+}
+function delAlloc() {
+  if (!editAllocId) return;
+  allocs = allocs.filter(function (a) { return a.id !== editAllocId; });
+  saveAllocs();
+  renderPosRatio();
+  closeSheet();
+  toast(L('已删除', 'Removed'));
+  editAllocId = null;
+}
+
 function posBand(r) {
   if (r >= 90) return { zh: '低位区 · 加码定投', en: 'Cheap · add more', actZh: '位置与情绪都在低位，可加倍投入', actEn: 'Valuation and sentiment are both low — double up', cls: 'buy' };
   if (r >= 70) return { zh: '偏低区 · 适度加码', en: 'Below average · add a bit', actZh: '仍低于中枢，可在计划上小幅加码', actEn: 'Still below the mid-line — add a little', cls: 'buy' };
@@ -861,34 +911,39 @@ function renderPosRatio() {
     return '<span class="pos-chip">' + t + '</span>';
   }).join('');
 
-  /* 各计划分配 */
+  /* 各计划总额 + 标的仓位占比（手动维护） */
   var box = document.getElementById('posAlloc');
   var total = 0;
   plans.forEach(function (p) { total += Number(p.amount) || 0; });
   var invest = total * m.use / 100, cash = total - invest;
-  if (!plans.length) {
-    box.innerHTML = '<div class="listcard"><div class="empty">' + L('还没有定投计划<br>先到「定投计划」添加一个', 'No plans yet<br>Add one in Plans') + '</div></div>';
-    return;
-  }
-  var h = '<div class="pos-sum">'
-    + '<div class="ps"><div class="ps-k">' + L('每月定投总额', 'Monthly total') + '</div><div class="ps-v">¥' + fmtAmt(total) + '</div></div>'
-    + '<div class="ps"><div class="ps-k">' + L('本期建议投入', 'Invest this period') + '</div><div class="ps-v accent">¥' + fmtAmt(Math.round(invest)) + '</div></div>'
-    + '<div class="ps"><div class="ps-k">' + L('留存现金', 'Cash left') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(cash)) + '</div></div>'
-    + '</div>';
-  h += '<div class="listcard">';
-  plans.forEach(function (p) {
-    var amt = Number(p.amount) || 0;
-    var share = total > 0 ? amt / total * 100 : 0;
-    var put = Math.round(amt * m.use / 100);
-    h += '<div class="lrow pos-row" onclick="editPlan(\'' + p.id + '\')">'
-      + '<div class="linfo"><div class="lname">' + esc(p.name) + '</div>'
-      + '<div class="lsub">' + esc(p.code || '—') + ' · ' + L('占比', 'Weight') + ' ' + share.toFixed(0) + '%</div></div>'
-      + '<div class="lval"><div class="v1">¥' + fmtAmt(put) + '</div>'
-      + '<div class="v2">' + L('计划 ¥' + fmtAmt(amt), 'Plan ¥' + fmtAmt(amt)) + '</div></div>'
+  var h = '';
+  if (plans.length) {
+    h += '<div class="pos-sum">'
+      + '<div class="ps"><div class="ps-k">' + L('每月定投总额', 'Monthly total') + '</div><div class="ps-v">¥' + fmtAmt(total) + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('本期建议投入', 'Invest this period') + '</div><div class="ps-v accent">¥' + fmtAmt(Math.round(invest)) + '</div></div>'
+      + '<div class="ps"><div class="ps-k">' + L('留存现金', 'Cash left') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(cash)) + '</div></div>'
       + '</div>';
-  });
+  }
+  var tot = allocTotal();
+  var sumCls = tot > 100.05 ? ' over' : (allocs.length && tot < 99.95 ? ' short' : '');
+  h += '<div class="pos-alloc-head"><span>' + L('标的仓位占比', 'Allocation by name') + '</span>'
+    + '<span class="pos-alloc-sum' + sumCls + '">' + L('合计 ', 'Total ') + fmtPct1(tot) + '%</span></div>';
+  h += '<div class="listcard">';
+  if (!allocs.length) {
+    h += '<div class="empty">' + L('还没有标的占比<br>点右下角 + 添加股票名称与占比', 'No weights yet<br>Tap + to add a name and weight') + '</div>';
+  } else {
+    allocs.forEach(function (a) {
+      var amt = invest > 0 ? Math.round(invest * (Number(a.pct) || 0) / 100) : null;
+      h += '<div class="lrow pos-row" onclick="openAllocForm(\'' + a.id + '\')">'
+        + '<div class="linfo"><div class="lname">' + esc(a.name) + (a.code ? '<span class="inv-code">' + esc(a.code) + '</span>' : '') + '</div>'
+        + '<div class="lsub">' + L('本期 ', 'This period ') + (amt == null ? L('待填计划金额', 'add a plan amount') : '¥' + fmtAmt(amt)) + '</div></div>'
+        + '<div class="lval"><div class="v1">' + fmtPct1(a.pct) + '%</div>'
+        + '<div class="v2">' + L('占比', 'weight') + '</div></div>'
+        + '</div>';
+    });
+  }
   h += '</div>';
-  h += '<div class="hintbar" style="margin-top:4px">' + L('按仓位比折算后的本期投入 · 点击条目可编辑计划', 'Amounts scaled by the ratio · tap a row to edit') + '</div>';
+  h += '<div class="hintbar" style="margin-top:4px">' + L('点击条目可修改名称 / 代码 / 占比 · 合计超过 100% 会标红提示', 'Tap a row to edit name / code / weight · over 100% is flagged') + '</div>';
   box.innerHTML = h;
 }
 function posSet(btn) {
@@ -915,24 +970,12 @@ function planTab(btn) {
   btn.classList.add('on');
   document.getElementById('planPane').style.display = pane === 'list' ? '' : 'none';
   document.getElementById('posPane').style.display = pane === 'pos' ? '' : 'none';
-  var inv = document.getElementById('invPane');
-  if (inv) inv.style.display = pane === 'inv' ? '' : 'none';
-  var pnl = document.getElementById('pnlPane');
-  if (pnl) pnl.style.display = pane === 'pnl' ? '' : 'none';
   curPlanPane = pane;
   var fab = document.getElementById('fab');
-  fab.classList.toggle('hide', pane === 'pos' || pane === 'pnl');
-  fab.setAttribute('title', pane === 'inv' ? L('记录定投', 'Log DCA') : L('添加定投提醒', 'Add plan'));
+  fab.classList.toggle('hide', false);
+  fab.setAttribute('title', pane === 'pos' ? L('添加标的占比', 'Add allocation') : L('添加定投提醒', 'Add plan'));
   if (pane === 'list') renderPlans();
   if (pane === 'pos') { syncPosTune(); renderPosRatio(); }
-  if (pane === 'inv') {
-    renderInvests();
-    fetchInvestQuotes().then(function () { if (curPlanPane === 'inv') renderInvests(); });
-  }
-  if (pane === 'pnl') {
-    renderPnl();
-    fetchInvestQuotes().then(function () { if (curPlanPane === 'pnl') renderPnl(); });
-  }
 }
 
 /* ---------- 已定投：每笔定投记录 / 定投数量 / 定投股价 / 浮盈浮亏 ---------- */
@@ -2683,7 +2726,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.4.9';
+var APP_VERSION = 'v1.5.0';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -3024,8 +3067,6 @@ function toast(msg) {
   renderPlans();
   syncPosTune();
   renderPosRatio();
-  renderInvests();
-  renderPnl();
   renderSignals();
   renderNotes();
   renderQuiz();

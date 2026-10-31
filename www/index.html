@@ -138,8 +138,6 @@
       <div class="ntabs plain t4" id="planTabs">
         <button class="on" data-pane="list" onclick="planTab(this)">定投计划</button>
         <button data-pane="pos" onclick="planTab(this)">定投仓位比</button>
-        <button data-pane="inv" onclick="planTab(this)">已定投</button>
-        <button data-pane="pnl" onclick="planTab(this)">收益</button>
       </div>
 
       <div id="planPane">
@@ -179,18 +177,6 @@
         </div>
       </div>
 
-      <div id="invPane" style="display:none">
-        <div id="invSum"></div>
-        <div id="invList"></div>
-        <div class="hintbar">记录每笔定投的股票名称 / 数量 / 定投股价 · 现价自动联网更新 · 红 = 浮盈，绿 = 浮亏</div>
-      </div>
-
-      <div id="pnlPane" style="display:none">
-        <div id="pnlSum"></div>
-        <div id="pnlRank"></div>
-        <div id="pnlMonths"></div>
-        <div class="hintbar">收益 = 当前市值 − 累计投入 · 现价自动联网更新 · 红 = 盈利，绿 = 亏损 · 数据来自「已定投」记录</div>
-      </div>
     </section>
 
     <!-- ============ 红绿灯页 ============ -->
@@ -325,7 +311,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.4.9</span>
+          <span class="mrow-v" id="appVer">v1.5.0</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
