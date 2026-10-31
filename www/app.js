@@ -1504,9 +1504,30 @@ function lampSeg(btn, dir) {
   });
   if (dir === 0) { btn.classList.add('on'); }
   else { btn.classList.add('on', dir > 0 ? 'red' : 'green'); }
+  var editor = document.querySelector('#view-notes .editor');
+  if (editor) editor.style.display = dir === 2 ? 'none' : '';
   document.getElementById('noteListRed').style.display = dir === 1 ? '' : 'none';
   document.getElementById('noteListGreen').style.display = dir === -1 ? '' : 'none';
   document.getElementById('noteListCase').style.display = dir === 0 ? '' : 'none';
+  var rc = document.getElementById('noteRuleChart');
+  var rl = document.getElementById('noteListRule');
+  if (rc) rc.style.display = dir === 2 ? '' : 'none';
+  if (rl) rl.style.display = dir === 2 ? '' : 'none';
+  if (dir === 2) {
+    // 复位子tab到右侧
+    var sub = document.querySelectorAll('#ruleSubSeg button');
+    sub.forEach(function (b) { b.classList.remove('on'); });
+    if (sub[0]) sub[0].classList.add('on');
+    var rr = document.getElementById('ruleRight'), lr = document.getElementById('ruleLeft');
+    if (rr) rr.style.display = '';
+    if (lr) lr.style.display = 'none';
+  }
+}
+function ruleSub(btn, which) {
+  btn.parentElement.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  document.getElementById('ruleRight').style.display = which === 'right' ? '' : 'none';
+  document.getElementById('ruleLeft').style.display = which === 'left' ? '' : 'none';
 }
 function addNote() {
   var ta = document.getElementById('noteInput');
@@ -1532,31 +1553,100 @@ function delNote(kind, i) {
 }
 
 /* ---------- 加减仓条件：加仓 / 减仓两套十题，得分 ≥ 8（含）得出结论 ---------- */
-var QUIZ_BUY_KEY = 'fuley_quiz_buy_v1';
-var QUIZ_SELL_KEY = 'fuley_quiz_sell_v1';
+/* ---------- 建仓法则：正 / 倒金字塔 × 加仓 / 减仓 ---------- */
+var BUILD_RULES = [
+  {
+    key: 'up-add', tag: '正金字塔 · 加仓', sub: '追涨 / 右侧',
+    rows: [
+      ['档位', '首档 40% → 30% → 20% → 10%（越涨加越少）'],
+      ['档差', '每涨 5%–8% 一档，价格确认上行再加'],
+      ['用途', '趋势确认后补仓，成本仍能压住'],
+      ['注意', '不预测顶部，但每档只加一次，不重复追']
+    ]
+  },
+  {
+    key: 'down-add', tag: '倒金字塔 · 加仓', sub: '抄底 / 左侧',
+    rows: [
+      ['档位', '1 - 1 - 1.5 - 2 - 2 - 2.5（越跌买越多）'],
+      ['档差', '8%–15%；资金少拉到 10%–15%，资金大用 5%'],
+      ['前提', '标的「第一兼唯一」、三表健康，否则越补越亏'],
+      ['上限', '加完总仓位不超过 8 成，常态 7–7.5 成']
+    ]
+  },
+  {
+    key: 'up-trim', tag: '正金字塔 · 减仓', sub: '先落袋',
+    rows: [
+      ['档位', '50% → 30% → 20%（先卖大头）'],
+      ['触发', '到达目标价即执行，不等更高'],
+      ['用途', '担心回吐、想先锁本金时用'],
+      ['代价', '牛市中容易卖得太早']
+    ]
+  },
+  {
+    key: 'down-trim', tag: '倒金字塔 · 减仓', sub: '标准止盈',
+    rows: [
+      ['档位', '30 → 50 → 80（越涨卖越多）'],
+      ['触发', '涨幅 30% 以上才开始；PEG ≥ 2 提前减'],
+      ['目标', '先收回本金，剩余做成零成本'],
+      ['节奏', '2-3-3-2：30–50% 卖约 20%，50–80% 再卖 30%']
+    ]
+  }
+];
+var BUILD_LAWS = [
+  '先定这只标的的总预算，再排档位 —— 不是跌了才想买多少',
+  '至少分 5 档，两三次打完是最常见的错误',
+  '永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓',
+  '标的必须基本面可靠；倒金字塔抄底用在垃圾股上等于加速亏损',
+  '越涨越卖时先收回本金，剩下的才是利润在跑'
+];
+function renderBuildRules() {
+  var box = document.getElementById('buildRules');
+  if (!box) return;
+  var h = '<div class="hintbar" style="margin-top:0">' + L('正 / 倒描述的是「动作量的形状」，加仓减仓是方向 · 按动作量命名，若按持仓形状命名，第 2 张卡会被叫作「正金字塔」', 'Up/down describes the shape of each action; buy/sell is the direction') + '</div>';
+  BUILD_RULES.forEach(function (r) {
+    h += '<div class="build-card">'
+      + '<div class="bc-h"><span class="bc-tag">' + L(r.tag, r.tag) + '</span><span class="bc-sub">' + L(r.sub, r.sub) + '</span></div>';
+    r.rows.forEach(function (row) {
+      h += '<div class="bc-row"><span class="bc-k">' + L(row[0], row[0]) + '</span><span class="bc-v">' + L(row[1], row[1]) + '</span></div>';
+    });
+    h += '</div>';
+  });
+  h += '<div class="pnl-t">' + L('五条铁律', 'Five rules') + '</div><div class="listcard bc-laws">';
+  BUILD_LAWS.forEach(function (t, i) {
+    h += '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + L(t, t) + '</span></div>';
+  });
+  h += '</div>';
+  h += '<div class="hintbar">' + L('参数取自公开分享的加减仓体系（金字塔 / 倒金字塔），仅作纪律参考，不构成投资建议', 'Parameters from publicly shared position-sizing frameworks; discipline reference only') + '</div>';
+  box.innerHTML = h;
+}
+
+var QUIZ_BUY_KEY = 'fuley_quiz_buy_v2';
+var QUIZ_SELL_KEY = 'fuley_quiz_sell_v2';
+/* 题库依据：雪球《闲恒周记：投资方法研究（6）金渐成》公开分享的加减仓体系整理
+   选股「第一或唯一」· 仓位 7-8.5 成 · 金字塔加减仓（档差 8%-15%）· 卖出四情形 · 2-3-3-2 节奏 */
 var QUIZ_BUY_DEFAULT = [
-  '这笔操作在计划名单内，不是临时起意？',
-  '加仓触发条件（价格 / 市盈率 / 时间）已确认满足？',
-  '加仓后单一标的仓位仍不超过总仓位 20%？',
-  '应急金与日常开支不受这笔钱影响？',
-  '投入的资金 3 年内不需要动用？',
-  '当前估值相对历史分位仍处于偏低区间？',
-  '若反向波动 10%，能按原计划执行、不情绪化操作？',
-  '没有陷入「这次不一样」的追高叙事？',
-  '仓位与计划比例一致，没有被情绪放大？',
-  '这笔操作敢不敢被未来的自己复盘？'
+  '标的属于「第一或唯一」：市占率第一，且护城河不易被复制？',
+  '这一档的买入节点与资金体量，事先已经排好（不是临时起意）？',
+  '现价较上一档回落，价差已拉开到 8%–15% 的档位？',
+  '越跌越买：本档买入量大于上一档（金字塔加仓）？',
+  '加仓后总仓位仍不超过 8 成（常态 7–7.5 成）？',
+  '这笔钱不是应急金，3 年内不需要动用？',
+  '三表健康：有息负债低、净现金为正、经营现金流为正？',
+  '估值讲得清：远期 PE / PEG / FCF 增长可解释，PEG 未接近 2？',
+  '不是在追高：若已高于上档 30% 以上，理由是趋势确认而非怕错过？',
+  '若再跌 10%，仍能按计划加下一档而不动摇？'
 ];
 var QUIZ_SELL_DEFAULT = [
-  '这笔卖出在计划名单内，不是临时起意？',
-  '减仓触发条件（价格 / 市盈率 / 时间）已确认满足？',
-  '卖出理由属于计划内动作（估值过高 / 逻辑破坏 / 再平衡）？',
-  '卖出后现有持仓仍能覆盖原定的配置目标？',
-  '不依赖这笔资金应付已知的近期开支？',
-  '当前估值相对历史分位已进入偏高区间？',
-  '若继续上涨 10%，不会因为卖飞而追回？',
-  '没有陷入「再等等能卖更高」的贪婪叙事？',
-  '卖出比例与计划一致，没有被情绪放大？',
-  '这笔操作敢不敢被未来的自己复盘？'
+  '卖出属于四类之一：做 T 小减、PEG≥2、有更好标的、基本面恶化？',
+  '持仓已有 30% 以上涨幅（小体量再平衡除外）？',
+  'PEG 已 ≥ 2，成长速度跟不上股价？',
+  '基本面出现恶化迹象（现金流 / 毛利率 / 订单）？',
+  '出现了确定性更高、性价比更好的标的（机会成本）？',
+  '总仓位已超 8 成，需要再平衡、转配置防御型资产？',
+  '按倒金字塔卖出：本档卖出量大于上一档？',
+  '按 2-3-3-2 节奏：30–50% 阶段只卖约 20%，不是一次清仓？',
+  '趋势确实走坏：震荡区反复无法突破且无确定性利好？',
+  '若卖出后继续涨 10%，不会因卖飞而追回？'
 ];
 var curQuizSide = 'buy';                 // buy = 加仓 / sell = 减仓
 function quizKey() { return curQuizSide === 'sell' ? QUIZ_SELL_KEY : QUIZ_BUY_KEY; }
@@ -1662,12 +1752,14 @@ function sigTab(btn) {
   document.querySelectorAll('#sigTabs button').forEach(function (b) { b.classList.remove('on'); });
   btn.classList.add('on');
   document.getElementById('quizPane').style.display = pane === 'quiz' ? '' : 'none';
+  document.getElementById('buildPane').style.display = pane === 'build' ? '' : 'none';
   document.getElementById('panicPane').style.display = pane === 'panic' ? '' : 'none';
   curSigPane = pane;
   var fab = document.getElementById('fab');
-  fab.classList.toggle('hide', pane === 'panic');
+  fab.classList.toggle('hide', pane === 'panic' || pane === 'build');
   fab.setAttribute('title', L('自定义题目', 'Custom question'));
   if (pane === 'quiz') renderQuiz();
+  if (pane === 'build') renderBuildRules();
   if (pane === 'panic') renderPanic();
 }
 
@@ -2463,7 +2555,7 @@ var CAL_TYPES = {
 var CAL_EVENTS = (function () {
   var ev = [];
   var FOMC_2026 = ['2026-01-27', '2026-03-17', '2026-04-28', '2026-06-16', '2026-07-28', '2026-09-15', '2026-10-27', '2026-12-08'];
-  FOMC_2026.forEach(function (d) { ev.push({ d: d, t: 'econ', title: '美联储 FOMC 利率决议', note: '官方日程' }); });
+  FOMC_2026.forEach(function (d) { ev.push({ d: d, t: 'econ', title: '美联储 FOMC 利率决议', zh: '美联储 FOMC 利率决议', en: 'FOMC rate decision', note: '官方日程', nz: '官方日程', ne: 'Official calendar' }); });
   var y, m;
   for (y = 2026; y <= 2027; y++) {
     for (m = 1; m <= 12; m++) {
@@ -2473,12 +2565,12 @@ var CAL_EVENTS = (function () {
       var offset = (5 - dow + 7) % 7; // 到周五
       var nfp = new Date(y, m - 1, 1 + offset);
       var nd = nfp.getFullYear() + '-' + mm + '-' + (nfp.getDate() < 10 ? '0' : '') + nfp.getDate();
-      ev.push({ d: nd, t: 'econ', title: '美国非农就业报告', note: '约每月首个周五' });
-      ev.push({ d: y + '-' + mm + '-13', t: 'econ', title: '美国 CPI 物价指数', note: '约中旬发布' });
+      ev.push({ d: nd, t: 'econ', title: '美国非农就业报告', zh: '美国非农就业报告', en: 'US nonfarm payrolls', note: '约每月首个周五', nz: '约每月首个周五', ne: 'First Friday, approx.' });
+      ev.push({ d: y + '-' + mm + '-13', t: 'econ', title: '美国 CPI 物价指数', zh: '美国 CPI 物价指数', en: 'US CPI', note: '约中旬发布', nz: '约中旬发布', ne: 'Mid-month, approx.' });
     }
   }
-  ev.push({ d: '2026-11-03', t: 'vote', title: '美国中期选举', note: '国会改选' });
-  ev.push({ d: '2028-11-07', t: 'vote', title: '美国总统大选', note: '预测日程' });
+  ev.push({ d: '2026-11-03', t: 'vote', title: '美国中期选举', zh: '美国中期选举', en: 'US midterm elections', note: '国会改选', nz: '国会改选', ne: 'Congressional races' });
+  ev.push({ d: '2028-11-07', t: 'vote', title: '美国总统大选', zh: '美国总统大选', en: 'US presidential election', note: '预测日程', nz: '预测日程', ne: 'Scheduled' });
   EARN.forEach(function (x) {
     ev.push({
       d: x.d, t: 'earnings',
@@ -2526,6 +2618,7 @@ function renderCal() {
   var grid = document.getElementById('calGrid');
   grid.className = 'cal-grid' + (monthHasErn ? ' ern-month' : '');
   grid.innerHTML = html;
+  renderMonthList();
   document.getElementById('calSelTitle').textContent = calSel + ' 事件';
   renderCalEvents();
 }
@@ -2542,7 +2635,7 @@ function renderCalEvents() {
     html += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '">'
       + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
       + '<div class="ct-t"></div>'
-      + '<span class="ct-n">' + esc(calNoteText(e.note)) + '</span>'
+      + '<span class="ct-n">' + esc(evNote(e)) + '</span>'
       + (e.t === 'custom' ? '<button class="ct-del" title="删除" onclick="delCalEvent(' + e.idx + ')">×</button>' : '')
       + '</div>';
   });
@@ -2552,11 +2645,51 @@ function renderCalEvents() {
     row.querySelector('.ct-t').textContent = it.zh ? L(it.zh, it.en) : it.title;
   });
 }
+function evNote(e) {
+  if (!e) return '';
+  if (e.ne) return L(e.nz || e.note || '', e.ne);
+  return calNoteText(e.note);
+}
 function calNoteText(n) {
   if (n === '预计') return L('预计', 'est.');
   if (n === '已确认') return L('已确认', 'confirmed');
   if (n === '自定义') return L('自定义', 'custom');
   return n || '';
+}
+/* 本月重点：把当月所有日程按日期排成清单（含自定义），放在月历下方 */
+function monthEvents() {
+  var pre = calY + '-' + (calM + 1 < 10 ? '0' : '') + (calM + 1);
+  var out = [];
+  CAL_EVENTS.forEach(function (e) {
+    if (String(e.d).indexOf(pre) === 0) out.push({ d: e.d, t: e.t, zh: e.zh, en: e.en, title: e.title, note: e.note, nz: e.nz, ne: e.ne });
+  });
+  calCustom.forEach(function (c) {
+    if (String(c.d).indexOf(pre) === 0) out.push({ d: c.d, t: c.t, title: c.title, note: '自定义' });
+  });
+  out.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+  return out;
+}
+function renderMonthList() {
+  var box = document.getElementById('calMonthList');
+  if (!box) return;
+  var evs = monthEvents();
+  var hasErn = evs.some(function (e) { return e.t === 'earnings'; });
+  var h = '<div class="cal-mt">' + L((calM + 1) + ' 月重点', calMonths[calM] + ' highlights')
+    + (hasErn ? '<span class="cal-mtag">' + L('财报季', 'earnings season') + '</span>' : '')
+    + '<em>' + evs.length + L(' 件', ' items') + '</em></div>';
+  if (!evs.length) {
+    h += '<div class="cal-empty">' + L('本月没有预置日程 · 可点下方「标记事件」补充', 'Nothing scheduled this month') + '</div>';
+  } else {
+    evs.forEach(function (e) {
+      var tp = CAL_TYPES[e.t] || CAL_TYPES.custom;
+      h += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '" onclick="calSelect(\'' + e.d + '\')">'
+        + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
+        + '<div class="ct-t">' + e.d.slice(5) + ' ' + esc(e.zh ? L(e.zh, e.en) : (e.title || '')) + '</div>'
+        + '<span class="ct-n">' + esc(evNote(e)) + '</span>'
+        + '</div>';
+    });
+  }
+  box.innerHTML = h;
 }
 function calSelect(ds) { calSel = ds; renderCal(); }
 function calMove(delta) {
@@ -2685,7 +2818,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.5.2';
+var APP_VERSION = 'v1.5.3';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -2704,7 +2837,7 @@ function renderMe() {
   document.getElementById('meUname').textContent = meUser ? meUser.name : L('未登录', 'Not signed in');
   document.getElementById('meUsub').textContent = meUser
     ? L('账号 ' + meUser.account + ' · 数据仅保存在本机', 'Account ' + meUser.account + ' · data stays on this device')
-    : L('注册账号后可多设备云端同步', 'Sign up to sync across devices');
+    : '';
   document.getElementById('meAuthBtn').textContent = meUser ? L('登出', 'Sign out') : (loadAccount() ? L('登录', 'Sign in') : L('注册', 'Sign up'));
   document.getElementById('meAvatar').textContent = meUser ? meUser.name.charAt(0) : '浮';
 }
