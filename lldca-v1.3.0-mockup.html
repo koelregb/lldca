@@ -208,8 +208,16 @@
   }
 
   /* ---------- 仓位占比 ---------- */
-  .bseg button small { display: block; font-size: 9.5px; font-weight: 600; opacity: .85; margin-top: 1px; letter-spacing: .2px; }
-  .bseg button.on { background: var(--accent); color: #fff; }
+  .bseg { display: flex; justify-content: center; gap: 10px; margin: 2px 0 12px; }
+  .bseg button {
+    flex: 1 1 0; max-width: 190px; border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+    border-radius: 14px; padding: 11px 8px; font-size: 13px; font-weight: 800; line-height: 1.25; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; transition: background .2s, color .2s, border-color .2s, box-shadow .2s;
+  }
+  .bseg button small { display: block; font-size: 10px; font-weight: 600; opacity: .85; margin-top: 2px; letter-spacing: .2px; }
+  .bseg button.on { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .bseg button.on[data-m="add"] { background: #e04a4a; border-color: #e04a4a; color: #fff; }
+  .bseg button.on[data-m="trim"] { background: #4a7fd4; border-color: #4a7fd4; color: #fff; }
   /* 加减仓循环指示 */
   .bcycle { background: var(--card); border-radius: 16px; box-shadow: var(--shadow); padding: 4px 2px 2px; margin-bottom: 10px; }
   .bcycle svg { display: block; width: 100%; height: auto; }
