@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>浮乐 (fuley) 页面模型 · 对齐 v1.5.0</title>
+<title>浮乐 (fuley) 页面模型 · 对齐 v1.5.2</title>
 <style>
   :root {
     --bg: #eef1f6; --card: #ffffff; --ink: #1a2233; --sub: #8a93a6; --line: #e8ecf3;
@@ -796,8 +796,8 @@
 <body>
 
 <div class="page-head">
-  <h1>浮乐 (fuley) · 页面模型（对齐 v1.5.0）</h1>
-  <p>大盘走势 + 提醒工具 — 可点击交互预览（Tab 切换 / 走势图 / 添加弹层）</p>
+  <h1>浮乐 (fuley) · 页面模型（对齐 v1.5.2）</h1>
+  <p>规划 · 提醒 · 记录 — 可点击交互预览（Tab 切换 / 添加弹层 / 深浅色切换）</p>
   <button class="theme-btn" onclick="toggleTheme()">切换深浅色</button>
 </div>
 
@@ -817,25 +817,14 @@
   </div>
 
   <div class="main">
-    <!-- ============ 走势页：指数走势 / 事件日历 ============ -->
+    <!-- ============ 走势页：周期 / 黄金 / 日历 / 财报 ============ -->
     <div class="view on" id="view-home">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="homeTabs">
-        <button class="on" data-pane="trend" onclick="homeTab(this)">股票</button>
-        <button data-pane="cycle" onclick="homeTab(this)">周期</button>
+        <button class="on" data-pane="cycle" onclick="homeTab(this)">周期</button>
         <button data-pane="gold" onclick="homeTab(this)">黄金</button>
-        <button data-pane="vix" onclick="homeTab(this)">VIX</button>
         <button data-pane="cal" onclick="homeTab(this)">日历</button>
         <button data-pane="earn" onclick="homeTab(this)">财报</button>
-      </div>
-
-      <div id="trendPane">
-        <div class="idx-tabs" id="idxTabs"></div>
-        <div class="stk-hero" id="stkHero"></div>
-        <div class="dimseg stk-dims" id="stkDims"></div>
-        <div class="stk-chart" id="stkChart"></div>
-        <div class="stk-grid" id="stkGrid"></div>
-        <div class="hintbar">行情每 60 秒自动刷新 · 曲线可左右拖动平移、滚轮缩放、双击重置、单击看全屏大图</div>
       </div>
 
       <div id="goldPane" style="display:none">
@@ -862,7 +851,7 @@
         <div class="hintbar">外盘价来自腾讯行情 · 沪金 ETF（518880）曲线反映国内金价（人民币/克）· 分时为当日已成交部分</div>
       </div>
 
-      <div id="econPane" style="display:none">
+      <div id="econPane">
         <div class="kw-hero">
           <div class="kw-hero-t">康波周期 · 当前所处阶段</div>
           <div class="kw-hero-main">第五次长波 · 处于萧条期</div>
@@ -877,27 +866,6 @@
         <div class="kw-sec">五次长波与第六波猜想</div>
         <div class="kw-waves" id="kWaves"></div>
         <div class="hintbar">周期长度与阶段划分为学术参考（周金涛 / 陈长江等流派，各家略有差异）· 仅供学习，非投资建议</div>
-      </div>
-
-      <div id="vixPane" style="display:none">
-        <div class="vix-hero">
-          <div class="vix-hero-top">
-            <span class="vix-hero-t">VIX 恐慌指数</span>
-            <span class="vix-src" id="vixAsOf">—</span>
-          </div>
-          <div class="vix-numrow">
-            <span class="vix-num" id="vixNow">--</span>
-            <span class="vix-chg" id="vixChg"></span>
-          </div>
-          <div class="vix-lvline"><span class="vix-dot" id="vixDot"></span><span id="vixLvName">—</span><span class="vix-lvsub" id="vixLvState"></span></div>
-        </div>
-        <div class="vix-gauge" id="vixGauge"></div>
-        <div class="vix-sparkbox">
-          <div class="vix-sparkhead"><span>近一年走势</span><span id="vixRange">—</span></div>
-          <div class="vix-spark" id="vixSpark"></div>
-        </div>
-        <div class="vix-levels" id="vixLevels"></div>
-        <div class="hintbar">数据来源：CBOE / FRED（VIXCLS）· 历史极值 82.69（2020-03-16）· 数值越高市场越恐慌</div>
       </div>
 
       <div id="calPane" style="display:none">
@@ -969,18 +937,18 @@
           <div class="pos-head">
             <div class="pos-hl">
               <div class="pos-label">本期建议仓位比</div>
-              <div class="pos-big">70%</div>
+              <div class="pos-big">60%</div>
             </div>
             <div class="pos-badge">自动</div>
           </div>
-          <div class="pos-bar"><div class="pos-fill mid" style="width:70%"></div></div>
+          <div class="pos-bar"><div class="pos-fill mid" style="width:50%"></div></div>
           <div class="pos-scale"><span>20%</span><span>60%</span><span>100%</span></div>
-          <div class="pos-verdict">中等温度 · 建议七成仓</div>
-          <div class="pos-act">上证 3658 点，处于近十年 62% 分位；VIX 18.4 偏中性。按纪律投入七成，剩余三成留现金等回调。</div>
+          <div class="pos-verdict">情绪偏中性 · 建议六成仓</div>
+          <div class="pos-act">VIX 18.4，处于近一年 43% 分位，恐慌情绪不高。按纪律投入六成，剩余四成留现金等回调。</div>
           <div class="pos-why">
-            <span class="pos-chip">上证分位 62%</span>
             <span class="pos-chip">VIX 18.4</span>
-            <span class="pos-chip">情绪中性</span>
+            <span class="pos-chip">分位 43%</span>
+            <span class="pos-chip">市场温度 43°</span>
           </div>
         </div>
 
@@ -1013,10 +981,27 @@
             <button onclick="posSet(this)">70%</button>
             <button onclick="posSet(this)">100%</button>
           </div>
-          <div class="hintbar">仓位比 = 本期投入比例 · 剩余留作现金 · 依据上证位置分位与 VIX 情绪</div>
+          <div class="hintbar">仓位比 = 本期投入比例 · 剩余留作现金 · 依据 VIX 情绪分位</div>
         </div>
       </div>
 
+    </div>
+
+    <!-- ============ 红绿灯页（红线 / 绿线 / 案例） ============ -->
+    <div class="view" id="view-notes">
+      <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
+      <div class="editor">
+        <div class="lampseg" id="lampSeg">
+          <button class="on red" onclick="lampSeg(this, 1)"><span class="lamp"></span>红线 · 禁忌</button>
+          <button onclick="lampSeg(this, -1)"><span class="lamp"></span>绿线 · 可重复</button>
+          <button onclick="lampSeg(this, 0)"><span class="lamp"></span>案例</button>
+        </div>
+        <textarea id="noteInput" maxlength="500" placeholder="录入心得或红线，如：单只个股不超过总仓位 20%；不追高，跌破成本 8% 必须止损……"></textarea>
+        <div class="efoot">
+          <span class="ecount" id="noteCount">0 / 500</span>
+          <button class="btn" onclick="addNote()">保存</button>
+        </div>
+      </div>
       <div id="noteListRed">
         <div class="notecard">
           <div class="nd">
@@ -1067,39 +1052,18 @@
           <div class="nt">【绿线案例】每月定投沪深 300，五年间无视所有短期波动，年化跑赢身边所有「择时高手」。教训：简单动作重复做，就是最难的事。</div>
         </div>
       </div>
+      <div class="hintbar">红线 = 绝不做 · 绿线 = 可重复 · 案例 = 复盘存档</div>
     </div>
 
-    <!-- ============ 加减仓页（信号提醒 / 加减仓条件） ============ -->
+    <!-- ============ 加减仓页（加减仓条件 / 恐慌级别） ============ -->
     <div class="view" id="view-signals">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
-        <button class="on" data-pane="sig" onclick="sigTab(this)">信号提醒</button>
-        <button data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
+        <button class="on" data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
         <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
       </div>
 
-      <div id="sigPane">
-        <div class="listcard">
-        <div class="lrow">
-          <div class="dirchip up">加</div>
-          <div class="linfo"><div class="lname">英伟达<span class="inv-code">NVDA</span></div><div class="lsub">价格触发 ≤ $205.00 · P/E ≤ 35</div><div class="lsub2">现价 $219.80 <span class="up">+0.58%</span> · 距触发 -6.7%</div></div>
-          <div class="lval"><div class="v1" style="color:var(--up)">监控中</div><div class="v2">回调到价分批加仓</div></div>
-        </div>
-        <div class="lrow">
-          <div class="dirchip down">减</div>
-          <div class="linfo"><div class="lname">腾讯控股<span class="inv-code">00700</span></div><div class="lsub">价格触发 ≥ 430.00 · P/E ≥ 28</div><div class="lsub2">现价 ¥382.40 <span class="down">-1.32%</span> · 距触发 +12.4%</div></div>
-          <div class="lval"><div class="v1" style="color:var(--down)">监控中</div><div class="v2">到价减仓两成</div></div>
-        </div>
-        <div class="lrow">
-          <div class="dirchip up">加</div>
-          <div class="linfo"><div class="lname">沪深300 ETF<span class="inv-code">510300</span></div><div class="lsub">定时：每周五 14:30</div></div>
-          <div class="lval"><div class="v1" style="color:var(--up)">周五提醒</div><div class="v2">检查加仓机会</div></div>
-        </div>
-      </div>
-      <div class="hintbar">支持价格触发与定时提醒 · 价格触发可关联四大指数或任意股票代码，现价与距触发幅度实时刷新 · 到价推送本地通知</div>
-      </div>
-
-      <div id="quizPane" style="display:none">
+      <div id="quizPane">
         <div class="dimseg quiz-sub" id="quizSubTabs">
           <button class="on" data-side="buy" onclick="quizSub(this)">加仓</button>
           <button data-side="sell" onclick="quizSub(this)">减仓</button>
@@ -1183,7 +1147,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v">v1.5.0</span>
+          <span class="mrow-v">v1.5.2</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
@@ -1283,15 +1247,12 @@
   <b>模型说明</b>：首次打开必须先注册（无会话时全屏注册门，注册/登录后才能使用）<br>
   注册成功提示「试用期 30 天」· 试用最后一周（剩 ≤7 天）每次打开提醒一次剩余天数（按天去重，「去激活」直达授权弹层）<br>
   授权改为一年有效 / 一年一签：激活码内置到期日，到期前 15 天每天提示一次续签，到期后锁定需重新签署<br>
-  走势页仅保留四大指数，个股自选与新高新低横幅已移除<br>
-  走势页第 6 个子 tab = 财报：七巨头财报日历（28 条节奏表）+ 距今天数 + 一键「财报前一天 21:00」系统提醒，与事件日历同一数据源<br>
-  走势页首个子 tab = 股票：指数切换 + 大字报价头（已收盘状态）+ 分时 / 五日 / 日K / 周K / 月K / 季K / 年K / 更多 + 面积主图（昨收虚线 + 右侧百分比轴）+ 九宫格统计<br>
-  红 = 涨，绿 = 跌 · 曲线可左右拖动平移、滚轮 / 双指缩放、双击重置，单击看全屏大图<br>
-  恒生 / 上证 = 腾讯真实历史数据（2000 年至今）· 标普 / 纳指 = 公开历史锚点插值<br>
+  走势页 4 个子 tab = 周期 / 黄金 / 日历 / 财报（原「股票」「VIX」已下线；恒生、上证指数一并移除）<br>
+  财报子 tab：七巨头财报日历（28 条节奏表）+ 距今天数 + 一键「财报前一天 21:00」系统提醒，与事件日历同一数据源<br>
   红绿灯页 = 选色切换列表（红线 · 禁忌 / 绿线 · 可重复 / 案例）<br>
   定投页 = 定投计划（标的 / 每月定投日 / 到日推送本地通知，只记标的与日期不记金额）+ 定投仓位比（市场温度→建议仓位比 20%-100%，可手动 50 / 70 / 100%；标的仓位占比可手动添加「股票名称 + 代码 + 占比」，只记比例不记金额，合计 ≠ 100% 标橙、> 100% 标红）<br>  「已定投」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
-  加减仓页 = 信号提醒 + 加减仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别（十级自评 + Kübler-Ross 五阶段）<br>
-  加减仓信号 = 价格触发 + 定时提醒，可附加市盈率 P/E 条件（≤ / ≥）显示在价格后 · 价格触发可关联四大指数或任意代码（A 股 6 位 / 港股 5 位 / 美股字母），列表显示代码徽章 + 现价 + 涨跌 + 距触发幅度，到价推送本地通知<br>
+  加减仓页 = 加减仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别（十级自评 + Kübler-Ross 五阶段）<br>
+  信号提醒（价格触发 / 定时提醒）自 v1.5.2 下线，历史数据保留在导出文件里<br>
   我的页：导出 / 备份完成后 toast 提示保存路径（「文档」目录，如 fuley-export-2026-10-28.json），并弹出系统分享面板可保存或发送<br>
   每个 tab 背景竖排水印「耐心 信心 恒心」（深红色 opacity .12，不挡操作）
 </div>
@@ -1309,12 +1270,10 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   var INDICES = [
     { name: '标普500', code: '.INX',   price: 7757.17,  prev: 7712.42,  up: true,  tm: '16:00' },
     { name: '纳斯达克', code: '.IXIC', price: 26702.86, prev: 26425.20, up: true,  tm: '16:00' },
-    { name: '恒生指数', code: '.HSI',  price: 22934.68, prev: 23650.06, up: false, tm: '16:00' },
-    { name: '上证指数', code: '000001', price: 3658.03, prev: 3713.03, up: false, tm: '15:00' }
   ];
   var KL_KEY = { '标普500': 'usINX', '纳斯达克': 'usIXIC', '恒生指数': 'hkHSI', '上证指数': 'sh000001' };
   var curDim = 'min';
-  // 折叠状态：恒生 / 上证默认收起
+  // 折叠状态：默认展开
   var foldState = { usINX: false, usIXIC: false, hkHSI: true, sh000001: true };
   /* 周期维度：分时 / 五日 / 日K / 周K / 月K / 季K / 年K / 更多 */
   var DIM_LIST = [
@@ -1573,6 +1532,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   /* ---------- 卡片曲线手势：拖动平移 / 滚轮·双指缩放 / 双击重置 / 点击全屏 ---------- */
   (function () {
     var list = document.getElementById('stkChart');
+    if (!list) return;                      // 走势面板已下线
     var ptrs = {}, drag = null, pinch = null, suppressClick = false, clickTimer = null;
     function keyOf(e) {
       var sp = e.target.closest ? e.target.closest('.spark') : null;
@@ -1871,7 +1831,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
         + '<button onclick="pickPeOp(this)">≥ 高于</button></div>'
         + '<input type="number" min="0" step="0.1" placeholder="如 12（留空 = 不限市盈率）"></div>'
         + '<div class="field"><label>定时（定时提醒时填写）</label><input type="text" placeholder="如 每周五 14:30"></div>'
-        + '<div class="hintbar" style="margin:0">价格触发支持四大指数（标普500 / 纳斯达克 / 恒生指数 / 上证指数）与任意代码：A股 6 位 / 港股 5 位 / 美股字母 · 列表显示现价、涨跌与距触发幅度，到价即提醒</div>'
+        + '<div class="hintbar" style="margin:0">价格触发支持标普500 / 纳斯达克与任意代码：A股 6 位 / 港股 5 位 / 美股字母 · 列表显示现价、涨跌与距触发幅度，到价即提醒</div>'
     }
   };
   /* 记录定投（旧「已定投」子 tab 的表单，页面已下线，代码保留供参考） */
@@ -1981,7 +1941,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   function collectData() {
     function txt(sel, root) { var el = (root || document).querySelector(sel); return el ? el.textContent.trim() : ''; }
     return {
-      app: 'fuley', version: 'v1.5.0', exportedAt: new Date().toISOString(),
+      app: 'fuley', version: 'v1.5.2', exportedAt: new Date().toISOString(),
       plans: [].map.call(document.querySelectorAll('#view-plan .lrow'), function (r) {
         return { day: txt('.d', r), name: txt('.lname', r), code: txt('.lsub', r), amount: txt('.v1', r), next: txt('.v2', r) };
       }),
@@ -2400,7 +2360,6 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     var pane = btn.getAttribute('data-pane');
     document.querySelectorAll('#sigTabs button').forEach(function (b) { b.classList.remove('on'); });
     btn.classList.add('on');
-    document.getElementById('sigPane').style.display = pane === 'sig' ? '' : 'none';
     document.getElementById('quizPane').style.display = pane === 'quiz' ? '' : 'none';
     document.getElementById('panicPane').style.display = pane === 'panic' ? '' : 'none';
     curSigPane = pane;
@@ -2962,6 +2921,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     return s + '</svg>';
   }
   function renderVix() {
+    if (!document.getElementById('vixPane')) return;   // 面板已下线
     if (!VIX_DATA.length) return;
     var last = vixLast(), prev = vixPrev();
     var v = last[1], chg = v - prev[1], pct = prev[1] ? chg / prev[1] * 100 : 0;
@@ -3039,10 +2999,8 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     var pane = btn.getAttribute('data-pane');
     document.querySelectorAll('#homeTabs button').forEach(function (b) { b.classList.remove('on'); });
     btn.classList.add('on');
-    document.getElementById('trendPane').style.display = pane === 'trend' ? '' : 'none';
     document.getElementById('econPane').style.display = pane === 'cycle' ? '' : 'none';
     document.getElementById('goldPane').style.display = pane === 'gold' ? '' : 'none';
-    document.getElementById('vixPane').style.display = pane === 'vix' ? '' : 'none';
     document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
     document.getElementById('earnPane').style.display = pane === 'earn' ? '' : 'none';
     curHomePane = pane;
@@ -3050,7 +3008,6 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     fab.classList.toggle('hide', pane !== 'cal');
     fab.setAttribute('title', '标记事件');
     if (pane === 'cal') renderCal();
-    if (pane === 'vix') renderVix();
     if (pane === 'cycle') renderEconCycle();
     if (pane === 'gold') renderGold();
   }
