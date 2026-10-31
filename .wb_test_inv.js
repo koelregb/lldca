@@ -294,10 +294,15 @@ return A.fetchInvestQuotes().then(function (changed) {
       A.fillSigPrice();
       ok('无代码提示填写', toasts.some(function (t) { return t.indexOf('请先填写代码') >= 0; }));
 
-      /* 指数名称回退：不填代码也能关联四大指数行情 */
-      const sz = A.INDICES.filter(function (x) { return x.name === '上证指数'; })[0];
-      sz.price = 3700;
-      ok('sigQuote 指数名回退', A.sigQuote({ type: 'price', name: '上证指数', code: '' }).price === 3700);
+      /* 指数名称回退：不填代码也能关联指数行情（恒生 / 上证已下线） */
+      const sp = A.INDICES.filter(function (x) { return x.name === '标普500'; })[0];
+      sp.price = 7800;
+      ok('sigQuote 指数名回退', A.sigQuote({ type: 'price', name: '标普500', code: '' }).price === 7800);
+      ok('恒生 / 上证已移除', A.INDICES.length === 2 && !A.INDICES.some(function (x) { return /恒生|上证/.test(x.name); }));
+      A.renderIdxStrip();
+      const stripHtml = els['idxStrip'].innerHTML;
+      ok('顶部报价条含纳指与标普', stripHtml.indexOf('纳斯达克') >= 0 && stripHtml.indexOf('标普500') >= 0, stripHtml);
+      ok('报价条带涨跌百分比', /[+-]\d+\.\d{2}%/.test(stripHtml), stripHtml);
 
       /* 定时提醒不取价 */
       A.signals.length = 0;
@@ -364,6 +369,21 @@ return A.fetchInvestQuotes().then(function (changed) {
   const ev = A.eventsOn('2026-11-18');
   ok('日历含英伟达财报', ev.some(function (e) { return e.t === 'earnings' && e.zh.indexOf('英伟达') >= 0; }), JSON.stringify(ev));
   ok('日历备注区分确认/预计', ev.length > 0 && /预计|已确认/.test(ev[ev.length - 1].note || ''));
+
+  /* 日历：财报日整格标红 */
+  A.calY = 2026; A.calM = 9;              // 2026 年 10 月（含 10-21 / 10-27~29 财报）
+  A.calSel = '2026-10-21';
+  A.renderCal();
+  ok('财报日加 ern 类', els['calGrid'].innerHTML.indexOf('cal-day ern') >= 0, els['calGrid'].innerHTML.slice(0, 120));
+  ok('财报月网格加 ern-month', String(els['calGrid'].className || '').indexOf('ern-month') >= 0, els['calGrid'].className);
+  ok('非财报日不加 ern', (function () {
+    A.calY = 2026; A.calM = 6;            // 7 月无财报
+    A.renderCal();
+    return els['calGrid'].innerHTML.indexOf('ern') < 0 && String(els['calGrid'].className || '').indexOf('ern-month') < 0;
+  })(), els['calGrid'].innerHTML.slice(0, 120));
+
+  /* 黄金页指标块已移除 */
+  ok('黄金指标块已移除', fs.readFileSync(path.join(www, 'index.html'), 'utf8').indexOf('id="goldStats"') < 0);
 }).then(function () {
   /* ============ 定投页改版：去掉 已定投 / 收益，仓位比可手动加标的 ============ */
   const htmlSrc = fs.readFileSync(path.join(www, 'index.html'), 'utf8');
