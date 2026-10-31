@@ -70,6 +70,14 @@
   .hintbar { font-size: 11px; color: var(--sub); text-align: center; padding: 4px 0 10px; }
 
   /* ---------- 股票详情页：指数切换 / 报价头 / 主图 / 九宫格 ---------- */
+  /* 顶部纳指 / 标普报价条 */
+  .idx-strip { display: flex; gap: 8px; margin: 0 0 10px; }
+  .idx-strip .ix-cell { flex: 1; min-width: 0; background: var(--card); border-radius: 12px; padding: 8px 11px; box-shadow: var(--shadow); }
+  .idx-strip .ix-n { font-size: 10.5px; font-weight: 700; color: var(--sub); }
+  .idx-strip .ix-v { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.2px; margin-top: 1px; }
+  .idx-strip .ix-c { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  .idx-strip .ix-c.up { color: var(--up); }
+  .idx-strip .ix-c.down { color: var(--down); }
   .idx-tabs { display: flex; gap: 6px; margin: 2px 0 10px; }
   .idx-tabs .it {
     flex: 1; min-width: 0; border: 1.5px solid var(--line); border-radius: 12px;
@@ -337,6 +345,12 @@
   .cal-day.blank { visibility: hidden; }
   .cal-day.today { color: var(--accent); font-weight: 800; }
   .cal-day.sel { background: var(--accent); color: #fff; }
+  /* 财报月整块浅黄底，财报日加深一档 */
+  .cal-grid.ern-month { background: #fdf6e3; }
+  .cal-day.ern { background: rgba(223, 163, 42, .30); }
+  .cal-day.ern .dnum { color: #a9761a; font-weight: 800; }
+  .cal-day.ern.sel { background: #dfa32a; }
+  .cal-day.ern.sel .dnum { color: #fff; }
   .cal-day .dnum {
     width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center;
     font-size: 12px; line-height: 1; font-variant-numeric: tabular-nums;
@@ -827,6 +841,11 @@
         <button data-pane="earn" onclick="homeTab(this)">财报</button>
       </div>
 
+      <div class="idx-strip">
+        <div class="ix-cell"><div class="ix-n">标普500</div><div class="ix-v">7,580.07</div><div class="ix-c down">-1.82%</div></div>
+        <div class="ix-cell"><div class="ix-n">纳斯达克</div><div class="ix-v">25,437.00</div><div class="ix-c down">-2.86%</div></div>
+      </div>
+
       <div id="goldPane" style="display:none">
         <div class="gold-quotes">
           <div class="gq-item">
@@ -847,7 +866,6 @@
           <button onclick="goldDimSeg(this, 'min')">今日分时</button>
         </div>
         <div class="gold-chart" id="goldChart"></div>
-        <div class="gold-stats" id="goldStats"></div>
         <div class="hintbar">外盘价来自腾讯行情 · 沪金 ETF（518880）曲线反映国内金价（人民币/克）· 分时为当日已成交部分</div>
       </div>
 
@@ -2553,20 +2571,6 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     }
     var vals = goldSeries(goldDim);
     document.getElementById('goldChart').innerHTML = goldChartSvg(vals);
-    /* 统计卡 */
-    var d = GOLD_KLINES.day;
-    var c = d[d.length - 1][1];
-    var yAgo = d[Math.max(0, d.length - 252)][1];
-    var chg = (c - yAgo) / yAgo * 100;
-    var yVals = d.slice(-252).map(function (r) { return r[1]; });
-    var tr = goldTrend();
-    var ma20 = goldMa(20), ma60 = goldMa(60);
-    var h = '<div class="gs-row"><span class="gs-k">沪金 ETF 现价</span><span class="gs-v">' + c.toFixed(3) + ' 元/克</span></div>' +
-      '<div class="gs-row"><span class="gs-k">近一年涨跌</span><span class="gs-v ' + (chg >= 0 ? 'up' : 'down') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%</span></div>' +
-      '<div class="gs-row"><span class="gs-k">一年区间</span><span class="gs-v">' + Math.min.apply(null, yVals).toFixed(2) + ' – ' + Math.max.apply(null, yVals).toFixed(2) + '</span></div>' +
-      '<div class="gs-row"><span class="gs-k">均线</span><span class="gs-v">MA20 ' + ma20.toFixed(2) + ' · MA60 ' + ma60.toFixed(2) + '</span></div>' +
-      '<div class="gs-row"><span class="gs-k">趋势信号</span><span class="gs-v ' + (tr.up === true ? 'up' : tr.up === false ? 'down' : 'flat') + '">' + tr.t + '（' + tr.sub + '）</span></div>';
-    document.getElementById('goldStats').innerHTML = h;
   }
   function goldDimSeg(btn, dim) {
     goldDim = dim;
@@ -3043,9 +3047,16 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     ev.push({ d: '2026-11-03', t: 'vote', title: '美国中期选举', note: '国会改选' });
     ev.push({ d: '2028-11-07', t: 'vote', title: '美国总统大选', note: '预测日程' });
     // 科技巨头财报窗口（预计，按往年节奏）
-    ev.push({ d: '2026-10-21', t: 'earnings', title: '特斯拉 Q3 财报', note: '预计' });
-    ev.push({ d: '2026-10-26', t: 'earnings', title: '科技巨头 Q3 财报周（苹果 / 微软 / 谷歌 / Meta / 亚马逊）', note: '预计' });
+    ev.push({ d: '2026-10-21', t: 'earnings', title: '特斯拉 Q3 2026 财报', note: '已确认' });
+    ev.push({ d: '2026-10-27', t: 'earnings', title: '谷歌 Q3 2026 财报', note: '已确认' });
+    ev.push({ d: '2026-10-28', t: 'earnings', title: '微软 Q1 FY27 财报', note: '已确认' });
+    ev.push({ d: '2026-10-28', t: 'earnings', title: 'Meta Q3 2026 财报', note: '已确认' });
+    ev.push({ d: '2026-10-29', t: 'earnings', title: '苹果 Q4 FY26 财报', note: '已确认' });
+    ev.push({ d: '2026-10-29', t: 'earnings', title: '亚马逊 Q3 2026 财报', note: '已确认' });
     ev.push({ d: '2026-11-18', t: 'earnings', title: '英伟达 Q3 FY27 财报', note: '预计' });
+    ev.push({ d: '2027-01-26', t: 'earnings', title: '微软 Q2 FY27 财报', note: '预计' });
+    ev.push({ d: '2027-01-28', t: 'earnings', title: '苹果 Q1 FY27 财报', note: '预计' });
+    ev.push({ d: '2027-02-24', t: 'earnings', title: '英伟达 Q4 FY27 财报', note: '预计' });
     return ev;
   })();
   var calCustom = (function () {
@@ -3076,12 +3087,18 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     for (var day = 1; day <= daysInMonth; day++) {
       var ds = calY + '-' + (calM + 1 < 10 ? '0' : '') + (calM + 1) + '-' + (day < 10 ? '0' : '') + day;
       var evs = eventsOn(ds);
+      var isErn = evs.some(function (e) { return e.t === 'earnings'; });
       var ringStyle = evs.length ? ' style="--ring:' + CAL_TYPES[evs[0].t].color + '"' : '';
-      html += '<button class="cal-day' + (ds === todayStr ? ' today' : '') + (ds === calSel ? ' sel' : '') + '" onclick="calSelect(\'' + ds + '\')">'
+      html += '<button class="cal-day' + (ds === todayStr ? ' today' : '') + (ds === calSel ? ' sel' : '') + (isErn ? ' ern' : '') + '" onclick="calSelect(\'' + ds + '\')">'
         + '<span class="dnum' + (evs.length ? ' ring' : '') + '"' + ringStyle + '>' + day + '</span>'
         + '</button>';
     }
-    document.getElementById('calGrid').innerHTML = html;
+    var monthHasErn = CAL_EVENTS.some(function (e) {
+      return e.t === 'earnings' && e.d.slice(0, 7) === (calY + '-' + (calM + 1 < 10 ? '0' : '') + (calM + 1));
+    });
+    var gridEl = document.getElementById('calGrid');
+    gridEl.className = 'cal-grid' + (monthHasErn ? ' ern-month' : '');
+    gridEl.innerHTML = html;
     document.getElementById('calSelTitle').textContent = calSel + ' 事件';
     renderCalEvents();
   }

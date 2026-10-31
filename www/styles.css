@@ -134,6 +134,18 @@ input, select, textarea { font-family: inherit; }
 .hintbar { font-size: 11px; color: var(--sub); text-align: center; padding: 4px 0 10px; line-height: 1.6; }
 
 /* ---------- 股票详情：指数切换 ---------- */
+/* ---------- 走势页顶部的纳指 / 标普报价条 ---------- */
+.idx-strip { display: flex; gap: 8px; margin: 0 0 10px; }
+.idx-strip .ix-cell {
+  flex: 1; min-width: 0; background: var(--card); border-radius: 12px;
+  padding: 8px 11px; box-shadow: var(--shadow);
+}
+.idx-strip .ix-n { font-size: 10.5px; font-weight: 700; color: var(--sub); }
+.idx-strip .ix-v { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -.2px; margin-top: 1px; }
+.idx-strip .ix-c { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; }
+.idx-strip .ix-c.up { color: var(--up); }
+.idx-strip .ix-c.down { color: var(--down); }
+
 .idx-tabs { display: flex; gap: 6px; margin: 2px 0 10px; }
 .idx-tabs .it {
   flex: 1; min-width: 0; border: 1px solid transparent; border-radius: 12px;
@@ -315,6 +327,12 @@ input, select, textarea { font-family: inherit; }
 .cal-day.blank { visibility: hidden; }
 .cal-day.today { color: var(--accent); font-weight: 800; }
 .cal-day.sel { background: var(--accent); color: #fff; }
+/* 财报月：整块月历浅黄底；财报日再加深一档（黄色为提醒色，不参与涨跌语义） */
+.cal-grid.ern-month { background: #fdf6e3; }
+.cal-day.ern { background: rgba(223, 163, 42, .30); }
+.cal-day.ern .dnum { color: #a9761a; font-weight: 800; }
+.cal-day.ern.sel { background: #dfa32a; }
+.cal-day.ern.sel .dnum { color: #fff; }
 .cal-day .dnum {
   width: 25px; height: 25px; border-radius: 50%; display: grid; place-items: center;
   font-size: 12px; line-height: 1; font-variant-numeric: tabular-nums;

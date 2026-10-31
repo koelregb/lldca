@@ -45,13 +45,11 @@ var lampDir = 1; // 1 = 红线(禁忌)  -1 = 绿线(可重复)  0 = 案例
 var INDICES = [
   { name: '标普500', code: '.INX', price: 7757.17, prev: 7712.42, up: true, tm: '16:00' },
   { name: '纳斯达克', code: '.IXIC', price: 26702.86, prev: 26425.20, up: true, tm: '16:00' },
-  { name: '恒生指数', code: '.HSI', price: 22934.68, prev: 23650.06, up: false, tm: '16:00' },
-  { name: '上证指数', code: '000001', price: 3658.03, prev: 3713.03, up: false, tm: '15:00' }
 ];
-var KL_KEY = { '标普500': 'usINX', '纳斯达克': 'usIXIC', '恒生指数': 'hkHSI', '上证指数': 'sh000001' };
-var QUOTE_CODE = { usINX: 'usINX', usIXIC: 'usIXIC', hkHSI: 'hkHSI', sh000001: 'sh000001' };
+var KL_KEY = { '标普500': 'usINX', '纳斯达克': 'usIXIC' };
+var QUOTE_CODE = { usINX: 'usINX', usIXIC: 'usIXIC' };
 var curDim = 'min';
-var foldState = { usINX: false, usIXIC: false, hkHSI: true, sh000001: true }; // 恒生/上证默认收起
+var foldState = { usINX: false, usIXIC: false };
 /* 周期维度：分时 / 五日 / 日K / 周K / 月K / 季K / 年K / 更多 */
 var DIM_LIST = [
   { dim: 'min', label: '分时' }, { dim: 'day5', label: '五日' }, { dim: 'day', label: '日K' },
@@ -334,9 +332,23 @@ function renderStkGrid() {
   document.getElementById('stkGrid').innerHTML = html;
 }
 /* 保持旧调用点（refreshQuotes / init）可用 */
+function renderIdxStrip() {
+  var box = document.getElementById('idxStrip');
+  if (!box) return;
+  var h = '';
+  INDICES.forEach(function (ix) {
+    var chg = ix.prev > 0 ? (ix.price - ix.prev) / ix.prev * 100 : 0;
+    var cls = chg >= 0 ? 'up' : 'down';
+    h += '<div class="ix-cell">'
+      + '<div class="ix-n">' + ix.name + '</div>'
+      + '<div class="ix-v">' + fmtNum(ix.price) + '</div>'
+      + '<div class="ix-c ' + cls + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</div>'
+      + '</div>';
+  });
+  box.innerHTML = h;
+}
 function renderIndices() {
-  if (!document.getElementById('stkChart')) return;
-  renderIdxTabs(); renderStkHero(); renderStkDims(); renderStkChart(); renderStkGrid();
+  return;   // 走势（股票）面板已下线：指数切换与 K 线容器不再存在
 }
 function pickIdx(key) {
   curIdxKey = key;
@@ -384,20 +396,14 @@ function applyQuotes(q) {
     var minArr = IDX_KLINES[KL_KEY[ix.name]].min;   // 分时曲线末点跟随实时价
     if (minArr && minArr.length) minArr[minArr.length - 1] = qq.price;
   });
+  renderIdxStrip();
 }
 function refreshQuotes() {
   return fetchQuotes().then(function (q) {
-    if (q && Object.keys(q).length) { applyQuotes(q); checkSignalTriggers(); }
+    if (q && Object.keys(q).length) { applyQuotes(q); }
     refreshGold();
     renderIndices();
     if (curTab === 'plan' && curPlanPane === 'pos') renderPosRatio();
-    /* 加减仓关联行情：自定义代码每轮联网刷新，价格变动即重判触发 */
-    fetchSignalQuotes().then(function (changed) {
-      if (changed) {
-        checkSignalTriggers();
-        if (curTab === 'signals' && curSigPane === 'sig') renderSignals();
-      }
-    });
   }, function () { renderIndices(); });
 }
 
@@ -639,10 +645,7 @@ function switchTab(btn) {
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', hideFab);
   if (id === 'signals') {
-    fab.setAttribute('title', curSigPane === 'quiz' ? L('自定义题目', 'Custom question') : L('添加加减仓提醒', 'Add alert'));
-    if (curSigPane === 'sig') {
-      fetchSignalQuotes().then(function () { if (curTab === 'signals' && curSigPane === 'sig') renderSignals(); });
-    }
+    fab.setAttribute('title', L('自定义题目', 'Custom question'));
   } else if (id === 'home') {
     fab.setAttribute('title', L('标记事件', 'Add event'));
   } else if (id === 'plan') {
@@ -786,17 +789,8 @@ function pctRank(vals, v) {
   for (var i = 0; i < vals.length; i++) if (vals[i] <= v) c++;
   return c / vals.length * 100;
 }
-/* 市场温度 = 0.6×上证位置分位 + 0.4×VIX 分位；仓位比 = 100 - 温度，钳制 20%～100% */
+/* 市场温度 = VIX 分位（恐惧情绪越高→温度越高）；仓位比 = 100 - 温度，钳制 20%～100% */
 function dcaPosModel() {
-  var day = (IDX_KLINES.sh000001 && IDX_KLINES.sh000001.year) || [];
-  var closes = [];
-  for (var i = Math.max(0, day.length - 250); i < day.length; i++) {
-    var v = Number(day[i][1]);
-    if (isFinite(v) && v > 0) closes.push(v);
-  }
-  var lastC = closes.length ? closes[closes.length - 1] : null;
-  var idxPct = lastC != null ? pctRank(closes, lastC) : null;
-
   var vixArr = [];
   if (typeof VIX_DATA !== 'undefined' && VIX_DATA.length) {
     for (var j = Math.max(0, VIX_DATA.length - 252); j < VIX_DATA.length; j++) {
@@ -807,13 +801,12 @@ function dcaPosModel() {
   var vixNow = vixArr.length ? vixArr[vixArr.length - 1] : null;
   var vixPct = vixNow != null ? pctRank(vixArr, vixNow) : null;
 
-  var temp = (idxPct != null && vixPct != null) ? (idxPct * 0.6 + vixPct * 0.4)
-           : (idxPct != null ? idxPct : 50);
+  var temp = vixPct != null ? vixPct : 50;
   var auto = Math.max(20, Math.min(100, Math.round((100 - temp) / 10) * 10));
   var manual = posCfg.override != null;
   return {
-    idxPct: idxPct, vixPct: vixPct, vix: vixNow, temp: temp,
-    auto: auto, use: manual ? posCfg.override : auto, manual: manual, ok: idxPct != null
+    vixPct: vixPct, vix: vixNow, temp: temp,
+    auto: auto, use: manual ? posCfg.override : auto, manual: manual, ok: vixPct != null
   };
 }
 /* ---------- 标的仓位占比（手动维护：股票名称 + 占比） ---------- */
@@ -897,10 +890,9 @@ function renderPosRatio() {
   document.getElementById('posAct').textContent = L(band.actZh, band.actEn);
 
   var why = [];
-  if (m.idxPct != null) why.push(L('上证位置分位 ' + Math.round(m.idxPct) + '%', 'SSE percentile ' + Math.round(m.idxPct) + '%'));
   if (m.vix != null && m.vixPct != null) why.push('VIX ' + m.vix.toFixed(1) + L(' · 分位 ' + Math.round(m.vixPct) + '%', ' · pct ' + Math.round(m.vixPct) + '%'));
   why.push(L('市场温度 ' + Math.round(m.temp) + '°', 'Heat ' + Math.round(m.temp) + '°'));
-  if (!m.ok) why.push(L('指数数据不足，按中性处理', 'Not enough index data — neutral'));
+  if (!m.ok) why.push(L('VIX 数据不足，按中性处理', 'Not enough VIX data — neutral'));
   document.getElementById('posWhy').innerHTML = why.map(function (t) {
     return '<span class="pos-chip">' + t + '</span>';
   }).join('');
@@ -1334,6 +1326,7 @@ function findIndexByName(n) {
 }
 function renderSignals() {
   var box = document.getElementById('sigList');
+  if (!box) return;                     // 信号提醒面板已下线
   if (!box) return;
   if (!signals.length) {
     box.innerHTML = '<div class="empty">还没有加减仓提醒<br>点右下角 + 添加第一个</div>';
@@ -1374,7 +1367,7 @@ function openSignalForm() {
   body += '<div class="seg" id="dirSeg">'
     + '<button class="' + (sheetDir > 0 ? 'on up' : '') + '" onclick="segDir(this,1)">加仓</button>'
     + '<button class="' + (sheetDir < 0 ? 'on down' : '') + '" onclick="segDir(this,-1)">减仓</button></div>'
-    + '<div class="field"><label>' + L('标的名称', 'Asset name') + '</label><input type="text" id="sfName" maxlength="30" placeholder="' + L('标普500 / 恒生指数 / 英伟达', 'S&P 500 / Hang Seng / NVDA') + '" value="' + esc(s ? s.name : '') + '"></div>'
+    + '<div class="field"><label>' + L('标的名称', 'Asset name') + '</label><input type="text" id="sfName" maxlength="30" placeholder="' + L('标普500 / 纳斯达克 / 英伟达', 'S&P 500 / Nasdaq / NVDA') + '" value="' + esc(s ? s.name : '') + '"></div>'
     + '<div class="field"><label>' + L('代码（可选，填了自动取现价）', 'Code (optional — enables the live price)') + '</label><input type="text" id="sfCode" maxlength="20" placeholder="510300 / 00700 / NVDA" value="' + esc(s ? s.code : '') + '"></div>'
     + '<div class="field"><label>触发类型</label><select id="sfType">'
     + '<option value="price"' + (s && s.type === 'price' ? ' selected' : '') + '>价格触发</option>'
@@ -1388,7 +1381,7 @@ function openSignalForm() {
     + '<input type="number" id="sfPe" min="0" step="0.1" placeholder="如 12（留空 = 不限市盈率）" value="' + (s && s.peVal ? s.peVal : '') + '">'
     + '</div>'
     + '<div class="field"><label>定时（定时提醒时填写）</label><input type="text" id="sfTime" maxlength="30" placeholder="如 每周五 14:30" value="' + esc(s ? s.time : '') + '"></div>'
-    + '<div class="hintbar" style="margin:0">' + L('价格触发支持四大指数（名称匹配：标普500 / 纳斯达克 / 恒生指数 / 上证指数）与任意股票代码（填代码自动联网取现价、列表显示距触发幅度、到价即提醒）· P/E 条件记录在提醒中，触发时一并提示', 'Price alerts work for the four indices (match by name: S&P 500 / Nasdaq / Hang Seng / SSE Comp) or any security by code (live price, distance to trigger, notification on hit) · the P/E condition is stored and shown with the alert') + '</div>';
+    + '<div class="hintbar" style="margin:0">' + L('价格触发支持标普500 / 纳斯达克与任意股票代码（填代码自动联网取现价、列表显示距触发幅度、到价即提醒）· P/E 条件记录在提醒中，触发时一并提示', 'Price alerts work for the S&P 500 / Nasdaq or any security by code (live price, distance to trigger, notification on hit) · the P/E condition is stored and shown with the alert') + '</div>';
   document.getElementById('sheetBody').innerHTML = body;
   showSheet();
 }
@@ -1399,7 +1392,7 @@ function fillSigPrice() {
   var q = sigQuote({ type: 'price', name: name, code: code });
   if (q && q.price) { setSigPrice(q.price); return; }
   if (code) { fetchOneQuote(code, function (qq) { setSigPrice(qq.price); }); return; }
-  toast(L('请先填写代码，或使用指数名称（标普500 / 纳斯达克 / 恒生指数 / 上证指数）', 'Enter a code, or use an index name (S&P 500 / Nasdaq / Hang Seng / SSE Comp)'));
+  toast(L('请先填写代码，或使用指数名称（标普500 / 纳斯达克）', 'Enter a code, or use an index name (S&P 500 / Nasdaq)'));
 }
 function setSigPrice(p) {
   var el = document.getElementById('sfPrice');
@@ -1550,7 +1543,7 @@ var QUIZ_BUY_DEFAULT = [
   '当前估值相对历史分位仍处于偏低区间？',
   '若反向波动 10%，能按原计划执行、不情绪化操作？',
   '没有陷入「这次不一样」的追高叙事？',
-  '金额与计划比例一致，没有被情绪放大？',
+  '仓位与计划比例一致，没有被情绪放大？',
   '这笔操作敢不敢被未来的自己复盘？'
 ];
 var QUIZ_SELL_DEFAULT = [
@@ -1663,24 +1656,19 @@ function addQuizFromSheet() {
   closeSheet();
   toast('已添加第 ' + items.length + ' 题');
 }
-var curSigPane = 'sig';
+var curSigPane = 'quiz';
 function sigTab(btn) {
   var pane = btn.getAttribute('data-pane');
   document.querySelectorAll('#sigTabs button').forEach(function (b) { b.classList.remove('on'); });
   btn.classList.add('on');
-  document.getElementById('sigPane').style.display = pane === 'sig' ? '' : 'none';
   document.getElementById('quizPane').style.display = pane === 'quiz' ? '' : 'none';
   document.getElementById('panicPane').style.display = pane === 'panic' ? '' : 'none';
   curSigPane = pane;
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', pane === 'panic');
-  fab.setAttribute('title', pane === 'quiz' ? L('自定义题目', 'Custom question') : L('添加加减仓提醒', 'Add alert'));
+  fab.setAttribute('title', L('自定义题目', 'Custom question'));
   if (pane === 'quiz') renderQuiz();
   if (pane === 'panic') renderPanic();
-  if (pane === 'sig') {
-    renderSignals();
-    fetchSignalQuotes().then(function () { if (curSigPane === 'sig') renderSignals(); });
-  }
 }
 
 /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
@@ -1861,22 +1849,6 @@ function renderGold() {
   }
   var vals = goldSeries(goldDim);
   document.getElementById('goldChart').innerHTML = goldChartSvg(vals);
-  /* 统计卡 */
-  var d = GOLD_KLINES.day;
-  if (d.length) {
-    var c = d[d.length - 1][1];
-    var yAgo = d[Math.max(0, d.length - 252)][1];
-    var chg = (c - yAgo) / yAgo * 100;
-    var yVals = d.slice(-252).map(function (r) { return r[1]; });
-    var tr = goldTrend();
-    var ma20 = goldMa(20), ma60 = goldMa(60);
-    var h = '<div class="gs-row"><span class="gs-k">沪金 ETF 现价</span><span class="gs-v">' + c.toFixed(3) + L(' 元/克', ' CNY/g') + '</span></div>' +
-      '<div class="gs-row"><span class="gs-k">近一年涨跌</span><span class="gs-v ' + (chg >= 0 ? 'up' : 'down') + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(1) + '%</span></div>' +
-      '<div class="gs-row"><span class="gs-k">一年区间</span><span class="gs-v">' + Math.min.apply(null, yVals).toFixed(2) + ' – ' + Math.max.apply(null, yVals).toFixed(2) + '</span></div>' +
-      '<div class="gs-row"><span class="gs-k">均线</span><span class="gs-v">MA20 ' + ma20.toFixed(2) + ' · MA60 ' + ma60.toFixed(2) + '</span></div>' +
-      '<div class="gs-row"><span class="gs-k">趋势信号</span><span class="gs-v ' + (tr.up === true ? 'up' : tr.up === false ? 'down' : 'flat') + '">' + tr.t + '（' + tr.sub + '）</span></div>';
-    document.getElementById('goldStats').innerHTML = h;
-  }
 }
 function goldDimSeg(btn, dim) {
   goldDim = dim;
@@ -2273,6 +2245,7 @@ function vixSparkSvg(year) {
   return s + '</svg>';
 }
 function renderVix() {
+  if (!document.getElementById('vixPane')) return;     // 面板已下线
   if (!VIX_DATA.length) return;
   var last = vixLast(), prev = vixPrev();
   var v = last[1], chg = v - prev[1], pct = prev[1] ? chg / prev[1] * 100 : 0;
@@ -2351,10 +2324,8 @@ function homeTab(btn) {
   var pane = btn.getAttribute('data-pane');
   document.querySelectorAll('#homeTabs button').forEach(function (b) { b.classList.remove('on'); });
   btn.classList.add('on');
-  document.getElementById('trendPane').style.display = pane === 'trend' ? '' : 'none';
   document.getElementById('econPane').style.display = pane === 'cycle' ? '' : 'none';
   document.getElementById('goldPane').style.display = pane === 'gold' ? '' : 'none';
-  document.getElementById('vixPane').style.display = pane === 'vix' ? '' : 'none';
   document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
   document.getElementById('earnPane').style.display = pane === 'earn' ? '' : 'none';
   curHomePane = pane;
@@ -2363,11 +2334,10 @@ function homeTab(btn) {
   fab.setAttribute('title', '标记事件');
   if (pane === 'cal') renderCal();
   if (pane === 'earn') renderEarn();
-  if (pane === 'vix') renderVix();
   if (pane === 'cycle') renderEconCycle();
   if (pane === 'gold') renderGold();
 }
-var curHomePane = 'trend';
+var curHomePane = 'cycle';
 
 /* ---------- 七巨头财报日历（内置节奏表；est=1 表示按历史节奏预估） ---------- */
 var EARN = [
@@ -2539,17 +2509,23 @@ function renderCal() {
   var today = new Date();
   var todayStr = today.getFullYear() + '-' + (today.getMonth() + 1 < 10 ? '0' : '') + (today.getMonth() + 1) + '-' + (today.getDate() < 10 ? '0' : '') + today.getDate();
   var html = L('一,二,三,四,五,六,日', 'M,T,W,T,F,S,S').split(',').map(function (w) { return '<div class="cal-wd">' + w + '</div>'; }).join('');
+  var monthHasErn = CAL_EVENTS.some(function (e) {
+    return e.t === 'earnings' && e.d.slice(0, 7) === (calY + '-' + (calM + 1 < 10 ? '0' : '') + (calM + 1));
+  });
   var b;
   for (b = 0; b < startDow; b++) html += '<div class="cal-day blank"></div>';
   for (var day = 1; day <= daysInMonth; day++) {
     var ds = calY + '-' + (calM + 1 < 10 ? '0' : '') + (calM + 1) + '-' + (day < 10 ? '0' : '') + day;
     var evs = eventsOn(ds);
+    var isErn = evs.some(function (e) { return e.t === 'earnings'; });   // 财报日 → 底部标红
     var ringStyle = evs.length ? ' style="--ring:' + CAL_TYPES[evs[0].t].color + '"' : '';
-    html += '<button class="cal-day' + (ds === todayStr ? ' today' : '') + (ds === calSel ? ' sel' : '') + '" onclick="calSelect(\'' + ds + '\')">'
+    html += '<button class="cal-day' + (ds === todayStr ? ' today' : '') + (ds === calSel ? ' sel' : '') + (isErn ? ' ern' : '') + '" onclick="calSelect(\'' + ds + '\')">'
       + '<span class="dnum' + (evs.length ? ' ring' : '') + '"' + ringStyle + '>' + day + '</span>'
       + '</button>';
   }
-  document.getElementById('calGrid').innerHTML = html;
+  var grid = document.getElementById('calGrid');
+  grid.className = 'cal-grid' + (monthHasErn ? ' ern-month' : '');
+  grid.innerHTML = html;
   document.getElementById('calSelTitle').textContent = calSel + ' 事件';
   renderCalEvents();
 }
@@ -2709,7 +2685,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.5.1';
+var APP_VERSION = 'v1.5.2';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -3047,6 +3023,7 @@ function toast(msg) {
   renderMe();
   renderLangSeg();
   renderIndices();
+  renderIdxStrip();
   renderPlans();
   syncPosTune();
   renderPosRatio();

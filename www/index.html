@@ -33,22 +33,13 @@
     <section class="view active" id="view-home">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="homeTabs">
-        <button class="on" data-pane="trend" onclick="homeTab(this)">股票</button>
-        <button data-pane="cycle" onclick="homeTab(this)">周期</button>
+        <button class="on" data-pane="cycle" onclick="homeTab(this)">周期</button>
         <button data-pane="gold" onclick="homeTab(this)">黄金</button>
-        <button data-pane="vix" onclick="homeTab(this)">VIX</button>
         <button data-pane="cal" onclick="homeTab(this)">日历</button>
         <button data-pane="earn" onclick="homeTab(this)">财报</button>
       </div>
 
-      <div id="trendPane">
-        <div class="idx-tabs" id="idxTabs"></div>
-        <div class="stk-hero" id="stkHero"></div>
-        <div class="dimseg stk-dims" id="stkDims"></div>
-        <div class="stk-chart" id="stkChart"></div>
-        <div class="stk-grid" id="stkGrid"></div>
-        <div class="hintbar">行情每 60 秒自动刷新 · 曲线可左右拖动平移、滚轮缩放、双击重置、单击看全屏大图</div>
-      </div>
+      <div class="idx-strip" id="idxStrip"></div>
 
       <div id="goldPane" style="display:none">
         <div class="gold-quotes">
@@ -70,11 +61,10 @@
           <button onclick="goldDimSeg(this, 'min')">今日分时</button>
         </div>
         <div class="gold-chart" id="goldChart"></div>
-        <div class="gold-stats" id="goldStats"></div>
-        <div class="hintbar">外盘价来自腾讯行情 · 沪金 ETF（518880）曲线反映国内金价（人民币/克）· 分时为当日已成交部分</div>
+        <div class="hintbar">外盘价来自腾讯行情 · 曲线反映沪金 ETF（518880）国内金价 · 分时为当日已成交部分</div>
       </div>
 
-      <div id="econPane" style="display:none">
+      <div id="econPane">
         <div class="kw-hero">
           <div class="kw-hero-t">康波周期 · 当前所处阶段</div>
           <div class="kw-hero-main">第五次长波 · 处于萧条期</div>
@@ -91,27 +81,6 @@
         <div class="hintbar">周期长度与阶段划分为学术参考（周金涛 / 陈长江等流派，各家略有差异）· 仅供学习，非投资建议</div>
       </div>
 
-      <div id="vixPane" style="display:none">
-        <div class="vix-hero">
-          <div class="vix-hero-top">
-            <span class="vix-hero-t">VIX 恐慌指数</span>
-            <span class="vix-src" id="vixAsOf">—</span>
-          </div>
-          <div class="vix-numrow">
-            <span class="vix-num" id="vixNow">--</span>
-            <span class="vix-chg" id="vixChg"></span>
-          </div>
-          <div class="vix-lvline"><span class="vix-dot" id="vixDot"></span><span id="vixLvName">—</span><span class="vix-lvsub" id="vixLvState"></span></div>
-        </div>
-        <div class="vix-gauge" id="vixGauge"></div>
-        <div class="vix-sparkbox">
-          <div class="vix-sparkhead"><span>近一年走势</span><span id="vixRange">—</span></div>
-          <div class="vix-spark" id="vixSpark"></div>
-        </div>
-        <div class="vix-levels" id="vixLevels"></div>
-        <div class="hintbar">数据来源：CBOE / FRED（VIXCLS）· 历史极值 82.69（2020-03-16）· 数值越高市场越恐慌</div>
-      </div>
-
       <div id="calPane" style="display:none">
         <div class="cal-head">
           <button class="cal-nav" onclick="calMove(-1)" aria-label="上个月">‹</button>
@@ -122,7 +91,7 @@
         <div class="cal-sec" id="calSelTitle"></div>
         <div id="calEvents"></div>
         <button class="qadd" onclick="openCalEvent()">+ 标记事件</button>
-        <div class="hintbar">财报 / 经济指标 / 选举日程 · 底部按钮可自定义标记 · 点击日期查看当天</div>
+        <div class="hintbar">财报 / 经济指标 / 选举日程 · <b style="color:#a9761a">黄底 = 财报月 / 财报日</b> · 底部按钮可自定义标记 · 点击日期查看当天</div>
       </div>
 
       <div id="earnPane" style="display:none">
@@ -173,7 +142,7 @@
             <button data-r="70" onclick="posSet(this)">70%</button>
             <button data-r="100" onclick="posSet(this)">100%</button>
           </div>
-          <div class="hintbar">仓位比 = 本期投入比例 · 剩余留作现金 · 依据上证位置分位与 VIX 情绪</div>
+          <div class="hintbar">仓位比 = 本期投入比例 · 剩余留作现金 · 依据 VIX 情绪分位</div>
         </div>
       </div>
 
@@ -204,17 +173,11 @@
     <section class="view" id="view-signals">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
-        <button class="on" data-pane="sig" onclick="sigTab(this)">信号提醒</button>
-        <button data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
+        <button class="on" data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
         <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
       </div>
 
-      <div id="sigPane">
-        <div class="listcard" id="sigList"></div>
-        <div class="hintbar">支持价格触发与定时提醒 · 价格触发可关联四大指数或任意股票代码，现价与距触发幅度实时刷新 · 到价推送本地通知</div>
-      </div>
-
-      <div id="quizPane" style="display:none">
+      <div id="quizPane">
         <div class="dimseg quiz-sub" id="quizSubTabs">
           <button class="on" data-side="buy" onclick="quizSub(this)">加仓</button>
           <button data-side="sell" onclick="quizSub(this)">减仓</button>
@@ -311,7 +274,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.5.1</span>
+          <span class="mrow-v" id="appVer">v1.5.2</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
