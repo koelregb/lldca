@@ -612,7 +612,7 @@
   .quiz-verdict.no { border-left-color: var(--sub); }
   .quiz-verdict.no .qr-t { color: var(--sub); }
 
-  /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
+  /* ---------- 恐慌级别评估：十级自评 + Kübler-Ross 五阶段 ---------- */
   .panic-pick { display: flex; gap: 4px; margin-bottom: 8px; }
   .panic-pick button {
     flex: 1; border: none; border-radius: 9px; padding: 9px 0; font-size: 12.5px; font-weight: 700;
@@ -634,6 +634,7 @@
     background: var(--chip); border-radius: 10px;
   }
   .panic-card .pc-hint { font-size: 12.5px; color: var(--sub); text-align: center; padding: 6px 0; }
+  .panic-guide { font-size: 12.5px; color: var(--sub); line-height: 1.5; margin: 0 2px 10px; }
   .kr-row {
     display: flex; gap: 10px; align-items: flex-start; background: var(--card); border-radius: 14px;
     padding: 12px; margin-bottom: 8px; box-shadow: 0 2px 8px rgba(30,40,60,.04);
@@ -1065,12 +1066,12 @@
       <div class="hintbar">红线 = 绝不做 · 绿线 = 可重复 · 案例 = 复盘存档</div>
     </div>
 
-    <!-- ============ 加减仓页（加减仓法则 / 恐慌级别） ============ -->
+    <!-- ============ 加减仓页（加减仓法则 / 恐慌级别评估） ============ -->
     <div class="view" id="view-signals">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
         <button class="on" data-pane="build" onclick="sigTab(this)">加减仓法则</button>
-        <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
+        <button data-pane="panic" onclick="sigTab(this)">恐慌级别评估</button>
       </div>
 
 
@@ -1124,7 +1125,8 @@
       </div>
 
       <div id="panicPane" style="display:none">
-        <div class="me-sec">当前恐慌等级（自评）</div>
+        <div class="me-sec">市场恐慌等级(自评)</div>
+        <div class="panic-guide">围绕当前市场的恐慌情况做 1–10 级自评：1 = 几乎无恐慌，10 = 极度恐慌。级别越高，越要按纪律而非情绪操作。</div>
         <div class="panic-pick" id="panicPick">
           <button data-tone="g" onclick="panicPick(this,1)">1</button>
           <button data-tone="g" onclick="panicPick(this,2)">2</button>
@@ -1295,7 +1297,7 @@
   走势页「财报」子 tab 已下线（七巨头财报节奏并入事件日历，可在「日历」页查看）<br>
   红绿灯页 = 选色切换列表（红线 · 禁忌 / 绿线 · 可重复 / 案例）<br>
   仓位页 = 仓位计划（标的 / 每月执行日 / 到日推送本地通知，只记标的与日期不记金额）+ 仓位占比（标的仓位占比可自定义添加「名称 + 代码 + 比例」，比例任意填写，点击条目可修改 / 删除，合计 ≠ 100% 标橙、> 100% 标红）<br>  「已建仓」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
-  加减仓页 = 建仓清仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别（十级自评 + Kübler-Ross 五阶段）<br>
+  加减仓页 = 建仓清仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别评估（十级自评 + Kübler-Ross 五阶段）<br>
   信号提醒（价格触发 / 定时提醒）自 v1.5.2 下线，历史数据保留在导出文件里<br>
   我的页：导出 / 备份完成后 toast 提示保存路径（「文档」目录，如 fuley-export-2026-10-28.json），并弹出系统分享面板可保存或发送<br>
   每个 tab 背景竖排水印「耐心 信心 恒心」（深红色 opacity .12，不挡操作）
@@ -2323,7 +2325,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     noteCount.textContent = '0 / 500';
   }
 
-  /* ---------- 加减仓法则 / 恐慌级别（题库已下线，代码保留） ---------- */
+  /* ---------- 加减仓法则 / 恐慌级别评估（题库已下线，代码保留） ---------- */
   var QUIZ_BUY_KEY = 'fuley_quiz_buy_v2';
   var QUIZ_SELL_KEY = 'fuley_quiz_sell_v2';
   var QUIZ_BUY_DEFAULT = [
@@ -2464,7 +2466,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     document.getElementById('buildPane').style.display = pane === 'build' ? '' : 'none';
     document.getElementById('panicPane').style.display = pane === 'panic' ? '' : 'none';
     curSigPane = pane;
-    // FAB：信号提醒 = 添加提醒；条件页 = 添加题目；恐慌级别 = 无添加动作 → 隐藏
+    // FAB：信号提醒 = 添加提醒；条件页 = 添加题目；恐慌级别评估 = 无添加动作 → 隐藏
     var fab = document.getElementById('fab');
     fab.classList.toggle('hide', pane === 'panic' || pane === 'build');
     fab.setAttribute('title', pane === 'quiz' ? '自定义题目' : '添加加减仓提醒');
@@ -2472,7 +2474,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   }
   var curSigPane = 'sig';
 
-  /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
+  /* ---------- 恐慌级别评估：十级自评 + Kübler-Ross 五阶段 ---------- */
   var PANIC_KEY = 'fuley_panic_v1';
   var PANIC_LEVELS = [
     { n: 1,  s: '谈笑风生', f: 'VIX 低位，回调当上车',        q: '“正常波动”' },
@@ -2515,7 +2517,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
   function renderPanicCard() {
     var card = document.getElementById('panicCard');
     if (!panicLv) {
-      card.innerHTML = '<div class="pc-hint">点击上方数字，评估自己当前的恐慌等级</div>';
+      card.innerHTML = '<div class="pc-hint">点击上方数字，评估当前的市场恐慌程度（1 几乎无恐慌 → 10 极度恐慌）</div>';
       return;
     }
     var lv = PANIC_LEVELS[panicLv - 1];
@@ -2533,7 +2535,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     btn.classList.add('on');
     renderPanicCard();
     var lvName = PANIC_LEVELS[lv - 1].s;
-    toast('当前恐慌等级：' + lv + ' · ' + lvName);
+    toast('市场恐慌等级：' + lv + ' · ' + lvName);
   }
   // 启动时恢复上次自评
   try { panicLv = Math.min(10, Math.max(0, Number(localStorage.getItem(PANIC_KEY)) || 0)); } catch (e) { panicLv = 0; }
