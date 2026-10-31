@@ -1107,31 +1107,31 @@
       <div id="noteRuleChart" style="display:none">
         <div class="rchart-card">
           <svg class="rchart" viewBox="0 0 340 210" xmlns="http://www.w3.org/2000/svg">
-            <rect class="band" x="24" y="118" width="146" height="62"/>
-            <rect class="band" x="170" y="38" width="146" height="58"/>
+            <rect class="reg-l" x="24" y="20" width="138" height="160"/>
+            <rect class="reg-r" x="162" y="20" width="154" height="160"/>
             <line class="axis" x1="24" y1="180" x2="316" y2="180"/>
             <line class="grid" x1="24" y1="100" x2="316" y2="100"/>
-            <line class="band-line" x1="170" y1="38" x2="170" y2="180"/>
-            <line class="price" x1="28" y1="14" x2="52" y2="14" style="stroke-width:2.4"/>
-            <text class="lbl-sub" x="56" y="17" text-anchor="start">价格</text>
-            <line class="ma" x1="92" y1="14" x2="116" y2="14"/>
-            <text class="lbl-sub" x="120" y="17" text-anchor="start">均线 MA</text>
-            <text class="lbl" x="122" y="124" text-anchor="start">下震荡</text>
-            <text class="lbl-sub" x="122" y="136" text-anchor="start">低位盘整</text>
-            <text class="lbl" x="176" y="52" text-anchor="start">上震荡</text>
-            <text class="lbl-sub" x="176" y="64" text-anchor="start">高位盘整</text>
-            <polyline class="price" points="24,156 42,166 60,140 78,162 96,142 114,164 132,146 150,166 168,150 186,118 200,96 216,70 232,86 248,58 264,82 280,62 296,86 312,66 316,76"/>
-            <polyline class="ma" points="24,150 42,160 60,150 78,150 96,152 114,150 132,150 150,150 168,142 186,108 200,86 216,76 232,78 248,62 264,76 280,72 296,78 312,68 316,74"/>
-            <line class="leader" x1="60" y1="121" x2="60" y2="135"/>
-            <circle class="tp tp-left" cx="60" cy="140" r="5"/>
-            <text class="lbl dn" x="30" y="108" text-anchor="start">左侧交易点</text>
-            <text class="lbl-sub dn" x="30" y="119" text-anchor="start">逢低买 · 逆向</text>
-            <line class="leader" x1="300" y1="46" x2="290" y2="70"/>
-            <circle class="tp tp-right" cx="288" cy="75" r="5"/>
-            <text class="lbl up" x="312" y="30" text-anchor="end">右侧交易点</text>
-            <text class="lbl-sub up" x="312" y="41" text-anchor="end">突破买 · 顺势</text>
+            <line class="band-line" x1="160" y1="20" x2="160" y2="180"/>
+            <line class="price" x1="28" y1="13" x2="52" y2="13" style="stroke-width:2.4"/>
+            <text class="lbl-sub" x="56" y="16" text-anchor="start">价格</text>
+            <line class="ma" x1="92" y1="13" x2="116" y2="13"/>
+            <text class="lbl-sub" x="120" y="16" text-anchor="start">均线 MA</text>
+            <text class="lbl dn" x="36" y="40" text-anchor="start">下跌 · 逆向</text>
+            <text class="lbl up" x="304" y="40" text-anchor="end">上涨 · 顺势</text>
+            <path class="price" d="M24,48 C66,106 104,150 146,164 Q160,170 174,164 C216,148 270,90 316,54"/>
+            <path class="ma" d="M24,40 C66,94 104,134 146,150 Q160,156 174,150 C216,136 270,82 316,64"/>
+            <circle class="pt pt-mid" cx="160" cy="170" r="5"/>
+            <text class="lbl" x="160" y="199" text-anchor="middle">底 · 拐点（左右分界）</text>
+            <circle class="tp tp-left" cx="92" cy="150" r="5"/>
+            <line class="leader" x1="92" y1="138" x2="92" y2="150"/>
+            <text class="lbl dn" x="28" y="86" text-anchor="start">左侧交易点</text>
+            <text class="lbl-sub dn" x="28" y="97" text-anchor="start">逢低买 · 逆向</text>
+            <circle class="tp tp-right" cx="268" cy="84" r="5"/>
+            <line class="leader" x1="276" y1="80" x2="300" y2="74"/>
+            <text class="lbl up" x="312" y="62" text-anchor="end">右侧交易点</text>
+            <text class="lbl-sub up" x="312" y="73" text-anchor="end">突破买 · 顺势</text>
           </svg>
-          <div class="rchart-cap">绿点 <b class="dn">左侧交易点</b>：低位下震荡中逢低逆向买入（越跌越买、摊薄成本）；红点 <b class="up">右侧交易点</b>：均线（MA）上穿价格形成<b>金叉</b>后顺势突破买入。橙色均线随波动上下穿插价格线（金叉 / 死叉），是判断趋势强弱与买卖节奏的常用参考。</div>
+          <div class="rchart-cap">绿点 <b class="dn">左侧交易点</b>：下跌途中（左侧）逢低逆向买入，越跌越买摊薄成本；红点 <b class="up">右侧交易点</b>：底部圆底拐点后趋势反转、顺势突破买入。底部圆底是左右分界，橙色<b>均线（MA）</b>随底部圆转上下穿插价格线，辅助判断趋势转强。</div>
         </div>
       </div>
       <div id="noteListRule" style="display:none">
