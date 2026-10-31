@@ -382,6 +382,15 @@ return A.fetchInvestQuotes().then(function (changed) {
     return els['calGrid'].innerHTML.indexOf('ern') < 0 && String(els['calGrid'].className || '').indexOf('ern-month') < 0;
   })(), els['calGrid'].innerHTML.slice(0, 120));
 
+  /* 建仓法则子 tab */
+  const htmlB = fs.readFileSync(path.join(www, 'index.html'), 'utf8');
+  ok('建仓法则子 tab 存在', htmlB.indexOf('data-pane="build"') >= 0 && htmlB.indexOf('id="buildPane"') >= 0);
+  A.renderBuildRules();
+  const buildHtml = els['buildRules'].innerHTML;
+  ok('四张卡：正/倒 × 加/减', ['正金字塔 · 加仓', '倒金字塔 · 加仓', '正金字塔 · 减仓', '倒金字塔 · 减仓'].every(function (t) { return buildHtml.indexOf(t) >= 0; }), buildHtml.slice(0, 200));
+  ok('含倍数模板', buildHtml.indexOf('1 - 1 - 1.5 - 2 - 2 - 2.5') >= 0);
+  ok('含五条铁律标题', buildHtml.indexOf('五条铁律') >= 0);
+
   /* 黄金页指标块已移除 */
   ok('黄金指标块已移除', fs.readFileSync(path.join(www, 'index.html'), 'utf8').indexOf('id="goldStats"') < 0);
 }).then(function () {

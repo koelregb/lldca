@@ -88,6 +88,7 @@
           <button class="cal-nav" onclick="calMove(1)" aria-label="下个月">›</button>
         </div>
         <div class="cal-grid" id="calGrid"></div>
+        <div id="calMonthList"></div>
         <div class="cal-sec" id="calSelTitle"></div>
         <div id="calEvents"></div>
         <button class="qadd" onclick="openCalEvent()">+ 标记事件</button>
@@ -174,6 +175,7 @@
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
         <button class="on" data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
+        <button data-pane="build" onclick="sigTab(this)">建仓法则</button>
         <button data-pane="panic" onclick="sigTab(this)">恐慌级别</button>
       </div>
 
@@ -190,7 +192,11 @@
         <div id="quizList"></div>
         <button class="qadd" onclick="addQuizItem()">+ 自定义题目</button>
         <button class="qreset" onclick="resetQuiz()">重置，再来一轮</button>
-        <div class="hintbar">加仓 / 减仓各十道题 · 打勾计分，得 8 分及以上判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」</div>
+        <div class="hintbar">加仓 / 减仓各十道题 · 打勾计分，8 分及以上判定为「加仓 / 减仓」，不到 8 分为「不建议」<br>题库依据公开分享的加减仓体系整理：选股「第一或唯一」· 仓位 7–8.5 成 · 金字塔加减仓（档差 8%–15%）· 卖出四情形 · 2-3-3-2 节奏 · 仅作纪律检查清单，非投资建议</div>
+      </div>
+
+      <div id="buildPane" style="display:none">
+        <div id="buildRules"></div>
       </div>
 
       <div id="panicPane" style="display:none">
@@ -274,7 +280,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.5.2</span>
+          <span class="mrow-v" id="appVer">v1.5.3</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
