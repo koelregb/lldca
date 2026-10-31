@@ -726,6 +726,13 @@
   .rchart-cap { font-size: 10.5px; color: var(--sub); line-height: 1.55; padding: 7px 4px 2px; }
   .rchart-cap b.dn { color: var(--down); }
   .rchart-cap b.up { color: var(--up); }
+  .rchart .rc-up { fill: var(--up); stroke: var(--up); stroke-width: .6; }
+  .rchart .rc-down { fill: var(--down); stroke: var(--down); stroke-width: .6; }
+  .rchart .rc-up-w { stroke: var(--up); }
+  .rchart .rc-down-w { stroke: var(--down); }
+  .rchart .ma1 { fill: none; stroke: #e0a32b; stroke-width: 1.8; stroke-linejoin: round; }
+  .rchart .ma2 { fill: none; stroke: #3a7fd4; stroke-width: 1.8; stroke-linejoin: round; }
+  .rchart .ma3 { fill: none; stroke: #e0703b; stroke-width: 1.4; stroke-dasharray: 4 2; stroke-linejoin: round; }
 
   /* ---------- FAB ---------- */
   .fab {
@@ -1110,28 +1117,31 @@
             <rect class="reg-l" x="24" y="20" width="138" height="160"/>
             <rect class="reg-r" x="162" y="20" width="154" height="160"/>
             <line class="axis" x1="24" y1="180" x2="316" y2="180"/>
-            <line class="grid" x1="24" y1="100" x2="316" y2="100"/>
+            <line class="grid" x1="24" y1="104" x2="316" y2="104"/>
             <line class="band-line" x1="160" y1="20" x2="160" y2="180"/>
-            <line class="price" x1="28" y1="13" x2="52" y2="13" style="stroke-width:2.4"/>
-            <text class="lbl-sub" x="56" y="16" text-anchor="start">价格</text>
-            <line class="ma" x1="92" y1="13" x2="116" y2="13"/>
-            <text class="lbl-sub" x="120" y="16" text-anchor="start">均线 MA</text>
+            <rect class="rc-up" x="28" y="9" width="7" height="8"/>
+            <text class="lbl-sub" x="38" y="16">阳(涨)</text>
+            <rect class="rc-down" x="66" y="9" width="7" height="8"/>
+            <text class="lbl-sub" x="76" y="16">阴(跌)</text>
+            <line class="ma2" x1="104" y1="13" x2="124" y2="13"/>
+            <text class="lbl-sub" x="128" y="16">均线</text>
             <text class="lbl dn" x="36" y="40" text-anchor="start">下跌 · 逆向</text>
             <text class="lbl up" x="304" y="40" text-anchor="end">上涨 · 顺势</text>
-            <path class="price" d="M24,48 C66,106 104,150 146,164 Q160,170 174,164 C216,148 270,90 316,54"/>
-            <path class="ma" d="M24,40 C66,94 104,134 146,150 Q160,156 174,150 C216,136 270,82 316,64"/>
+            <path class="ma3" d="M24,49 C66,104 104,146 146,162 Q160,168 174,162 C216,146 270,88 316,49"/>
+            <path class="ma1" d="M24,52 C66,108 104,150 146,166 Q160,172 174,166 C216,150 270,92 316,52"/>
+            <path class="ma2" d="M24,46 C66,100 104,140 146,158 Q160,164 174,158 C216,158 270,100 316,60"/>
+            <g id="ruleCandles"></g>
             <circle class="pt pt-mid" cx="160" cy="170" r="5"/>
             <text class="lbl" x="160" y="199" text-anchor="middle">底 · 拐点（左右分界）</text>
-            <circle class="tp tp-left" cx="92" cy="150" r="5"/>
-            <line class="leader" x1="92" y1="138" x2="92" y2="150"/>
+            <circle class="tp tp-left" cx="100" cy="148" r="5"/>
+            <line class="leader" x1="100" y1="136" x2="100" y2="148"/>
             <text class="lbl dn" x="28" y="86" text-anchor="start">左侧交易点</text>
             <text class="lbl-sub dn" x="28" y="97" text-anchor="start">逢低买 · 逆向</text>
-            <circle class="tp tp-right" cx="268" cy="84" r="5"/>
-            <line class="leader" x1="276" y1="80" x2="300" y2="74"/>
-            <text class="lbl up" x="312" y="62" text-anchor="end">右侧交易点</text>
-            <text class="lbl-sub up" x="312" y="73" text-anchor="end">突破买 · 顺势</text>
+            <circle class="tp tp-right" cx="255" cy="90" r="5"/>
+            <text class="lbl up" x="312" y="116" text-anchor="end">右侧交易点</text>
+            <text class="lbl-sub up" x="312" y="127" text-anchor="end">突破买 · 顺势</text>
           </svg>
-          <div class="rchart-cap">绿点 <b class="dn">左侧交易点</b>：下跌途中（左侧）逢低逆向买入，越跌越买摊薄成本；红点 <b class="up">右侧交易点</b>：底部圆底拐点后趋势反转、顺势突破买入。底部圆底是左右分界，橙色<b>均线（MA）</b>随底部圆转上下穿插价格线，辅助判断趋势转强。</div>
+          <div class="rchart-cap">绿点 <b class="dn">左侧交易点</b>：下跌途中（左侧）逢低逆向买入，越跌越买摊薄成本；红点 <b class="up">右侧交易点</b>：底部圆底拐点后趋势反转、顺势突破买入。底部圆底是左右分界，红色阳线为涨、绿色阴线为跌，三组<b>均线</b>在底部交叉（金叉）辅助判断趋势转强。</div>
         </div>
       </div>
       <div id="noteListRule" style="display:none">
@@ -2391,8 +2401,39 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     document.getElementById('noteListRule').style.display = dir === 2 ? '' : 'none';
     document.getElementById('noteRuleChart').style.display = dir === 2 ? '' : 'none';
   }
+  function renderRuleCandles() {
+    var g = document.getElementById('ruleCandles');
+    if (!g || g.childNodes.length) return;
+    var NS = 'http://www.w3.org/2000/svg';
+    var N = 24, x0 = 30, step = 11.5, w = 6;
+    var HIGH = 54, LOW = 168; // 价格坐标（y 越小价越高）
+    for (var i = 0; i < N; i++) {
+      var t = i / (N - 1);
+      var cy = LOW - (LOW - HIGH) * (1 - Math.cos(Math.PI * t)) / 2; // 圆底 V 中心价
+      var noise = Math.sin(i * 1.7) * 0.6 + ((i % 3) - 1) * 0.35;
+      var half = 3.5 + Math.abs(noise) * 4.5;
+      var up = t > 0.5 ? (noise > -0.2) : (noise > 0.35); // 右半多阳(涨·红)，左半多阴(跌·绿)
+      var open, close;
+      if (up) { open = cy + half; close = cy - half; } else { open = cy - half; close = cy + half; }
+      var top = Math.min(open, close), h = Math.max(Math.abs(open - close), 1.2);
+      var wickTop = Math.max(cy - half - (2 + Math.abs(noise) * 4), 24);
+      var wickBot = Math.min(cy + half + (2 + Math.abs(noise) * 4), 176);
+      var x = x0 + i * step;
+      var r = document.createElementNS(NS, 'rect');
+      r.setAttribute('x', (x - w / 2).toFixed(1)); r.setAttribute('y', top.toFixed(1));
+      r.setAttribute('width', w); r.setAttribute('height', h.toFixed(1));
+      r.setAttribute('class', up ? 'rc-up' : 'rc-down');
+      g.appendChild(r);
+      var wk = document.createElementNS(NS, 'line');
+      wk.setAttribute('x1', x.toFixed(1)); wk.setAttribute('x2', x.toFixed(1));
+      wk.setAttribute('y1', wickTop.toFixed(1)); wk.setAttribute('y2', wickBot.toFixed(1));
+      wk.setAttribute('class', up ? 'rc-up-w' : 'rc-down-w');
+      g.appendChild(wk);
+    }
+  }
   // 初始化：默认选中红线，显示红线列表
   lampSeg(document.querySelectorAll('#lampSeg button')[0], 1);
+  renderRuleCandles();
   function delNote(btn) {
     btn.closest('.notecard').remove();
   }
