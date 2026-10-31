@@ -694,6 +694,29 @@
   .notecard .lamprow .lt.red { color: var(--up); }
   .notecard .lamprow .lt.green { color: var(--down); }
   .notecard .lamprow .lt.rule { color: var(--rule); }
+  /* 交易法则走势图 */
+  .rchart-card { background: var(--card); border-radius: 14px; padding: 10px 8px 8px; box-shadow: var(--shadow); margin-bottom: 10px; }
+  .rchart { display: block; width: 100%; height: auto; }
+  .rchart .lbl { fill: var(--ink); font-size: 10px; font-weight: 800; }
+  .rchart .lbl-sub { fill: var(--sub); font-size: 8.5px; font-weight: 600; }
+  .rchart .lbl.dn { fill: var(--down); }
+  .rchart .lbl.up { fill: var(--up); }
+  .rchart .lbl-sub.dn { fill: var(--down); }
+  .rchart .lbl-sub.up { fill: var(--up); }
+  .rchart .axis { stroke: var(--line); stroke-width: 1; }
+  .rchart .grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 3; }
+  .rchart .div { stroke: var(--sub); stroke-width: 1; stroke-dasharray: 4 3; }
+  .rchart .reg-l { fill: rgba(26,158,92,.10); }
+  .rchart .reg-r { fill: rgba(224,74,74,.10); }
+  .rchart .seg-down { fill: none; stroke: var(--down); stroke-width: 2.4; stroke-linecap: round; }
+  .rchart .seg-up { fill: none; stroke: var(--up); stroke-width: 2.4; stroke-linecap: round; }
+  .rchart .pt { stroke: #fff; stroke-width: 1.5; }
+  .rchart .pt-down { fill: var(--down); }
+  .rchart .pt-up { fill: var(--up); }
+  .rchart .pt-mid { fill: var(--ink); }
+  .rchart-cap { font-size: 10.5px; color: var(--sub); line-height: 1.55; padding: 7px 4px 2px; }
+  .rchart-cap b.dn { color: var(--down); }
+  .rchart-cap b.up { color: var(--up); }
 
   /* ---------- FAB ---------- */
   .fab {
@@ -1070,6 +1093,31 @@
             <button class="del" title="删除" onclick="delNote(this)">×</button>
           </div>
           <div class="nt">【绿线案例】每月定投沪深 300，五年间无视所有短期波动，年化跑赢身边所有「择时高手」。教训：简单动作重复做，就是最难的事。</div>
+        </div>
+      </div>
+      <div id="noteRuleChart" style="display:none">
+        <div class="rchart-card">
+          <svg class="rchart" viewBox="0 0 340 210" xmlns="http://www.w3.org/2000/svg">
+            <rect class="reg-l" x="24" y="20" width="136" height="160"/>
+            <rect class="reg-r" x="160" y="20" width="156" height="160"/>
+            <line class="axis" x1="24" y1="180" x2="316" y2="180"/>
+            <line class="grid" x1="24" y1="104" x2="316" y2="104"/>
+            <text class="lbl-sub" x="312" y="130" text-anchor="end">颈线 · 突破位</text>
+            <line class="div" x1="160" y1="20" x2="160" y2="180"/>
+            <polyline class="seg-down" points="24,44 160,168"/>
+            <polyline class="seg-up" points="160,168 316,52"/>
+            <text class="lbl dn" x="44" y="32" text-anchor="start">左侧</text>
+            <text class="lbl-sub dn" x="44" y="44" text-anchor="start">下跌 · 逆向</text>
+            <text class="lbl up" x="296" y="32" text-anchor="end">右侧</text>
+            <text class="lbl-sub up" x="296" y="44" text-anchor="end">上涨 · 顺势</text>
+            <circle class="pt pt-down" cx="24" cy="44" r="4.5"/>
+            <text class="lbl dn" x="28" y="66" text-anchor="start">前高</text>
+            <circle class="pt pt-mid" cx="160" cy="168" r="5"/>
+            <text class="lbl" x="160" y="199" text-anchor="middle">底 · 拐点（左右分界）</text>
+            <circle class="pt pt-up" cx="246" cy="104" r="4.5"/>
+            <text class="lbl up" x="252" y="92" text-anchor="start">突破 · 右侧买点</text>
+          </svg>
+          <div class="rchart-cap"><b class="dn">左侧（绿）</b>：价格下跌途中，逆向交易者分批建仓、摊薄成本；<b class="up">右侧（红）</b>：价格突破颈线、趋势确认后，顺势交易者再加仓。底部拐点是左右分界。</div>
         </div>
       </div>
       <div id="noteListRule" style="display:none">
@@ -2327,6 +2375,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
     document.getElementById('noteListGreen').style.display = dir === -1 ? '' : 'none';
     document.getElementById('noteListCase').style.display = dir === 0 ? '' : 'none';
     document.getElementById('noteListRule').style.display = dir === 2 ? '' : 'none';
+    document.getElementById('noteRuleChart').style.display = dir === 2 ? '' : 'none';
   }
   // 初始化：默认选中红线，显示红线列表
   lampSeg(document.querySelectorAll('#lampSeg button')[0], 1);
