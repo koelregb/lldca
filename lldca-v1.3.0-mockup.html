@@ -1040,7 +1040,7 @@
       <div class="editor">
         <div class="lampseg" id="lampSeg">
           <button class="on red" onclick="lampSeg(this, 1)"><span class="lamp"></span>红线 · 禁忌</button>
-          <button onclick="lampSeg(this, -1)"><span class="lamp"></span>绿线 · 可重复</button>
+          <button onclick="lampSeg(this, -1)"><span class="lamp"></span>绿线 · 重复</button>
           <button onclick="lampSeg(this, 0)"><span class="lamp"></span>案例</button>
           <button onclick="lampSeg(this, 2)"><span class="lamp"></span>交易法则</button>
         </div>
@@ -1146,7 +1146,7 @@
           <div class="nt">概率思维：没有必胜策略，只做正期望的重复动作；接受小亏，让利润随趋势奔跑，不赌单次对错。</div>
         </div>
       </div>
-      <div class="hintbar">红线 = 绝不做 · 绿线 = 可重复 · 交易法则 = 纪律原则 · 案例 = 复盘存档</div>
+      <div class="hintbar">红线 = 绝不做 · 绿线 = 重复 · 交易法则 = 纪律原则 · 案例 = 复盘存档</div>
     </div>
 
     <!-- ============ 加减仓页（加减仓法则 / 恐慌级别评估） ============ -->
@@ -1378,7 +1378,7 @@
   授权改为一年有效 / 一年一签：激活码内置到期日，到期前 15 天每天提示一次续签，到期后锁定需重新签署<br>
   走势页 3 个子 tab = 周期 / 黄金 / 日历（原「股票」「VIX」「财报」已下线；恒生、上证指数一并移除）<br>
   走势页「财报」子 tab 已下线（七巨头财报节奏并入事件日历，可在「日历」页查看）<br>
-  红绿灯页 = 选色切换列表（红线 · 禁忌 / 绿线 · 可重复 / 案例）<br>
+  红绿灯页 = 选色切换列表（红线 · 禁忌 / 绿线 · 重复 / 案例）<br>
   仓位页 = 仓位计划（标的 / 建仓价格（美元）/ 到价自动提醒，记录标的与建仓价格）+ 仓位占比（标的仓位占比可自定义添加「名称 + 代码 + 比例」，比例任意填写，点击条目可修改 / 删除，合计 ≠ 100% 标橙、> 100% 标红）<br>  「已建仓」「收益」两个子 tab 自 v1.5.0 下线，本地数据保留在导出文件里<br>
   加减仓页 = 建仓清仓条件（加仓 / 减仓两个子 tab，各十题打勾计分，≥8 分判定为「加仓 / 减仓」，不到 8 分为「不建议加仓 / 不建议减仓」）+ 恐慌级别评估（十级自评 + Kübler-Ross 五阶段）<br>
   信号提醒（价格触发 / 定时提醒）自 v1.5.2 下线，历史数据保留在导出文件里<br>
@@ -1393,7 +1393,7 @@ var IDX_KLINES = {"usINX":{"demo":true,"all":[["2000-03",1498.58],["2000-04",147
 
   var titles = { home: '走势', plan: '仓位提醒', notes: '红绿灯', signals: '加减仓', me: '我的' };
   var curTab = 'home';
-  var lampDir = 1; // 1 = 红线(禁忌)  -1 = 绿线(可重复)  0 = 案例
+  var lampDir = 1; // 1 = 红线(禁忌)  -1 = 绿线(重复)  0 = 案例
 
   /* ---------- 指数数据（行情值 = 2026-10-22 腾讯真实点位；历史曲线见 IDX_KLINES） ---------- */
   var INDICES = [
