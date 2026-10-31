@@ -715,7 +715,7 @@ function renderPlans() {
     html += '<div class="lrow" onclick="editPlan(\'' + p.id + '\')">'
       + '<div class="daychip"><div><div class="d">' + Math.min(31, Math.max(1, Number(p.day) || 1)) + '</div><div class="m">每月</div></div></div>'
       + '<div class="linfo"><div class="lname">' + esc(p.name) + '</div><div class="lsub">' + esc(p.code || '—') + '</div></div>'
-      + '<div class="lval"><div class="v1">¥' + fmtAmt(p.amount) + '</div><div class="v2">' + nextPlanText(p) + '</div></div>'
+      + '<div class="lval"><div class="v2">' + nextPlanText(p) + '</div></div>'
       + '</div>';
   });
   box.innerHTML = html;
@@ -730,11 +730,7 @@ function openPlanForm() {
   body += '<div class="field"><label>标的名称</label><input type="text" id="pfName" maxlength="30" placeholder="如 英伟达 / 沪深300 ETF" value="' + esc(p ? p.name : '') + '"></div>'
     + '<div class="field"><label>代码</label><input type="text" id="pfCode" maxlength="20" placeholder="NVDA / 510300 / 00700" value="' + esc(p ? p.code : '') + '"></div>'
     + '<div class="field"><label>每月定投日</label><input type="number" id="pfDay" min="1" max="31" placeholder="1 - 31" value="' + (p ? p.day : '') + '"></div>'
-    + '<div class="field"><label>每期金额（元）</label><input type="number" id="pfAmt" min="0" placeholder="如 2000" value="' + (p ? p.amount : '') + '"></div>'
-    + '<div class="quick">' + [500, 1000, 2000, 3000, 5000].map(function (v) {
-        return '<span onclick="document.getElementById(\'pfAmt\').value=' + v + '">¥' + v.toLocaleString('zh-CN') + '</span>';
-      }).join('') + '</div>'
-    + '<div class="hintbar" style="margin:0">到定投日当天 9:00 自动推送本地通知</div>';
+    + '<div class="hintbar" style="margin:0">' + L('到定投日当天 9:00 自动推送本地通知 · 只记标的与日期，不记金额', 'Local notification at 09:00 on the DCA day · ticker and date only, no amounts') + '</div>';
   document.getElementById('sheetBody').innerHTML = body;
   showSheet();
 }
@@ -757,17 +753,15 @@ function savePlanForm() {
   var name = (document.getElementById('pfName').value || '').trim();
   var code = (document.getElementById('pfCode').value || '').trim();
   var day = Number(document.getElementById('pfDay').value || 0);
-  var amt = Number(document.getElementById('pfAmt').value || 0);
   if (!name) { toast('请填写标的名称'); return; }
   if (!(day >= 1 && day <= 31)) { toast('定投日需在 1 - 31 之间'); return; }
-  if (!(amt > 0)) { toast('请填写每期金额'); return; }
   var p;
   if (editPlanId) {
     p = plans.filter(function (x) { return x.id === editPlanId; })[0];
     if (p) { cancelPlanNotify(p); }
   }
   if (!p) { p = { id: genId() }; plans.push(p); }
-  p.name = name; p.code = code; p.day = day; p.amount = amt;
+  p.name = name; p.code = code; p.day = day;
   savePlans();
   renderPlans();
   renderPosRatio();
@@ -848,7 +842,7 @@ function openAllocForm(id) {
     + '<div class="quick">' + [10, 15, 20, 25, 30].map(function (v) {
         return '<span onclick="document.getElementById(\'afPct\').value=' + v + '">' + v + '%</span>';
       }).join('') + '</div>'
-    + '<div class="hintbar" style="margin:0">' + L('占比为手动设置，全部标的合计建议 100%；折算金额 = 本期投入 × 占比', 'Weights are manual; aim for 100% in total. Amount = this period × weight') + '</div>';
+    + '<div class="hintbar" style="margin:0">' + L('占比为手动设置，只记比例不记金额；全部标的合计建议 100%', 'Weights are manual and hold no amounts; aim for 100% in total') + '</div>';
   document.getElementById('sheetBody').innerHTML = body;
   showSheet();
 }
@@ -911,19 +905,9 @@ function renderPosRatio() {
     return '<span class="pos-chip">' + t + '</span>';
   }).join('');
 
-  /* 各计划总额 + 标的仓位占比（手动维护） */
+  /* 标的仓位占比（手动维护，只记占比不记金额） */
   var box = document.getElementById('posAlloc');
-  var total = 0;
-  plans.forEach(function (p) { total += Number(p.amount) || 0; });
-  var invest = total * m.use / 100, cash = total - invest;
   var h = '';
-  if (plans.length) {
-    h += '<div class="pos-sum">'
-      + '<div class="ps"><div class="ps-k">' + L('每月定投总额', 'Monthly total') + '</div><div class="ps-v">¥' + fmtAmt(total) + '</div></div>'
-      + '<div class="ps"><div class="ps-k">' + L('本期建议投入', 'Invest this period') + '</div><div class="ps-v accent">¥' + fmtAmt(Math.round(invest)) + '</div></div>'
-      + '<div class="ps"><div class="ps-k">' + L('留存现金', 'Cash left') + '</div><div class="ps-v">¥' + fmtAmt(Math.round(cash)) + '</div></div>'
-      + '</div>';
-  }
   var tot = allocTotal();
   var sumCls = tot > 100.05 ? ' over' : (allocs.length && tot < 99.95 ? ' short' : '');
   h += '<div class="pos-alloc-head"><span>' + L('标的仓位占比', 'Allocation by name') + '</span>'
@@ -933,12 +917,11 @@ function renderPosRatio() {
     h += '<div class="empty">' + L('还没有标的占比<br>点右下角 + 添加股票名称与占比', 'No weights yet<br>Tap + to add a name and weight') + '</div>';
   } else {
     allocs.forEach(function (a) {
-      var amt = invest > 0 ? Math.round(invest * (Number(a.pct) || 0) / 100) : null;
       h += '<div class="lrow pos-row" onclick="openAllocForm(\'' + a.id + '\')">'
         + '<div class="linfo"><div class="lname">' + esc(a.name) + (a.code ? '<span class="inv-code">' + esc(a.code) + '</span>' : '') + '</div>'
-        + '<div class="lsub">' + L('本期 ', 'This period ') + (amt == null ? L('待填计划金额', 'add a plan amount') : '¥' + fmtAmt(amt)) + '</div></div>'
+        + '<div class="lsub">' + L('仓位占比', 'Weight') + '</div></div>'
         + '<div class="lval"><div class="v1">' + fmtPct1(a.pct) + '%</div>'
-        + '<div class="v2">' + L('占比', 'weight') + '</div></div>'
+        + '<div class="v2">' + L('目标', 'target') + '</div></div>'
         + '</div>';
     });
   }
@@ -1303,7 +1286,7 @@ function schedulePlanNotify(p) {
     notifications: [{
       id: nid('plan', p.id),
       title: '定投提醒',
-      body: p.name + ' 今日定投 ¥' + fmtAmt(p.amount),
+      body: p.name + ' 今日定投',
       schedule: { at: at, allowWhileIdle: true }
     }]
   }).catch(function () {});
@@ -2726,7 +2709,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.5.0';
+var APP_VERSION = 'v1.5.1';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';

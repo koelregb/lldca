@@ -423,7 +423,8 @@ return A.fetchInvestQuotes().then(function (changed) {
   const allocHtml = els['posAlloc'].innerHTML;
   ok('合计超 100% 标红', allocHtml.indexOf('pos-alloc-sum over') >= 0, allocHtml.slice(0, 200));
   ok('显示合计数值 110%', allocHtml.indexOf('110%') >= 0);
-  ok('折算金额 = 2000×40%', allocHtml.indexOf('800') >= 0, allocHtml);
+  ok('仓位比页不显示金额', allocHtml.indexOf('¥') < 0, allocHtml);
+  ok('不再出现三格汇总', allocHtml.indexOf('每月定投总额') < 0 && allocHtml.indexOf('留存现金') < 0);
   ok('行可点编辑', allocHtml.indexOf('openAllocForm(') >= 0);
 
   /* 删除 */
