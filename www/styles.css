@@ -1200,3 +1200,35 @@ html[data-gate] .tabbar { visibility: hidden; }
   border-radius: 10px; padding: 8px; font-size: 12.5px; font-weight: 650; cursor: pointer; font-family: inherit;
 }
 .blaw-add:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ---- v1.6.8: 建仓法则 · 盆地形图（＋ 加仓 / － 减仓） ---- */
+.bbfig {
+  background: var(--card); border-radius: 16px; padding: 12px 12px 11px;
+  box-shadow: var(--shadow); margin-bottom: 10px;
+}
+.bb-h { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.bb-h .bb-title { font-size: 13.5px; font-weight: 800; color: var(--ink); }
+.bb-h .bb-tag { font-size: 11px; font-weight: 700; color: var(--sub); white-space: nowrap; }
+.bb-svg { display: block; width: 100%; height: auto; margin: 2px 0 4px; }
+.bb-curve { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linecap: round; opacity: .72; }
+.bb-neck { stroke: var(--sub); stroke-width: 1.2; stroke-dasharray: 5 5; opacity: .65; }
+.bb-neckT { font-size: 9.5px; font-weight: 700; fill: var(--sub); text-anchor: middle; }
+.bb-cap { font-size: 10.5px; font-weight: 700; fill: var(--sub); text-anchor: middle; }
+.bb-m circle { stroke: none; }
+.bb-m text { font-size: 12px; font-weight: 800; fill: #fff; text-anchor: middle; }
+.bb-add circle { fill: #e04a4a; }
+.bb-trim circle { fill: #4a7fd4; }
+.bb-lg {
+  display: flex; gap: 6px; align-items: flex-start;
+  font-size: 11.5px; line-height: 1.5; color: var(--ink); padding-top: 3px;
+}
+.bb-lg + .bb-lg { border-top: 1px solid var(--line); margin-top: 5px; padding-top: 6px; }
+.bb-lg span { flex: 1; min-width: 0; }
+.bb-dot { flex: none; width: 13px; height: 13px; border-radius: 50%; margin-top: 2px; position: relative; }
+.bb-dot.bb-add { background: #e04a4a; }
+.bb-dot.bb-trim { background: #4a7fd4; }
+.bb-dot::after {
+  content: '+'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 10px; font-weight: 800; line-height: 1;
+}
+.bb-dot.bb-trim::after { content: '\2212'; }

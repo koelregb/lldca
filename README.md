@@ -1,14 +1,14 @@
-## 最新版本 v1.6.7
+## 最新版本 v1.6.8
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.6.7.apk](https://github.com/koelregb/lldca/releases/download/v1.6.7/fuley-v1.6.7.apk)（仓库内：`fuley-v1.6.7.apk`、`tools/fuley-v1.6.7.apk`） |
-| 版本信息 | v1.6.7 / versionCode 38 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.6.8.apk](https://github.com/koelregb/lldca/releases/download/v1.6.8/fuley-v1.6.8.apk)（仓库内：`fuley-v1.6.8.apk`、`tools/fuley-v1.6.8.apk`） |
+| 版本信息 | v1.6.8 / versionCode 39 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.6.7-mockup.html](lldca-v1.6.7-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.6.8-mockup.html](lldca-v1.6.8-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版要点：加减仓法则的**档数 / 逐档比例 / 纪律**都会保存（切换页面、切换语言、重启 App 都不再回默认值）；纪律支持**点击直接改、× 删除、＋ 新增**；建仓法则「正金字塔 · 加仓」副标题改为「追涨 / 右侧交易」并新增「时机：已达底部跌不动，涨势萌动」。
+> 本版要点：建仓法则新增**盆地形图**——颈线（虚线）之下的盆地「筑底」区间为 **＋ 加仓**，站上颈线之后越涨越 **－ 减仓**；原「五条铁律」已移除。
 
 
 ## 功能一览

@@ -1705,24 +1705,34 @@ var BUILD_RULES = [
     ]
   }
 ];
-var BUILD_LAWS = [
-  '先定这只标的的总预算，再排档位 —— 不是跌了才想买多少',
-  '至少分 5 档，两三次打完是最常见的错误',
-  '永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓',
-  '标的必须基本面可靠；倒金字塔抄底用在垃圾股上等于加速亏损',
-  '越涨越卖时先收回本金，剩下的才是利润在跑'
-];
-var BUILD_LAWS_EN = [
-  'Set the total budget for this asset first, then tier it \u2014 don\u2019t decide how much to buy only after it drops',
-  'Use at least 5 tiers; finishing in 2\u20133 shots is the most common mistake',
-  'Never go full-in: keep 30% cash, stop adding above 80% total position',
-  'Fundamentals must be solid; inverted-pyramid bottom-fishing on junk stocks just speeds up losses',
-  'When trimming, recover principal first \u2014 the rest is pure profit running'
-];
+/* 盆地形图：颈线之下（盆地 / 筑底）为加仓，站上颈线之后为减仓 */
+function bbMark(x, y, sign, cls) {
+  return '<g class="bb-m ' + cls + '"><circle cx="' + x + '" cy="' + y + '" r="9.5"/>'
+    + '<text x="' + x + '" y="' + (y + 4) + '">' + sign + '</text></g>';
+}
+function bbChart() {
+  return '<div class="bbfig">'
+    + '<div class="bb-h"><b class="bb-title">' + L('盆地形图 · 加减仓节奏', 'Bowl bottom · add / trim rhythm') + '</b>'
+    + '<span class="bb-tag">' + L('＋ 加仓　－ 减仓', '+ add&nbsp; − trim') + '</span></div>'
+    + '<svg viewBox="0 0 360 172" xmlns="http://www.w3.org/2000/svg" class="bb-svg">'
+    + '<line class="bb-neck" x1="14" y1="70" x2="340" y2="70"/>'
+    + '<text class="bb-neckT" x="15" y="84" text-anchor="start">' + L('颈线', 'Neckline') + '</text>'
+    + '<path class="bb-curve" d="M18 20 C46 76 96 118 176 118 C258 118 312 66 340 10"/>'
+    + bbMark(74, 86, '+', 'bb-add')
+    + bbMark(176, 118, '+', 'bb-add')
+    + bbMark(252, 101, '+', 'bb-add')
+    + bbMark(304, 58, '\u2212', 'bb-trim')
+    + bbMark(330, 22, '\u2212', 'bb-trim')
+    + '<text class="bb-cap" x="176" y="148">' + L('筑底', 'Bottoming') + '</text>'
+    + '</svg>'
+    + '<div class="bb-lg"><i class="bb-dot bb-add"></i><span>' + L('＋ 加仓：颈线之下的盆地（筑底区间）分批买', '+ Add: buy in tiers inside the bowl, below the neckline') + '</span></div>'
+    + '<div class="bb-lg"><i class="bb-dot bb-trim"></i><span>' + L('－ 减仓：站上颈线之后越涨越卖，先收回本金', '− Trim: sell into strength once above the neckline; recover principal first') + '</span></div>'
+    + '</div>';
+}
 function renderBuildRules() {
   var box = document.getElementById('buildRules');
   if (!box) return;
-  var h = '<div class="hintbar" style="margin-top:0">' + L('正 / 倒描述的是「动作量的形状」，加仓减仓是方向 · 按动作量命名，若按持仓形状命名，第 2 张卡会被叫作「正金字塔」', 'Up/down describes the shape of each action; buy/sell is the direction') + '</div>';
+  var h = bbChart() + '<div class="hintbar" style="margin-top:0">' + L('正 / 倒描述的是「动作量的形状」，加仓减仓是方向 · 按动作量命名，若按持仓形状命名，第 2 张卡会被叫作「正金字塔」', 'Up/down describes the shape of each action; buy/sell is the direction') + '</div>';
   BUILD_RULES.forEach(function (r) {
     h += '<div class="build-card">'
       + '<div class="bc-h"><span class="bc-tag">' + L(r.tag, r.tagEn || r.tag) + '</span><span class="bc-sub">' + L(r.sub, r.subEn || r.sub) + '</span></div>';
@@ -1731,11 +1741,6 @@ function renderBuildRules() {
     });
     h += '</div>';
   });
-  h += '<div class="pnl-t">' + L('五条铁律', 'Five rules') + '</div><div class="listcard bc-laws">';
-  BUILD_LAWS.forEach(function (t, i) {
-    h += '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + L(t, (BUILD_LAWS_EN[i] || t)) + '</span></div>';
-  });
-  h += '</div>';
   h += '<div class="hintbar">' + L('参数取自公开分享的加减仓体系（金字塔 / 倒金字塔），仅作纪律参考，不构成投资建议', 'Parameters from publicly shared position-sizing frameworks; discipline reference only') + '</div>';
   box.innerHTML = h;
 }
@@ -2956,7 +2961,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.7';
+var APP_VERSION = 'v1.6.8';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
