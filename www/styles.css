@@ -1159,3 +1159,7 @@ input, select, textarea { font-family: inherit; }
 
 /* 英文标签较长：略缩字号，保证一行两列内不换行 */
 html[lang="en"] .bseg button { font-size: 11px; letter-spacing: -.15px; padding: 10px 6px; }
+
+/* 首屏防闪：未登录时先铺登录遮罩（app.js 接管后会移除 html[data-gate]） */
+html[data-gate] #regGate { display: flex; }
+html[data-gate] .rl-card { opacity: 0; }

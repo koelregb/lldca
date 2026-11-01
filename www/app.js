@@ -2917,7 +2917,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.3';
+var APP_VERSION = 'v1.6.4';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -3025,9 +3025,12 @@ function showRegGate() {
   var tb = document.getElementById('topbar');
   if (tb) tb.style.display = 'none';   // 登录页不显示顶栏
   document.getElementById('regGate').classList.add('on');
+  // 首屏防闪标记已由真正的 gate 接管，可移除
+  try { document.documentElement.removeAttribute('data-gate'); } catch (e) { /* ignore */ }
 }
 function hideRegGate() {
   document.getElementById('regGate').classList.remove('on');
+  try { document.documentElement.removeAttribute('data-gate'); } catch (e) { /* ignore */ }
   var tb = document.getElementById('topbar');
   if (tb) tb.style.display = '';   // 恢复顶栏
 }
