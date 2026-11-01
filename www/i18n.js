@@ -635,7 +635,31 @@
   }
 
   /* 主翻译函数：输入任意字符串，输出英文（zh 模式原样返回） */
+  /* 用户数据保护：渲染用户输入（笔记/标的名称/自定义事件）时用 raw() 包裹，
+     翻译时跳过保护区间，避免把用户的中文内容当作 UI 文案替换掉。 */
+  var RAW_L = String.fromCharCode(0xE000), RAW_R = String.fromCharCode(0xE001);
+  function raw(s) { return RAW_L + String(s == null ? '' : s) + RAW_R; }
+
+  /* 扫描字符码处理保护段：SOH(1)..STX(2) 之间为用户原文，不翻译 */
   function tr(s) {
+    if (typeof s !== 'string') return s;
+    var i0 = s.indexOf(RAW_L);
+    if (i0 === -1) return _tr(s);
+    var out = _tr(s.slice(0, i0));
+    var i = i0;
+    while (i < s.length) {
+      var a = s.indexOf(RAW_L, i);
+      if (a === -1) { out += _tr(s.slice(i)); break; }
+      out += _tr(s.slice(i, a));                 // 保护段之前的 UI 文案
+      var b = s.indexOf(RAW_R, a + 1);
+      if (b === -1) { out += s.slice(a + 1); break; }  // 未闭合，余下视为原文
+      out += s.slice(a + 1, b);                  // 保护段原文
+      i = b + 1;
+    }
+    return out;
+  }
+
+  function _tr(s) {
     if (!isEn() || typeof s !== 'string' || !CJK.test(s)) return s;
     if (EN[s] != null) return EN[s];              // 1) 整串精确命中
     var out = s;
@@ -711,7 +735,7 @@
 
   var api = {
     lang: lang, isEn: isEn, setLang: setLang, switchLang: switchLang,
-    tr: tr, L: L, hook: hook, applyStatic: applyStatic, dict: EN
+    tr: tr, L: L, raw: raw, hook: hook, applyStatic: applyStatic, dict: EN
   };
   root.FuleyI18N = api;
   root.L = L;
