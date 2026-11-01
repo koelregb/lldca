@@ -43,6 +43,29 @@
     '官方日程': 'Official calendar',
     '定投计划': 'Plans',
     '定投仓位比': 'Position ratio',
+    '仓位': 'Positions',
+    '仓位比': 'Weight',
+    '忘记密码？': 'Forgot password?',
+    '找回密码': 'Reset password',
+    '重置密码': 'Reset',
+    '通过注册时的账号与昵称验证身份，验证通过后可设置新密码。': 'Verify with the account and nickname you registered, then set a new password.',
+    '请输入注册账号': 'Your account',
+    '注册时填写的昵称': 'Nickname used at sign-up',
+    '新密码（6-32 位，仅字母 / 数字）': 'New password (6-32 chars, letters / digits)',
+    '确认新密码': 'Confirm new password',
+    '本机还没有注册账号，请先注册。': 'No account on this device yet — please sign up first.',
+    '本机还没有注册账号': 'No account on this device',
+    '账号与本机注册的账号不一致': 'Account does not match this device',
+    '昵称不正确，无法验证身份': 'Nickname incorrect — cannot verify',
+    '密码需 6-32 位字母或数字': 'Password must be 6-32 letters or digits',
+    '密码已重置，请用新密码登录': 'Password reset — sign in with the new one',
+    '添加仓位比': 'Add weight', '编辑仓位比': 'Edit weight',
+    '标的仓位占比': 'Allocation by name',
+    '还没有仓位记录<br>点右下角 + 添加名称与仓位比': 'No positions yet<br>Tap + to add a name and weight',
+    '点击修改': 'tap to edit',
+    '只记比例不记金额 · 点击条目可修改名称 / 代码 / 仓位比 · 合计超过 100% 标红': 'Ratio only, no amounts · tap a row to edit name / code / weight · over 100% is flagged',
+    '应对下跌 · 正金字塔加仓': 'Falling · pyramid adding',
+    '应对上涨 · 倒金字塔减仓': 'Rising · inverted-pyramid trim',
     '已定投': 'Invested',
     '收益': 'Returns',
     '收益 = 当前市值 − 累计投入 · 现价自动联网更新 · 红 = 盈利，绿 = 亏损 · 数据来自「已定投」记录':
@@ -206,6 +229,7 @@
     '参数取自公开分享的加减仓体系 · 仅作纪律参考，不构成投资建议': 'Parameters from a publicly shared scaling framework · discipline reference only, not investment advice',
     '建议 <b>4–8 档</b>：第 1 档建仓，之后以建仓价为基准每跌 5%–10% 加一档，越跌买越多。例：10 万预算按 1/2/3/4 万递增排 4 档。': 'Suggested <b>4–8 tiers</b>: tier 1 opens, then add one tier every 5–10% below entry, buying more as it falls. e.g. a 100k budget split 1/2/3/4 into 4 tiers.',
     '建议 <b>3–4 档</b>：以建仓价（底部）为基准，每涨 5%–10% 卖一档，累计涨 20% 以上清到只剩底仓。': 'Suggested <b>3–4 tiers</b>: sell one tier every 5–10% above entry; above +20% trim down to a bare core.',
+    '录入心得或红线，如：单只个股不超过总仓位 20%；不追高，跌破成本 8% 必须止损……': 'Write your lesson or red line, e.g. no single stock above 20% of position; never chase; hard stop at 8% below cost\u2026',
     '加减仓法则': 'Scale Rules',
     '应对下跌（正金字塔加仓）': 'Falling (pyramid add)',
     '应对上涨（倒金字塔减仓）': 'Rising (inverted-pyramid trim)',
@@ -638,7 +662,7 @@
   /* 用户数据保护：渲染用户输入（笔记/标的名称/自定义事件）时用 raw() 包裹，
      翻译时跳过保护区间，避免把用户的中文内容当作 UI 文案替换掉。 */
   var RAW_L = String.fromCharCode(0xE000), RAW_R = String.fromCharCode(0xE001);
-  function raw(s) { return RAW_L + String(s == null ? '' : s) + RAW_R; }
+  function raw(s) { var t = String(s == null ? '' : s); return isEn() ? RAW_L + t + RAW_R : t; }
 
   /* 扫描字符码处理保护段：SOH(1)..STX(2) 之间为用户原文，不翻译 */
   function tr(s) {

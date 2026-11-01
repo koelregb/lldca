@@ -206,7 +206,8 @@ input, select, textarea { font-family: inherit; }
 /* ---------- 走势维度切换 ---------- */
 .dimseg { display: flex; gap: 6px; margin-bottom: 10px; }
 .dimseg button {
-  flex: 1; border: none; border-radius: 10px; padding: 8px 0; font-size: 12.5px; font-weight: 650;
+  flex: 1 1 auto; min-width: 74px; border: none; border-radius: 10px; padding: 8px 8px; font-size: 12px; font-weight: 650;
+  white-space: nowrap;
   background: var(--card); color: var(--sub); cursor: pointer; box-shadow: var(--shadow);
 }
 .dimseg button.on { background: var(--accent); color: #fff; }
@@ -287,7 +288,7 @@ input, select, textarea { font-family: inherit; }
 .ntabs.plain button .lamp { display: none; }
 
 /* ---------- 选色条（红绿灯编辑器） ---------- */
-.lampseg { display: flex; gap: 6px; margin-bottom: 10px; }
+.lampseg { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
 .lampseg button {
   flex: 1; border: none; border-radius: 10px; padding: 8px 0; font-size: 12.5px; font-weight: 650;
   background: var(--chip); color: var(--sub); cursor: pointer; display: flex; align-items: center;
@@ -1083,7 +1084,7 @@ input, select, textarea { font-family: inherit; }
 
 
 /* ---- v1.5.4: 加减仓法则（交互式金字塔） ---- */
-.bseg button { flex: 1 1 0; max-width: 190px; border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+.bseg button { white-space: nowrap; font-size: 12px; flex: 1 1 0; max-width: 190px; border: 1px solid var(--line); background: var(--chip); color: var(--ink);
     border-radius: 14px; padding: 11px 8px; font-size: 13px; font-weight: 800; line-height: 1.25; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; transition: background .2s, color .2s, border-color .2s, box-shadow .2s; }
 .bseg button small { display: block; font-size: 10px; font-weight: 600; opacity: .85; margin-top: 2px; letter-spacing: .2px; }
@@ -1147,3 +1148,6 @@ input, select, textarea { font-family: inherit; }
   padding: 5px 12px; border-radius: 999px; cursor: pointer; font-family: inherit;
 }
 .rl-lang button.on { background: var(--accent); color: #fff; }
+
+/* 循环图节点文字单行居中 */
+.cy-inline { font-size: 10.5px; font-weight: 700; fill: #fff; }

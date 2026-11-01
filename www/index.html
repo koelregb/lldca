@@ -106,13 +106,13 @@
     <section class="view" id="view-plan">
       <div class="wmark" aria-hidden="true">耐心　信心　恒心</div>
       <div class="ntabs plain t4" id="planTabs">
-        <button class="on" data-pane="list" onclick="planTab(this)">定投计划</button>
-        <button data-pane="pos" onclick="planTab(this)">定投仓位比</button>
+        <button class="on" data-pane="list" onclick="planTab(this)">仓位</button>
+        <button data-pane="pos" onclick="planTab(this)">仓位比</button>
       </div>
 
       <div id="planPane">
         <div class="listcard" id="planList"></div>
-        <div class="hintbar">到定投日自动推送本地通知 · 点击条目可编辑</div>
+        <div class="hintbar">只记比例不记金额 · 点击条目可修改名称 / 代码 / 仓位比 · 合计超过 100% 标红</div>
       </div>
 
       <div id="posPane" style="display:none">
@@ -277,8 +277,8 @@
 
       <div id="pyrPane" style="display:none">
         <div class="bseg" id="bseg">
-          <button class="on" data-m="add" onclick="bSetMode('add')">应对下跌<small>正金字塔加仓</small></button>
-          <button data-m="trim" onclick="bSetMode('trim')">应对上涨<small>倒金字塔减仓</small></button>
+          <button class="on" data-m="add" onclick="bSetMode('add')">应对下跌 · 正金字塔加仓</button>
+          <button data-m="trim" onclick="bSetMode('trim')">应对上涨 · 倒金字塔减仓</button>
         </div>
         <div class="bcycle" id="bcycle">
           <svg viewBox="0 0 360 112" xmlns="http://www.w3.org/2000/svg">
@@ -289,14 +289,12 @@
             <path id="cyArcDown" class="cy-arc" d="M144 46 Q180 16 216 46" fill="none" stroke="#e04a4a" stroke-width="2.4" marker-end="url(#ar)"/>
             <path id="cyArcUp" class="cy-arc dim" d="M216 66 Q180 96 144 66" fill="none" stroke="#4a7fd4" stroke-width="2.4" marker-end="url(#ab)"/>
             <g id="cyAdd" class="cy-node on">
-              <ellipse cx="72" cy="56" rx="72" ry="28" fill="#e04a4a"/>
-              <text x="72" y="50" class="cy-t1">应对下跌</text>
-              <text x="72" y="68" class="cy-t2">正金字塔加仓</text>
+              <ellipse cx="72" cy="56" rx="74" ry="28" fill="#e04a4a"/>
+              <text x="72" y="60" class="cy-t1 cy-inline">应对下跌 · 正金字塔加仓</text>
             </g>
             <g id="cyTrim" class="cy-node">
-              <ellipse cx="288" cy="56" rx="72" ry="28" fill="#4a7fd4"/>
-              <text x="288" y="50" class="cy-t1">应对上涨</text>
-              <text x="288" y="68" class="cy-t2">倒金字塔减仓</text>
+              <ellipse cx="288" cy="56" rx="74" ry="28" fill="#4a7fd4"/>
+              <text x="288" y="60" class="cy-t1 cy-inline">应对上涨 · 倒金字塔减仓</text>
             </g>
             <text x="180" y="11" class="cy-cap">下跌加仓 · 摊薄成本</text>
             <text x="180" y="106" class="cy-cap2">上涨减仓 · 收回本金再循环</text>
@@ -406,7 +404,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.5.9</span>
+          <span class="mrow-v" id="appVer">v1.6.0</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
@@ -429,7 +427,7 @@
     </button>
     <button class="tab" data-tab="plan">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5.4" width="16" height="14.6" rx="2.2"/><path d="M8 3.4v4M16 3.4v4M4 10.2h16"/><path d="M8.6 14h2M13.4 14h2M8.6 17.2h2M13.4 17.2h2"/></svg>
-      <span>定投</span>
+      <span>仓位</span>
     </button>
     <button class="tab" data-tab="notes">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v3M12 18v2.5M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3.5 12h3M18 12h2.5M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
