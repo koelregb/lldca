@@ -887,7 +887,7 @@ function renderPosRatio() {
   var m = dcaPosModel(), band = posBand(m.use);
   big.textContent = m.use + '%';
   var badge = document.getElementById('posBadge');
-  badge.textContent = m.manual ? L('手动', 'Manual') : L('自动', 'Auto');
+  badge.textContent = m.manual ? L('自定义', 'Custom') : L('自动', 'Auto');
   badge.className = 'pos-badge' + (m.manual ? ' manual' : '');
   var fill = document.getElementById('posFill');
   fill.style.width = Math.max(0, Math.min(100, (m.use - 20) / 80 * 100)) + '%';
@@ -933,18 +933,37 @@ function posSet(btn) {
   var r = btn.getAttribute('data-r');
   posCfg.override = r === 'auto' ? null : Number(r);
   savePosCfg();
-  document.querySelectorAll('#posTune button').forEach(function (b) { b.classList.remove('on'); });
-  btn.classList.add('on');
+  syncPosTune();
   renderPosRatio();
-  toast(posCfg.override == null ? L('已恢复自动仓位比', 'Back to auto ratio') : L('已设为手动 ' + posCfg.override + '%', 'Manual ' + posCfg.override + '%'));
+  toast(posCfg.override == null ? L('已恢复自动仓位比', 'Back to auto ratio') : L('已设为 ' + posCfg.override + '%', 'Set to ' + posCfg.override + '%'));
+}
+/* 自定义比例：输入 20–100 后应用（回车也可） */
+function posApplyCustom() {
+  var el = document.getElementById('posCustom');
+  if (!el) return;
+  var v = Math.round(Number(el.value));
+  if (!isFinite(v) || v < 20 || v > 100) {
+    toast(L('请输入 20–100 之间的整数', 'Enter a whole number from 20 to 100'));
+    return;
+  }
+  posCfg.override = v;
+  savePosCfg();
+  syncPosTune();
+  renderPosRatio();
+  toast(L('已设为 ' + v + '%', 'Set to ' + v + '%'));
 }
 function syncPosTune() {
   var wrap = document.getElementById('posTune');
-  if (!wrap) return;
+  var inp = document.getElementById('posCustom');
   var cur = posCfg.override == null ? 'auto' : String(posCfg.override);
-  wrap.querySelectorAll('button').forEach(function (b) {
-    b.classList.toggle('on', b.getAttribute('data-r') === cur);
-  });
+  if (wrap) {
+    wrap.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-r') === cur);
+    });
+  }
+  if (inp && document.activeElement !== inp) {
+    inp.value = posCfg.override == null ? '' : posCfg.override;
+  }
 }
 var curPlanPane = 'list';
 function planTab(btn) {
@@ -2756,9 +2775,9 @@ function calNoteText(n) {
   if (n === '自定义') return L('自定义', 'custom');
   return n || '';
 }
-/* 本月重点：把当月所有日程按日期排成清单（含自定义），放在月历下方 */
-function monthEvents() {
-  var pre = calY + '-' + (calM + 1 < 10 ? '0' : '') + (calM + 1);
+/* 月重点：按月取日程清单（含自定义），月历下方同时显示本月与下月 */
+function monthEventsOf(y, m) {
+  var pre = y + '-' + (m + 1 < 10 ? '0' : '') + (m + 1);
   var out = [];
   CAL_EVENTS.forEach(function (e) {
     if (String(e.d).indexOf(pre) === 0) out.push({ d: e.d, t: e.t, zh: e.zh, en: e.en, title: e.title, note: e.note, nz: e.nz, ne: e.ne });
@@ -2769,27 +2788,46 @@ function monthEvents() {
   out.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
   return out;
 }
+function monthEvents() { return monthEventsOf(calY, calM); }
+
+function monthBlockHTML(y, m, isNext) {
+  var evs = monthEventsOf(y, m);
+  var hasErn = evs.some(function (e) { return e.t === 'earnings'; });
+  var title = isNext
+    ? L('下月重点', 'Next month')
+    : L((m + 1) + ' 月重点', calMonths[m] + ' highlights');
+  var meta = isNext
+    ? L((m + 1) + ' 月 · ' + evs.length + ' 件', calMonths[m] + ' · ' + evs.length + ' items')
+    : evs.length + L(' 件', ' items');
+  var h = '<div class="cal-mt' + (isNext ? ' next' : '') + '">' + title
+    + (hasErn ? '<span class="cal-mtag">' + L('财报季', 'earnings season') + '</span>' : '')
+    + '<em>' + meta + '</em></div>';
+  if (!evs.length) {
+    h += '<div class="cal-empty">' + (isNext
+      ? L('下月暂无预置日程', 'Nothing scheduled next month')
+      : L('本月没有预置日程 · 可点下方「标记事件」补充', 'Nothing scheduled this month')) + '</div>';
+    return h;
+  }
+  evs.forEach(function (e) {
+    var tp = CAL_TYPES[e.t] || CAL_TYPES.custom;
+    h += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '" onclick="calSelect(\'' + e.d + '\')">'
+      + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
+      + '<div class="ct-t">' + e.d.slice(5) + ' ' + esc(e.zh ? L(e.zh, e.en) : (e.title || '')) + '</div>'
+      + '<span class="ct-n">' + esc(evNote(e)) + '</span>'
+      + '</div>';
+  });
+  return h;
+}
 function renderMonthList() {
   var box = document.getElementById('calMonthList');
   if (!box) return;
-  var evs = monthEvents();
-  var hasErn = evs.some(function (e) { return e.t === 'earnings'; });
-  var h = '<div class="cal-mt">' + L((calM + 1) + ' 月重点', calMonths[calM] + ' highlights')
-    + (hasErn ? '<span class="cal-mtag">' + L('财报季', 'earnings season') + '</span>' : '')
-    + '<em>' + evs.length + L(' 件', ' items') + '</em></div>';
-  if (!evs.length) {
-    h += '<div class="cal-empty">' + L('本月没有预置日程 · 可点下方「标记事件」补充', 'Nothing scheduled this month') + '</div>';
-  } else {
-    evs.forEach(function (e) {
-      var tp = CAL_TYPES[e.t] || CAL_TYPES.custom;
-      h += '<div class="cal-row' + (e.t === 'custom' ? ' custom' : '') + '" onclick="calSelect(\'' + e.d + '\')">'
-        + '<span class="ct-chip" style="background:' + tp.color + '">' + tp.label + '</span>'
-        + '<div class="ct-t">' + e.d.slice(5) + ' ' + esc(e.zh ? L(e.zh, e.en) : (e.title || '')) + '</div>'
-        + '<span class="ct-n">' + esc(evNote(e)) + '</span>'
-        + '</div>';
-    });
+  box.innerHTML = monthBlockHTML(calY, calM, false);
+  var nbox = document.getElementById('calNextList');
+  if (nbox) {
+    var ny = calY, nm = calM + 1;
+    if (nm > 11) { nm = 0; ny++; }
+    nbox.innerHTML = monthBlockHTML(ny, nm, true);
   }
-  box.innerHTML = h;
 }
 function calSelect(ds) { calSel = ds; renderCal(); }
 function calMove(delta) {
@@ -2917,7 +2955,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.4';
+var APP_VERSION = 'v1.6.5';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
