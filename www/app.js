@@ -16,9 +16,11 @@ function lsDel(k) { try { window.localStorage.removeItem(k); } catch (e) { delet
 function pad2(n) { return String(n).padStart(2, '0'); }
 function dateStr(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+  var t = String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
   });
+  // 用户数据保护：不让翻译层改写用户输入的中文
+  return (window.FuleyI18N && window.FuleyI18N.raw) ? window.FuleyI18N.raw(t) : t;
 }
 function loadJSON(k, dflt) {
   try { var v = JSON.parse(lsGet(k) || 'null'); return v == null ? dflt : v; } catch (e) { return dflt; }
@@ -1495,7 +1497,9 @@ function renderNoteList(kind) {
       + '<div class="nt"></div></div>';
   });
   box.innerHTML = html;
-  box.querySelectorAll('.notecard .nt').forEach(function (el, i) { el.textContent = arr[i].text; });
+  box.querySelectorAll('.notecard .nt').forEach(function (el, i) {
+    el.textContent = (window.FuleyI18N && window.FuleyI18N.raw) ? window.FuleyI18N.raw(arr[i].text) : arr[i].text;
+  });
 }
 function renderNotes() { renderNoteList('red'); renderNoteList('green'); renderNoteList('case'); }
 function lampSeg(btn, dir) {
@@ -2834,7 +2838,7 @@ function meAuth() {
   openAuthSheet();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.5.8';
+var APP_VERSION = 'v1.5.9';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
