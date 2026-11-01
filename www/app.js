@@ -1668,8 +1668,9 @@ function delNote(kind, i) {
 /* ---------- 建仓法则：正 / 倒金字塔 × 加仓 / 减仓 ---------- */
 var BUILD_RULES = [
   {
-    key: 'up-add', tag: '正金字塔 · 加仓', sub: '追涨 / 右侧', tagEn: 'Pyramid · Add', subEn: 'Chasing / right-side',
+    key: 'up-add', tag: '正金字塔 · 加仓', sub: '追涨 / 右侧交易', tagEn: 'Pyramid · Add', subEn: 'Chasing / right-side trading',
     rows: [
+      ['时机', '已达底部跌不动，涨势萌动', 'Timing', 'Bottom holds — selling exhausted, upside starting to stir'],
       ['档位', '首档 40% → 30% → 20% → 10%（越涨加越少）', 'Tiers', '40% → 30% → 20% → 10% (add less as it rises)'],
       ['档差', '每涨 5%–8% 一档，价格确认上行再加', 'Spacing', 'One tier per 5–8% rise, add only after the uptrend is confirmed'],
       ['用途', '趋势确认后补仓，成本仍能压住', 'Purpose', 'Add after trend confirmation while keeping cost controlled'],
@@ -1704,24 +1705,34 @@ var BUILD_RULES = [
     ]
   }
 ];
-var BUILD_LAWS = [
-  '先定这只标的的总预算，再排档位 —— 不是跌了才想买多少',
-  '至少分 5 档，两三次打完是最常见的错误',
-  '永远不满仓：留 30% 现金，总仓位 80% 以上停止加仓',
-  '标的必须基本面可靠；倒金字塔抄底用在垃圾股上等于加速亏损',
-  '越涨越卖时先收回本金，剩下的才是利润在跑'
-];
-var BUILD_LAWS_EN = [
-  'Set the total budget for this asset first, then tier it \u2014 don\u2019t decide how much to buy only after it drops',
-  'Use at least 5 tiers; finishing in 2\u20133 shots is the most common mistake',
-  'Never go full-in: keep 30% cash, stop adding above 80% total position',
-  'Fundamentals must be solid; inverted-pyramid bottom-fishing on junk stocks just speeds up losses',
-  'When trimming, recover principal first \u2014 the rest is pure profit running'
-];
+/* 盆地形图：颈线之下（盆地 / 筑底）为加仓，站上颈线之后为减仓 */
+function bbMark(x, y, sign, cls) {
+  return '<g class="bb-m ' + cls + '"><circle cx="' + x + '" cy="' + y + '" r="9.5"/>'
+    + '<text x="' + x + '" y="' + (y + 4) + '">' + sign + '</text></g>';
+}
+function bbChart() {
+  return '<div class="bbfig">'
+    + '<div class="bb-h"><b class="bb-title">' + L('盆地形图 · 加减仓节奏', 'Bowl bottom · add / trim rhythm') + '</b>'
+    + '<span class="bb-tag">' + L('＋ 加仓　－ 减仓', '+ add&nbsp; − trim') + '</span></div>'
+    + '<svg viewBox="0 0 360 172" xmlns="http://www.w3.org/2000/svg" class="bb-svg">'
+    + '<line class="bb-neck" x1="14" y1="70" x2="340" y2="70"/>'
+    + '<text class="bb-neckT" x="15" y="84" text-anchor="start">' + L('颈线', 'Neckline') + '</text>'
+    + '<path class="bb-curve" d="M18 20 C46 76 96 118 176 118 C258 118 312 66 340 10"/>'
+    + bbMark(74, 86, '+', 'bb-add')
+    + bbMark(176, 118, '+', 'bb-add')
+    + bbMark(252, 101, '+', 'bb-add')
+    + bbMark(304, 58, '\u2212', 'bb-trim')
+    + bbMark(330, 22, '\u2212', 'bb-trim')
+    + '<text class="bb-cap" x="176" y="148">' + L('筑底', 'Bottoming') + '</text>'
+    + '</svg>'
+    + '<div class="bb-lg"><i class="bb-dot bb-add"></i><span>' + L('＋ 加仓：颈线之下的盆地（筑底区间）分批买', '+ Add: buy in tiers inside the bowl, below the neckline') + '</span></div>'
+    + '<div class="bb-lg"><i class="bb-dot bb-trim"></i><span>' + L('－ 减仓：站上颈线之后越涨越卖，先收回本金', '− Trim: sell into strength once above the neckline; recover principal first') + '</span></div>'
+    + '</div>';
+}
 function renderBuildRules() {
   var box = document.getElementById('buildRules');
   if (!box) return;
-  var h = '<div class="hintbar" style="margin-top:0">' + L('正 / 倒描述的是「动作量的形状」，加仓减仓是方向 · 按动作量命名，若按持仓形状命名，第 2 张卡会被叫作「正金字塔」', 'Up/down describes the shape of each action; buy/sell is the direction') + '</div>';
+  var h = bbChart() + '<div class="hintbar" style="margin-top:0">' + L('正 / 倒描述的是「动作量的形状」，加仓减仓是方向 · 按动作量命名，若按持仓形状命名，第 2 张卡会被叫作「正金字塔」', 'Up/down describes the shape of each action; buy/sell is the direction') + '</div>';
   BUILD_RULES.forEach(function (r) {
     h += '<div class="build-card">'
       + '<div class="bc-h"><span class="bc-tag">' + L(r.tag, r.tagEn || r.tag) + '</span><span class="bc-sub">' + L(r.sub, r.subEn || r.sub) + '</span></div>';
@@ -1730,11 +1741,6 @@ function renderBuildRules() {
     });
     h += '</div>';
   });
-  h += '<div class="pnl-t">' + L('五条铁律', 'Five rules') + '</div><div class="listcard bc-laws">';
-  BUILD_LAWS.forEach(function (t, i) {
-    h += '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + L(t, (BUILD_LAWS_EN[i] || t)) + '</span></div>';
-  });
-  h += '</div>';
   h += '<div class="hintbar">' + L('参数取自公开分享的加减仓体系（金字塔 / 倒金字塔），仅作纪律参考，不构成投资建议', 'Parameters from publicly shared position-sizing frameworks; discipline reference only') + '</div>';
   box.innerHTML = h;
 }
@@ -2955,7 +2961,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.6';
+var APP_VERSION = 'v1.6.8';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -3434,16 +3440,40 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
           verb: '涨', act: '卖', secT: '各档触发与卖出比例（以建仓价为起点）', unit1: '涨幅%', unit2: '卖出%',
             trigs: [5, 10, 15, 20], ratios: [10, 20, 30, 30], color: '#4a7fd4' }
   };
-  var cur = 'add';
-  var trigs = MODES.add.trigs.slice(), ratios = MODES.add.ratios.slice();
+  var PYR_KEY = 'fuley.pyr.v1';
+  var saved = loadJSON(PYR_KEY, null) || {};
+  function freshMode(m) {
+    return { trigs: MODES[m].trigs.slice(), ratios: MODES[m].ratios.slice(), laws: MODES[m].laws.slice() };
+  }
+  var state = { add: freshMode('add'), trim: freshMode('trim') };
+  // 恢复已保存的档位 / 比例 / 纪律（长度与数值不合法的部分回退默认）
+  ['add', 'trim'].forEach(function (m) {
+    var d = saved[m];
+    if (!d || typeof d !== 'object') return;
+    if (Array.isArray(d.trigs) && Array.isArray(d.ratios) &&
+        d.trigs.length === d.ratios.length && d.trigs.length >= 2 && d.trigs.length <= 10) {
+      var okT = d.trigs.every(function (x) { return isFinite(Number(x)) && Number(x) >= 0; });
+      var okR = d.ratios.every(function (x) { return isFinite(Number(x)); });
+      if (okT && okR) {
+        state[m].trigs = d.trigs.map(Number);
+        state[m].ratios = d.ratios.map(Number);
+      }
+    }
+    if (Array.isArray(d.laws) && d.laws.length) state[m].laws = d.laws.map(String);
+  });
+  var cur = (saved.mode === 'trim') ? 'trim' : 'add';
+  var trigs = state[cur].trigs, ratios = state[cur].ratios;
+  function savePyr() { saveJSON(PYR_KEY, { mode: cur, add: state.add, trim: state.trim }); }
 
   window.bSetMode = function (m) {
+    if (m !== 'add' && m !== 'trim') return;
     cur = m;
-    trigs = MODES[m].trigs.slice(); ratios = MODES[m].ratios.slice();
+    trigs = state[m].trigs; ratios = state[m].ratios;
     document.querySelectorAll('#bseg button').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-m') === m);
     });
     document.getElementById('bSecT').textContent = MODES[m].secT;
+    savePyr();
     bRender(); bSyncCycle();
   };
   window.bSyncCycle = function () {
@@ -3453,8 +3483,12 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
     document.getElementById('cyArcUp').classList.toggle('dim', cur === 'add');
   };
   window.bReset = function () {
-    trigs = MODES[cur].trigs.slice(); ratios = MODES[cur].ratios.slice();
+    state[cur].trigs = MODES[cur].trigs.slice();
+    state[cur].ratios = MODES[cur].ratios.slice();
+    trigs = state[cur].trigs; ratios = state[cur].ratios;
+    savePyr();
     bRender();
+    toast(L('已恢复默认档位', 'Tiers reset to default'));
   };
   window.bAddTier = function (d) {
     var n = ratios.length + d;
@@ -3468,17 +3502,58 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
     } else {
       trigs.pop(); ratios.pop();
     }
+    savePyr();
     bRender();
   };
   window.bSetTrig = function (i, v) {
     var x = parseFloat(v);
     trigs[i] = isFinite(x) && x >= 0 ? x : 0;
+    savePyr();
     bRender(true);
   };
   window.bSetRatio = function (i, v) {
     var x = parseFloat(v);
     ratios[i] = isFinite(x) && x > 0 ? x : 0;
+    savePyr();
     bRender(true);
+  };
+
+  /* 纪律：默认文案可能被翻译层改写，用 raw 标记保护；保存时去掉标记 */
+  function rawTxt(t) {
+    var v = String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return (window.FuleyI18N && window.FuleyI18N.raw) ? window.FuleyI18N.raw(v) : v;
+  }
+  function stripMark(t) { return String(t == null ? '' : t).replace(/[\uE000\uE001]/g, ''); }
+
+  window.bSetLaw = function (i, txt) {
+    var arr = state[cur].laws;
+    if (i < 0 || i >= arr.length) return;
+    var v = stripMark(txt).replace(/\s+/g, ' ').trim();
+    if (v === stripMark(arr[i])) return;      // 未改动
+    arr[i] = v;
+    savePyr();
+    toast(L('纪律已保存', 'Rule saved'));
+  };
+  window.bAddLaw = function () {
+    state[cur].laws.push('');
+    savePyr();
+    bRender();
+    var box = document.getElementById('bLaws');
+    var items = box.querySelectorAll('.bc-tx');
+    var last = items[items.length - 1];
+    if (last) {
+      last.focus();
+      var r = document.createRange(); r.selectNodeContents(last);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    }
+  };
+  window.bDelLaw = function (i) {
+    var arr = state[cur].laws;
+    if (i < 0 || i >= arr.length) return;
+    arr.splice(i, 1);
+    savePyr();
+    bRender();
+    toast(L('已删除该条纪律', 'Rule removed'));
   };
 
   window.bRender = function (keepFocus) {
@@ -3490,10 +3565,25 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
     document.getElementById('bhint').textContent = m.tag + ' · ' + m.hint;
     document.getElementById('bN').textContent = n;
     document.getElementById('bRec').innerHTML = m.rec;
-    document.getElementById('bLawT').textContent = m.tag + ' · 两条纪律';
-    document.getElementById('bLaws').innerHTML = m.laws.map(function (t, i) {
-      return '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + t + '</span></div>';
+    var laws = state[cur].laws;
+    var en = IS_EN();
+    document.getElementById('bLawT').textContent = m.tag + ' · ' +
+      (en ? 'Discipline (' + laws.length + ')' : '纪律（' + laws.length + ' 条）');
+    var lbox = document.getElementById('bLaws');
+    lbox.innerHTML = laws.map(function (t, i) {
+      return '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span>'
+        + '<span class="bc-tx" contenteditable="true" data-i="' + i + '" spellcheck="false">' + rawTxt(t) + '</span>'
+        + '<button class="bc-del" data-i="' + i + '" title="' + (en ? 'Delete' : '删除') + '">×</button></div>';
     }).join('');
+    [].forEach.call(lbox.querySelectorAll('.bc-tx'), function (el) {
+      el.addEventListener('blur', function () { bSetLaw(Number(el.getAttribute('data-i')), el.textContent); });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      });
+    });
+    [].forEach.call(lbox.querySelectorAll('.bc-del'), function (btn) {
+      btn.addEventListener('click', function (e) { e.stopPropagation(); bDelLaw(Number(btn.getAttribute('data-i'))); });
+    });
 
     // 展示顺序：加仓为正常金字塔（顶尖朝上）；减仓倒置，使最大档在最上方、尖端朝下
     var disp = ratios.slice();
@@ -3555,7 +3645,10 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
     document.getElementById('bsum').innerHTML = sumTxt;
   };
 
-  document.getElementById('bSecT').textContent = MODES.add.secT;
+  document.getElementById('bSecT').textContent = MODES[cur].secT;
+  document.querySelectorAll('#bseg button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-m') === cur);
+  });
   bSyncCycle();
   bRender();
 })();
