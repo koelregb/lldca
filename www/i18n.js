@@ -23,7 +23,9 @@
     return n.indexOf('zh') === 0 ? 'zh' : 'en';
   }
   function setLang(l) {
-    try { localStorage.setItem(STORE_KEY, l === 'en' ? 'en' : 'zh'); } catch (e) { /* ignore */ }
+    var v = l === 'en' ? 'en' : 'zh';
+    try { localStorage.setItem(STORE_KEY, v); } catch (e) { /* ignore */ }
+    try { if (document.documentElement) document.documentElement.lang = v === 'en' ? 'en' : 'zh-CN'; } catch (e2) { /* ignore */ }
   }
   function isEn() { return lang() === 'en'; }
   /* 显式双语：结构化句子里含中文标点 / 数字单位时用这个 */
@@ -64,8 +66,8 @@
     '还没有仓位记录<br>点右下角 + 添加名称与仓位比': 'No positions yet<br>Tap + to add a name and weight',
     '点击修改': 'tap to edit',
     '只记比例不记金额 · 点击条目可修改名称 / 代码 / 仓位比 · 合计超过 100% 标红': 'Ratio only, no amounts · tap a row to edit name / code / weight · over 100% is flagged',
-    '应对下跌 · 正金字塔加仓': 'Falling · pyramid adding',
-    '应对上涨 · 倒金字塔减仓': 'Rising · inverted-pyramid trim',
+    '应对下跌 · 正金字塔加仓': 'Falling · pyramid add',
+    '应对上涨 · 倒金字塔减仓': 'Rising · inverted trim',
     '已定投': 'Invested',
     '收益': 'Returns',
     '收益 = 当前市值 − 累计投入 · 现价自动联网更新 · 红 = 盈利，绿 = 亏损 · 数据来自「已定投」记录':
@@ -770,6 +772,10 @@
 
   /* 立即装钩子（app.js 在其后执行，渲染输出自动英文化） */
   hook();
+  /* 首次加载也把 <html lang> 对齐到当前语言（供 CSS 做语言差异微调） */
+  if (typeof document !== 'undefined') {
+    try { document.documentElement.lang = isEn() ? 'en' : 'zh-CN'; } catch (e) { /* ignore */ }
+  }
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', function () { applyStatic(); });

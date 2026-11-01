@@ -1084,9 +1084,14 @@ input, select, textarea { font-family: inherit; }
 
 
 /* ---- v1.5.4: 加减仓法则（交互式金字塔） ---- */
-.bseg button { white-space: nowrap; font-size: 12px; flex: 1 1 0; max-width: 190px; border: 1px solid var(--line); background: var(--chip); color: var(--ink);
-    border-radius: 14px; padding: 11px 8px; font-size: 13px; font-weight: 800; line-height: 1.25; cursor: pointer;
-    display: flex; flex-direction: column; align-items: center; transition: background .2s, color .2s, border-color .2s, box-shadow .2s; }
+/* 两个模式按钮：一行两列（等宽），文字居中，允许在按钮内换行不溢出 */
+.bseg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 12px; }
+.bseg button {
+    min-width: 0; border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+    border-radius: 14px; padding: 10px 8px; font-size: 12px; font-weight: 800; line-height: 1.3;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; text-align: center;
+    white-space: normal; word-break: break-word;
+    transition: background .2s, color .2s, border-color .2s, box-shadow .2s; }
 .bseg button small { display: block; font-size: 10px; font-weight: 600; opacity: .85; margin-top: 2px; letter-spacing: .2px; }
 .bseg button.on { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
 .bseg button.on[data-m="add"] { background: #e04a4a; border-color: #e04a4a; color: #fff; }
@@ -1151,3 +1156,6 @@ input, select, textarea { font-family: inherit; }
 
 /* 循环图节点文字单行居中 */
 .cy-inline { font-size: 10.5px; font-weight: 700; fill: #fff; }
+
+/* 英文标签较长：略缩字号，保证一行两列内不换行 */
+html[lang="en"] .bseg button { font-size: 11px; letter-spacing: -.15px; padding: 10px 6px; }
