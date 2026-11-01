@@ -2916,11 +2916,10 @@ function hashPass(p) {
 }
 function meAuth() {
   if (meUser) { logout(); return; }
-  authMode = loadAccount() ? 'login' : 'register';
-  openAuthSheet();
+  showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.0';
+var APP_VERSION = 'v1.6.1';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -2969,12 +2968,12 @@ function doRegister() {
   var name = (document.getElementById('auName').value || '').trim();
   var p1 = document.getElementById('auPass').value || '';
   var p2 = document.getElementById('auPass2').value || '';
-  if (!/^[a-zA-Z0-9_]{3,20}$/.test(account)) { toast('账号需 3-20 位字母 / 数字 / 下划线'); return; }
-  if (!name) { toast('请填写昵称'); return; }
-  if (!/^[a-zA-Z0-9]{6,32}$/.test(p1)) { toast('密码需 6-32 位，仅含字母和数字'); return; }
-  if (p1 !== p2) { toast('两次密码不一致'); return; }
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(account)) { toast(L('账号需 3-20 位字母 / 数字 / 下划线', 'Account must be 3-20 letters / digits / underscores')); return; }
+  if (!name) { toast(L('请填写昵称', 'Please enter a nickname')); return; }
+  if (!/^[a-zA-Z0-9]{6,32}$/.test(p1)) { toast(L('密码需 6-32 位，仅含字母和数字', 'Password must be 6-32 letters or digits')); return; }
+  if (p1 !== p2) { toast(L('两次密码不一致', 'Passwords do not match')); return; }
   var exist = loadAccount();
-  if (exist && exist.account === account) { toast('该账号已注册，请直接登录'); authMode = 'login'; openAuthSheet(); return; }
+  if (exist && exist.account === account) { toast(L('该账号已注册，请直接登录', 'This account is already registered — please sign in')); authMode = 'login'; renderRegGate(); return; }
   hashPass(p1).then(function (h) {
     var acc = { account: account, name: name, algo: h.slice(0, 2), hash: h.slice(3) };
     saveJSON(ACCOUNT_KEY, acc);
@@ -2982,63 +2981,26 @@ function doRegister() {
     meUser = { account: account, name: name };
     renderMe();
     closeSheet();
-    toast('注册成功，已登录');
+    toast(L('注册成功，已登录', 'Signed up and signed in'));
     hideRegGate();
     showTrialWelcome();
   });
 }
-/* ---------- 找回密码（本机账号：账号 + 昵称校验后重置） ---------- */
-function openForgotSheet() {
-  sheetMode = 'forgot';
-  var acc = loadAccount();
-  document.getElementById('sheetTitle').textContent = L('找回密码', 'Reset password');
-  document.getElementById('sheetSave').textContent = L('重置密码', 'Reset');
-  var body = '';
-  if (!acc) {
-    body += '<div class="hintbar" style="margin:0">' + L('本机还没有注册账号，请先注册。', 'No account on this device yet — please sign up first.') + '</div>';
-  } else {
-    body += '<div class="hintbar" style="margin:0 0 10px">' + L('通过注册时的账号与昵称验证身份，验证通过后可设置新密码。', 'Verify with the account and nickname you registered, then set a new password.') + '</div>'
-      + '<div class="field"><label>' + L('账号', 'Account') + '</label><input type="text" id="fgAccount" maxlength="20" placeholder="' + L('请输入注册账号', 'Your account') + '" autocomplete="off"></div>'
-      + '<div class="field"><label>' + L('昵称', 'Nickname') + '</label><input type="text" id="fgName" maxlength="20" placeholder="' + L('注册时填写的昵称', 'Nickname used at sign-up') + '"></div>'
-      + '<div class="field"><label>' + L('新密码（6-32 位，仅字母 / 数字）', 'New password (6-32 chars, letters / digits)') + '</label><input type="password" id="fgPass" maxlength="32" placeholder="••••••"></div>'
-      + '<div class="field"><label>' + L('确认新密码', 'Confirm new password') + '</label><input type="password" id="fgPass2" maxlength="32" placeholder="••••••"></div>';
-  }
-  document.getElementById('sheetBody').innerHTML = body;
-  showSheet();
-}
-function saveForgotForm() {
-  var acc = loadAccount();
-  if (!acc) { toast(L('本机还没有注册账号', 'No account on this device')); return; }
-  var account = (document.getElementById('fgAccount').value || '').trim();
-  var name = (document.getElementById('fgName').value || '').trim();
-  var p1 = document.getElementById('fgPass').value || '';
-  var p2 = document.getElementById('fgPass2').value || '';
-  if (account !== acc.account) { toast(L('账号与本机注册的账号不一致', 'Account does not match this device')); return; }
-  if (name !== (acc.name || '')) { toast(L('昵称不正确，无法验证身份', 'Nickname incorrect — cannot verify')); return; }
-  if (!/^[A-Za-z0-9]{6,32}$/.test(p1)) { toast(L('密码需 6-32 位字母或数字', 'Password must be 6-32 letters or digits')); return; }
-  if (p1 !== p2) { toast(L('两次密码不一致', 'Passwords do not match')); return; }
-  hashPass(p1).then(function (h) {
-    var parts = h.split(':');
-    acc.algo = parts[0]; acc.hash = parts[1];
-    saveJSON(ACCOUNT_KEY, acc);
-    closeSheet();
-    authMode = 'login';
-    renderRegGate();
-    toast(L('密码已重置，请用新密码登录', 'Password reset — sign in with the new one'));
-  });
-}
+/* ---------- 找回密码：统一走注册卡片的 forgot 模式 ---------- */
+function openForgotSheet() { rgForgot(); }
+function saveForgotForm() { rgForgotSubmit(); }
 function doSignIn() {
   var account = (document.getElementById('auAccount').value || '').trim();
   var p1 = document.getElementById('auPass').value || '';
   var acc = loadAccount();
-  if (!acc || acc.account !== account) { toast('账号不存在，请先注册'); return; }
+  if (!acc || acc.account !== account) { toast(L('账号不存在，请先注册', 'Account not found — please sign up')); return; }
   hashPass(p1).then(function (h) {
-    if ((acc.algo + ':' + acc.hash) !== h && acc.hash !== h) { toast('密码不正确'); return; }
+    if ((acc.algo + ':' + acc.hash) !== h && acc.hash !== h) { toast(L('密码不正确', 'Incorrect password')); return; }
     saveJSON(SESSION_KEY, { account: account, name: acc.name });
     meUser = { account: account, name: acc.name };
     renderMe();
     closeSheet();
-    toast('登录成功');
+    toast(L('登录成功', 'Signed in'));
     hideRegGate();
   });
 }
@@ -3072,11 +3034,16 @@ function hideRegGate() {
   if (tb) tb.style.display = '';   // 恢复顶栏
 }
 function renderRegGate() {
+  var isForgot = authMode === 'forgot';
   var isReg = authMode === 'register';
-  document.getElementById('rgTitle').textContent = isReg ? L('欢迎使用浮乐', 'Welcome to Fuley') : L('登录浮乐', 'Sign in to Fuley');
-  document.getElementById('rgSub').textContent = isReg
-    ? L('注册账号后即可使用 · 数据仅保存在本机', 'Sign up to start · data stays on this device')
-    : L('欢迎回来，登录后继续使用', 'Welcome back, sign in to continue');
+  document.getElementById('rgTitle').textContent = isForgot
+    ? L('找回密码', 'Reset password')
+    : isReg ? L('欢迎使用浮乐', 'Welcome to Fuley') : L('登录浮乐', 'Sign in to Fuley');
+  document.getElementById('rgSub').textContent = isForgot
+    ? L('通过注册时的账号与昵称验证身份，验证通过后可设置新密码', 'Verify with the account and nickname you registered, then set a new password')
+    : isReg
+      ? L('注册账号后即可使用 · 数据仅保存在本机', 'Sign up to start · data stays on this device')
+      : L('欢迎回来，登录后继续使用', 'Welcome back, sign in to continue');
   // 注册门上的语言切换按钮
   var lbox = document.getElementById('rgLang');
   if (lbox) {
@@ -3086,20 +3053,56 @@ function renderRegGate() {
     }).join('');
   }
   var f = '';
-  if (isReg) {
-    f += '<div class="field"><label>' + L('账号（3-20 位字母 / 数字 / 下划线）', 'Account (3-20 letters / digits / underscore)') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + L('如 fuley2026', 'e.g. fuley2026') + '" autocomplete="off"></div>'
-      + '<div class="field"><label>' + L('昵称', 'Nickname') + '</label><input type="text" id="auName" maxlength="20" placeholder="' + L('怎么称呼你', 'What should we call you') + '"></div>';
+  if (isForgot) {
+    // 找回密码直接内嵌在注册门卡片里（此前用底部弹层，会被登录遮罩盖住 → 点击像没反应）
+    f += '<div class="field"><label>' + L('账号', 'Account') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + L('请输入注册账号', 'Your account') + '" autocomplete="off"></div>'
+      + '<div class="field"><label>' + L('昵称', 'Nickname') + '</label><input type="text" id="auName" maxlength="20" placeholder="' + L('注册时填写的昵称', 'Nickname used at sign-up') + '"></div>'
+      + '<div class="field"><label>' + L('新密码（6-32 位，仅字母 / 数字）', 'New password (6-32 chars, letters / digits)') + '</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>'
+      + '<div class="field"><label>' + L('确认新密码', 'Confirm new password') + '</label><input type="password" id="auPass2" maxlength="32" placeholder="' + L('再输一次', 'Enter again') + '"></div>'
+      + '<button class="btn" onclick="rgForgotSubmit()">' + L('重置密码', 'Reset password') + '</button>';
   } else {
-    f += '<div class="field"><label>' + L('账号', 'Account') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + L('请输入账号', 'Enter your account') + '" autocomplete="off"></div>';
+    if (isReg) {
+      f += '<div class="field"><label>' + L('账号（3-20 位字母 / 数字 / 下划线）', 'Account (3-20 letters / digits / underscore)') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + L('如 fuley2026', 'e.g. fuley2026') + '" autocomplete="off"></div>'
+        + '<div class="field"><label>' + L('昵称', 'Nickname') + '</label><input type="text" id="auName" maxlength="20" placeholder="' + L('怎么称呼你', 'What should we call you') + '"></div>';
+    } else {
+      f += '<div class="field"><label>' + L('账号', 'Account') + '</label><input type="text" id="auAccount" maxlength="20" placeholder="' + L('请输入账号', 'Enter your account') + '" autocomplete="off"></div>';
+    }
+    f += '<div class="field"><label>' + L('密码（6-32 位，仅字母 / 数字）', 'Password (6-32 chars, letters / digits)') + '</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
+    if (isReg) f += '<div class="field"><label>' + L('确认密码', 'Confirm password') + '</label><input type="password" id="auPass2" maxlength="32" placeholder="' + L('再输一次', 'Enter again') + '"></div>';
+    f += '<button class="btn" onclick="rgSubmit()">' + (isReg ? L('注册并开始', 'Sign Up & Start') : L('登录', 'Sign In')) + '</button>';
   }
-  f += '<div class="field"><label>' + L('密码（6-32 位，仅字母 / 数字）', 'Password (6-32 chars, letters / digits)') + '</label><input type="password" id="auPass" maxlength="32" placeholder="••••••"></div>';
-  if (isReg) f += '<div class="field"><label>' + L('确认密码', 'Confirm password') + '</label><input type="password" id="auPass2" maxlength="32" placeholder="' + L('再输一次', 'Enter again') + '"></div>';
-  f += '<button class="btn" onclick="rgSubmit()">' + (isReg ? L('注册并开始', 'Sign Up & Start') : L('登录', 'Sign In')) + '</button>';
   document.getElementById('rgForm').innerHTML = f;
-  document.getElementById('rgSwitch').innerHTML = isReg
-    ? L('已有账号？<a onclick="authMode=\'login\';renderRegGate()">去登录</a>', 'Have an account? <a onclick="authMode=\'login\';renderRegGate()">Sign in</a>')
-    : L('没有账号？<a onclick="authMode=\'register\';renderRegGate()">去注册</a>', 'No account? <a onclick="authMode=\'register\';renderRegGate()">Sign up</a>')
-      + ' · <a onclick="openForgotSheet()">' + L('忘记密码？', 'Forgot password?') + '</a>';
+  document.getElementById('rgSwitch').innerHTML = isForgot
+    ? '<a onclick="authMode=\'login\';renderRegGate()">' + L('返回登录', 'Back to sign in') + '</a>'
+    : isReg
+      ? L('已有账号？<a onclick="authMode=\'login\';renderRegGate()">去登录</a>', 'Have an account? <a onclick="authMode=\'login\';renderRegGate()">Sign in</a>')
+      : L('没有账号？<a onclick="authMode=\'register\';renderRegGate()">去注册</a>', 'No account? <a onclick="authMode=\'register\';renderRegGate()">Sign up</a>')
+        + ' · <a onclick="rgForgot()">' + L('忘记密码？', 'Forgot password?') + '</a>';
+}
+/* 忘记密码：切到注册卡片内的 forgot 模式（不再用底部弹层，避免被遮罩挡住） */
+function rgForgot() {
+  if (!loadAccount()) { toast(L('本机还没有注册账号，请先注册', 'No account on this device — please sign up first')); authMode = 'register'; renderRegGate(); return; }
+  authMode = 'forgot'; renderRegGate();
+}
+function rgForgotSubmit() {
+  var acc = loadAccount();
+  if (!acc) { toast(L('本机还没有注册账号', 'No account on this device')); return; }
+  var account = (document.getElementById('auAccount').value || '').trim();
+  var name = (document.getElementById('auName').value || '').trim();
+  var p1 = document.getElementById('auPass').value || '';
+  var p2 = document.getElementById('auPass2').value || '';
+  if (account !== acc.account) { toast(L('账号与本机注册的账号不一致', 'Account does not match this device')); return; }
+  if (name !== (acc.name || '')) { toast(L('昵称不正确，无法验证身份', 'Nickname incorrect — cannot verify')); return; }
+  if (!/^[a-zA-Z0-9]{6,32}$/.test(p1)) { toast(L('密码需 6-32 位字母或数字', 'Password must be 6-32 letters or digits')); return; }
+  if (p1 !== p2) { toast(L('两次密码不一致', 'Passwords do not match')); return; }
+  hashPass(p1).then(function (h) {
+    var parts = h.split(':');
+    acc.algo = parts[0]; acc.hash = parts[1];
+    saveJSON(ACCOUNT_KEY, acc);
+    authMode = 'login';
+    renderRegGate();
+    toast(L('密码已重置，请用新密码登录', 'Password reset — sign in with the new one'));
+  });
 }
 function rgSubmit() { if (authMode === 'register') doRegister(); else doSignIn(); }
 function showTrialNotice(opt) {
