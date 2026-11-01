@@ -1729,17 +1729,156 @@ function bbChart() {
     + '<div class="bb-lg"><i class="bb-dot bb-trim"></i><span>' + L('－ 减仓：站上颈线之后越涨越卖，先收回本金', '− Trim: sell into strength once above the neckline; recover principal first') + '</span></div>'
     + '</div>';
 }
+/* ---------- 建仓法则：当前模式选择（绿底）+ 条目可编辑 / 保存 / 删除 ---------- */
+var BUILD_KEY = 'fuley.build.v1';
+var BUILD_DEF = {}, BUILD_GROUP = {};
+BUILD_RULES.forEach(function (r) {
+  BUILD_DEF[r.key] = r;
+  BUILD_GROUP[r.key] = (r.key === 'up-trim' || r.key === 'down-trim') ? 'trim' : 'add';
+});
+var BUILD_GROUP_NAME = { add: { zh: '加仓', en: 'add' }, trim: { zh: '减仓', en: 'trim' } };
+var bState = (function () {
+  var s = loadJSON(BUILD_KEY, null) || {};
+  var out = { add: 'up-add', trim: 'down-trim', cards: {} };
+  if (s.add && BUILD_GROUP[s.add] === 'add') out.add = s.add;
+  if (s.trim && BUILD_GROUP[s.trim] === 'trim') out.trim = s.trim;
+  BUILD_RULES.forEach(function (r) {
+    var saved = s.cards && s.cards[r.key], rows = [];
+    if (Array.isArray(saved)) {
+      saved.forEach(function (x) {
+        if (Array.isArray(x) && x.length >= 2) rows.push([String(x[0]), String(x[1])]);
+      });
+    }
+    out.cards[r.key] = rows.length ? rows : r.rows.map(function (x) { return [x[0], x[1]]; });
+  });
+  return out;
+})();
+var bEditing = null;          // 正在编辑的卡片 key（同时只编辑一张）
+function bSaveState() { saveJSON(BUILD_KEY, bState); }
+function bStrip(t) { return String(t == null ? '' : t).replace(/[\uE000\uE001]/g, ''); }
+function bEsc(t) {
+  return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+/* 用户改过的文字用 raw 包裹，避免英文模式把它当界面文案翻译 */
+function bRaw(t) {
+  var v = bEsc(t);
+  return (window.FuleyI18N && window.FuleyI18N.raw) ? window.FuleyI18N.raw(v) : v;
+}
+function bDefRow(k, key) {
+  var hit = null;
+  BUILD_DEF[k].rows.forEach(function (x) { if (x[0] === key) hit = x; });
+  return hit;
+}
+function bCellHtml(k, i, which) {
+  var row = bState.cards[k][i];
+  if (bEditing === k) return bEsc(row[which]);
+  var d = bDefRow(k, row[0]);
+  if (d && d[1] === row[1]) {   // 与默认一致 → 跟随语言；改过 → 用原文
+    return which === 0 ? L(row[0], d[2] || row[0]) : L(row[1], d[3] || row[1]);
+  }
+  return bRaw(row[which]);
+}
+function bCardName(k) { return L(BUILD_DEF[k].tag, BUILD_DEF[k].tagEn || BUILD_DEF[k].tag); }
+function bGroupZh(k) { return BUILD_GROUP_NAME[BUILD_GROUP[k]].zh; }
+/* 编辑态下把卡片 DOM 内容读回内存 */
+function bRead(k) {
+  var card = document.querySelector('.build-card[data-k="' + k + '"]');
+  if (!card) return;
+  var rows = [];
+  Array.prototype.forEach.call(card.querySelectorAll('.bc-row'), function (r) {
+    var kk = r.querySelector('.bc-k'), vv = r.querySelector('.bc-v');
+    rows.push([bStrip(kk ? kk.textContent : '').trim(), bStrip(vv ? vv.textContent : '').trim()]);
+  });
+  bState.cards[k] = rows.length ? rows : BUILD_DEF[k].rows.map(function (x) { return [x[0], x[1]]; });
+}
+window.bPick = function (k) {
+  if (!BUILD_DEF[k]) return;
+  if (bEditing) { bRead(bEditing); bEditing = null; }
+  var g = BUILD_GROUP[k];
+  bState[g] = k;
+  bSaveState();
+  renderBuildRules();
+  toast(L('当前' + bGroupZh(k) + '模式：' + BUILD_DEF[k].tag,
+          'Current mode: ' + (BUILD_DEF[k].tagEn || BUILD_DEF[k].tag)));
+};
+window.bEdit = function (k) {
+  if (bEditing === k) return;
+  if (bEditing) { bRead(bEditing); bSaveState(); }
+  bEditing = k;
+  renderBuildRules();
+};
+window.bSaveCard = function (k) {
+  if (bEditing === k) bRead(k);
+  bState.cards[k] = bState.cards[k].filter(function (x) { return x[0] || x[1]; });
+  if (!bState.cards[k].length) bState.cards[k] = BUILD_DEF[k].rows.map(function (x) { return [x[0], x[1]]; });
+  bEditing = null;
+  bSaveState();
+  renderBuildRules();
+  toast(L('已保存', 'Saved'));
+};
+window.bCancelCard = function () {
+  bEditing = null;
+  renderBuildRules();
+};
+window.bDelRow = function (k, i) {
+  if (bEditing === k) bRead(k);
+  bState.cards[k].splice(i, 1);
+  if (!bState.cards[k].length) bState.cards[k] = [['备注', '']];
+  if (bEditing !== k) bEditing = k;
+  bSaveState();
+  renderBuildRules();
+  toast(L('已删除该行', 'Row removed'));
+};
+window.bAddRow = function (k) {
+  if (bEditing === k) bRead(k);
+  bEditing = k;
+  bState.cards[k].push(['备注', '']);
+  bSaveState();
+  renderBuildRules();
+  var card = document.querySelector('.build-card[data-k="' + k + '"]');
+  var rows = card ? card.querySelectorAll('.bc-row') : [];
+  var last = rows[rows.length - 1];
+  var vv = last ? last.querySelector('.bc-v') : null;
+  if (vv) {
+    vv.focus();
+    var r = document.createRange(); r.selectNodeContents(vv);
+    var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  }
+};
 function renderBuildRules() {
   var box = document.getElementById('buildRules');
   if (!box) return;
-  var h = bbChart() + '<div class="hintbar" style="margin-top:0">' + L('正 / 倒描述的是「动作量的形状」，加仓减仓是方向 · 按动作量命名，若按持仓形状命名，第 2 张卡会被叫作「正金字塔」', 'Up/down describes the shape of each action; buy/sell is the direction') + '</div>';
+  var h = '<div class="bcur">'
+    + '<div class="bcur-i"><i>' + L('当前加仓模式', 'Add mode') + '</i><b>' + bCardName(bState.add) + '</b></div>'
+    + '<div class="bcur-i"><i>' + L('当前减仓模式', 'Trim mode') + '</i><b>' + bCardName(bState.trim) + '</b></div>'
+    + '</div>';
+  h += bbChart();
+  h += '<div class="hintbar" style="margin-top:0">' + L('正 / 倒描述的是「动作量的形状」，加仓减仓是方向 · 按动作量命名，若按持仓形状命名，第 2 张卡会被叫作「正金字塔」', 'Up/down describes the shape of each action; buy/sell is the direction') + '</div>';
   BUILD_RULES.forEach(function (r) {
-    h += '<div class="build-card">'
-      + '<div class="bc-h"><span class="bc-tag">' + L(r.tag, r.tagEn || r.tag) + '</span><span class="bc-sub">' + L(r.sub, r.subEn || r.sub) + '</span></div>';
-    r.rows.forEach(function (row) {
-      h += '<div class="bc-row"><span class="bc-k">' + L(row[0], row[2] || row[0]) + '</span><span class="bc-v">' + L(row[1], row[3] || row[1]) + '</span></div>';
+    var k = r.key, on = (bState[BUILD_GROUP[k]] === k), ed = (bEditing === k);
+    h += '<div class="build-card' + (on ? ' on' : '') + (ed ? ' editing' : '') + '" data-k="' + k + '">'
+      + '<div class="bc-h"><span class="bc-tag">' + L(r.tag, r.tagEn || r.tag) + '</span>'
+      + '<span class="bc-sub">' + L(r.sub, r.subEn || r.sub) + '</span>'
+      + '<button class="bc-edit" onclick="bEdit(\'' + k + '\')">' + (ed ? L('编辑中', 'Editing') : L('编辑', 'Edit')) + '</button></div>';
+    bState.cards[k].forEach(function (row, i) {
+      var ce = ed ? ' contenteditable="true" spellcheck="false"' : '';
+      h += '<div class="bc-row">'
+        + '<span class="bc-k"' + ce + '>' + bCellHtml(k, i, 0) + '</span>'
+        + '<span class="bc-v"' + ce + '>' + bCellHtml(k, i, 1) + '</span>'
+        + (ed ? '<i class="bc-x" onclick="bDelRow(\'' + k + '\',' + i + ')">\u00d7</i>' : '')
+        + '</div>';
     });
-    h += '</div>';
+    if (ed) {
+      h += '<div class="bc-tools">'
+        + '<button class="bc-addrow" onclick="bAddRow(\'' + k + '\')">' + L('＋ 添加一行', '+ Add row') + '</button>'
+        + '<button class="bc-save" onclick="bSaveCard(\'' + k + '\')">' + L('保存', 'Save') + '</button>'
+        + '<button class="bc-cancel" onclick="bCancelCard(\'' + k + '\')">' + L('取消', 'Cancel') + '</button>'
+        + '</div>';
+    }
+    h += '<div class="bc-foot">' + (on
+      ? '<span class="bc-cur">' + L('\u2713 当前' + bGroupZh(k) + '模式', '\u2713 Current mode') + '</span>'
+      : '<button class="bc-pick" onclick="bPick(\'' + k + '\')">' + L('设为当前' + bGroupZh(k) + '模式', 'Set as current') + '</button>')
+      + '</div></div>';
   });
   h += '<div class="hintbar">' + L('参数取自公开分享的加减仓体系（金字塔 / 倒金字塔），仅作纪律参考，不构成投资建议', 'Parameters from publicly shared position-sizing frameworks; discipline reference only') + '</div>';
   box.innerHTML = h;
@@ -2961,7 +3100,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.8';
+var APP_VERSION = 'v1.6.9';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
