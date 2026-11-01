@@ -1510,7 +1510,7 @@ var SEED_NOTES = {
   green: [{
     date: '2026-10-19',
     text: '【心得】NVDA 回调到 178 附近是这轮加仓区，按计划执行，不情绪化补仓。',
-    en: '[Note] NVDA near 178 is this round\u2019s add zone \u2014 follow the plan, no emotional buying.'
+    en: '[Note] NVDA near 178 is this round\'s add zone \u2014 follow the plan, no emotional buying.'
   }],
   case: [
     {
@@ -1674,7 +1674,7 @@ var BUILD_RULES = [
       ['档位', '首档 40% → 30% → 20% → 10%（越涨加越少）', 'Tiers', '40% → 30% → 20% → 10% (add less as it rises)'],
       ['档差', '每涨 5%–8% 一档，价格确认上行再加', 'Spacing', 'One tier per 5–8% rise, add only after the uptrend is confirmed'],
       ['用途', '趋势确认后补仓，成本仍能压住', 'Purpose', 'Add after trend confirmation while keeping cost controlled'],
-      ['注意', '不预测顶部，但每档只加一次，不重复追', 'Caution', 'Don\u2019t predict the top; add each tier only once']
+      ['注意', '不预测顶部，但每档只加一次，不重复追', 'Caution', 'Don\'t predict the top; add each tier only once']
     ]
   },
   {
@@ -1690,7 +1690,7 @@ var BUILD_RULES = [
     key: 'up-trim', tag: '正金字塔 · 减仓', sub: '先落袋', tagEn: 'Pyramid · Trim', subEn: 'Lock in first',
     rows: [
       ['档位', '50% → 30% → 20%（先卖大头）', 'Tiers', '50% → 30% → 20% (sell the bulk first)'],
-      ['触发', '到达目标价即执行，不等更高', 'Trigger', 'Execute at target price, don\u2019t wait for higher'],
+      ['触发', '到达目标价即执行，不等更高', 'Trigger', 'Execute at target price, don\'t wait for higher'],
       ['用途', '担心回吐、想先锁本金时用', 'Purpose', 'Use when you fear giving back gains and want principal locked'],
       ['代价', '牛市中容易卖得太早', 'Cost', 'May sell too early in a bull market']
     ]
@@ -1771,7 +1771,8 @@ function bDefRow(k, key) {
 }
 function bCellHtml(k, i, which) {
   var row = bState.cards[k][i];
-  if (bEditing === k) return bEsc(row[which]);
+  /* 编辑态：给原文，但仍需 raw 包裹，否则英文模式的翻译钩子会把「档位」改成 Tier */
+  if (bEditing === k) return bRaw(row[which]);
   var d = bDefRow(k, row[0]);
   if (d && d[1] === row[1]) {   // 与默认一致 → 跟随语言；改过 → 用原文
     return which === 0 ? L(row[0], d[2] || row[0]) : L(row[1], d[3] || row[1]);
@@ -2343,7 +2344,7 @@ function kwTlSvg(now) {
       ny += 11;
     });
     if (w.future) {
-      s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">' + L('第六康波 · 畅想', 'Wave 6 · imagined') + '</text>';
+      s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">' + L('第六康波 · 畅想', 'Wave 6') + '</text>';
       s += '<text x="' + mx.toFixed(1) + '" y="189" text-anchor="middle" font-size="8" fill="var(--sub)">' + L('（预测 ' + w.a + ' – ）', '(est. ' + w.a + ' – )') + '</text>';
     } else {
       s += '<text x="' + mx.toFixed(1) + '" y="176" text-anchor="middle" font-size="9.5" font-weight="800" fill="var(--ink)">' + L('第' + KW_CN[i] + '康波 · ' + (w.b - w.a) + '年', 'Wave ' + (i + 1) + ' · ' + (w.b - w.a) + 'y') + '</text>';
@@ -2374,7 +2375,7 @@ function renderEconCycle() {
       '<div class="kw-wave-l"><div class="kw-wave-i">' + (i + 1) + '</div></div>' +
       '<div class="kw-wave-m"><div class="kw-wave-y">' + yr + '</div>' +
       '<div class="kw-wave-tech">' + w.name + '</div></div>' +
-      '<div class="kw-wave-r"><div class="kw-wave-ev">' + w.note.join('') + '</div>' +
+      '<div class="kw-wave-r"><div class="kw-wave-ev">' + w.note.join(IS_EN() ? ' · ' : '') + '</div>' +
       '<div class="kw-wave-st">' + w.st.map(function (sg) { return sg[2] + ' ' + sg[0] + '–' + sg[1]; }).join(' · ') + '</div></div>' +
       '</div>';
   });
@@ -3100,7 +3101,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.9';
+var APP_VERSION = 'v1.6.10';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
