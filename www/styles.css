@@ -840,7 +840,9 @@ input, select, textarea { font-family: inherit; }
   align-items: center; justify-content: center;
   padding: 24px; overflow-y: auto;
 }
-#regGate.on { display: flex; animation: fadein .25s ease; }
+/* 登录遮罩不做淡入：fadein 期间 opacity 从 0 起，会让背后的内容页短暂可见（切语言重载时最明显） */
+#regGate.on { display: flex; }
+#regGate.instant { animation: none !important; }
 .rl-card { width: min(340px, 100%); text-align: center; }
 .rl-logo {
   width: 76px; height: 56px; border-radius: 17px; margin: 0 auto 14px;
@@ -1163,6 +1165,9 @@ html[lang="en"] .bseg button { font-size: 11px; letter-spacing: -.15px; padding:
 /* 首屏防闪：未登录时先铺登录遮罩（app.js 接管后会移除 html[data-gate]） */
 html[data-gate] #regGate { display: flex; }
 html[data-gate] .rl-card { opacity: 0; }
+html[data-gate] #topbar,
+html[data-gate] .view,
+html[data-gate] .tabbar { visibility: hidden; }
 
 /* ---- v1.6.5: 日历「下月重点」分隔 / 仓位比自定义输入 ---- */
 .cal-mt.next { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }

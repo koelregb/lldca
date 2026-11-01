@@ -2955,7 +2955,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.5';
+var APP_VERSION = 'v1.6.6';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -3062,9 +3062,13 @@ function showRegGate() {
   renderRegGate();
   var tb = document.getElementById('topbar');
   if (tb) tb.style.display = 'none';   // 登录页不显示顶栏
-  document.getElementById('regGate').classList.add('on');
+  var g = document.getElementById('regGate');
+  var guarded = document.documentElement.hasAttribute('data-gate');
+  if (guarded) g.classList.add('instant');   // 守卫接管：不要淡入
+  g.classList.add('on');
   // 首屏防闪标记已由真正的 gate 接管，可移除
   try { document.documentElement.removeAttribute('data-gate'); } catch (e) { /* ignore */ }
+  if (guarded) setTimeout(function () { g.classList.remove('instant'); }, 80);
 }
 function hideRegGate() {
   document.getElementById('regGate').classList.remove('on');
