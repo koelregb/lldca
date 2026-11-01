@@ -2521,13 +2521,11 @@ function homeTab(btn) {
   document.getElementById('econPane').style.display = pane === 'cycle' ? '' : 'none';
   document.getElementById('goldPane').style.display = pane === 'gold' ? '' : 'none';
   document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
-  document.getElementById('earnPane').style.display = pane === 'earn' ? '' : 'none';
   curHomePane = pane;
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', pane !== 'cal');
   fab.setAttribute('title', '标记事件');
   if (pane === 'cal') renderCal();
-  if (pane === 'earn') renderEarn();
   if (pane === 'cycle') renderEconCycle();
   if (pane === 'gold') renderGold();
 }
@@ -2919,7 +2917,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.2';
+var APP_VERSION = 'v1.6.3';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';

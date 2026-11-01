@@ -73,7 +73,6 @@
     '收益 = 当前市值 − 累计投入 · 现价自动联网更新 · 红 = 盈利，绿 = 亏损 · 数据来自「已定投」记录':
       'Returns = market value − total cost · live price updates online · red = profit, green = loss · data from the "Invested" tab',
     '本期建议仓位比': 'Suggested ratio',
-    '手动微调': 'Fine tune',
     '自动': 'Auto',
     '手动': 'Manual',
     '每月定投总额': 'Monthly total',
