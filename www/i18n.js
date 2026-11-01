@@ -767,6 +767,10 @@
 
   function switchLang(l) {
     setLang(l);
+    /* 原型（srcdoc iframe）里由外壳原地重建，避免 about:srcdoc 导航丢登录态 */
+    if (typeof root.__fuleyReload === 'function') {
+      try { root.__fuleyReload(); return; } catch (e) { /* fallback */ }
+    }
     try { root.location.reload(); } catch (e) { /* ignore */ }
   }
 

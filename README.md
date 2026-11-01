@@ -1,14 +1,14 @@
-## 最新版本 v1.6.10
+## 最新版本 v1.6.11
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.6.10.apk](https://github.com/koelregb/lldca/releases/download/v1.6.10/fuley-v1.6.10.apk)（仓库内：`fuley-v1.6.10.apk`、`tools/fuley-v1.6.10.apk`） |
-| 版本信息 | v1.6.10 / versionCode 41 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.6.11.apk](https://github.com/koelregb/lldca/releases/download/v1.6.11/fuley-v1.6.11.apk)（仓库内：`fuley-v1.6.11.apk`、`tools/fuley-v1.6.11.apk`） |
+| 版本信息 | v1.6.11 / versionCode 42 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.6.10-mockup.html](lldca-v1.6.10-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.6.11-mockup.html](lldca-v1.6.11-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版修复中英文切换：英文下背景水印不再变成竖排英文；康波图英文标签不再互相重叠；建仓法则点「编辑」时中文条目不会被翻译；英文撇号不再显示成 `´`。
+> 本版修复原型（页面模型）里切换中英文：不再跳回注册/登录页，登录页切换也能正常变英文。原理：壳内切语言不再整页导航（srcdoc 导航不可靠），改为外壳原地重建 iframe，登录态与语言选择都保留。
 
 
 ## 功能一览
