@@ -61,14 +61,23 @@ SHELL = """<!DOCTYPE html>
 
 <script type="text/plain" id="appSrc">__B64__</script>
 <script>
-(function () {
+var APP_HTML = null;
+function loadApp() {
   var el = document.getElementById('appSrc');
-  var bin = atob(el.textContent.replace(/\\s+/g, ''));
-  var bytes = new Uint8Array(bin.length);
-  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  var html = new TextDecoder('utf-8').decode(bytes);
-  document.getElementById('appFrame').srcdoc = html;
-})();
+  if (APP_HTML == null) {
+    var bin = atob(el.textContent.replace(/\\s+/g, ''));
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    APP_HTML = new TextDecoder('utf-8').decode(bytes);
+  }
+  document.getElementById('appFrame').srcdoc = APP_HTML;
+}
+loadApp();
+/* 壳内 App 切换语言时不再 location.reload：about:srcdoc 下导航不可靠，
+   会丢掉登录态、弹回注册/登录页。改为原地重建 srcdoc：同源、存储不变、不导航。 */
+window.addEventListener('message', function (e) {
+  if (e.data === 'fuley:reload' && APP_HTML != null) loadApp();
+});
 </script>
 </body>
 </html>
@@ -95,6 +104,11 @@ def build_inline_app():
     app = read('app.js')
     lic = read('license.js') if os.path.exists(os.path.join(WWW, 'license.js')) else ''
 
+    # 原型专用 shim：把「切换语言」的整页 reload 改成通知外壳原地重建 iframe
+    idx = idx.replace(
+        '<head>',
+        '<head>\n<script>window.__fuleyReload=function(){try{parent.postMessage("fuley:reload","*");}catch(e){}};</script>',
+        1)
     idx = idx.replace('<link rel="stylesheet" href="styles.css">', '<style>\n' + css + '\n</style>')
     for pat in ('<link rel="manifest" href="manifest.webmanifest">',
                 '<link rel="icon" type="image/svg+xml" href="icons/icon.svg">',
