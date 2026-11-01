@@ -1,14 +1,14 @@
-## 最新版本 v1.6.9
+## 最新版本 v1.6.10
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.6.9.apk](https://github.com/koelregb/lldca/releases/download/v1.6.9/fuley-v1.6.9.apk)（仓库内：`fuley-v1.6.9.apk`、`tools/fuley-v1.6.9.apk`） |
-| 版本信息 | v1.6.9 / versionCode 40 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.6.10.apk](https://github.com/koelregb/lldca/releases/download/v1.6.10/fuley-v1.6.10.apk)（仓库内：`fuley-v1.6.10.apk`、`tools/fuley-v1.6.10.apk`） |
+| 版本信息 | v1.6.10 / versionCode 41 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.6.9-mockup.html](lldca-v1.6.9-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.6.10-mockup.html](lldca-v1.6.10-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版要点：建仓法则顶部显示**当前加仓模式 / 当前减仓模式**，四张卡可选为当前模式（选中卡**绿色背景框**）；卡片里的时机 / 档位 / 档差 / 用途 / 注意等条目支持**编辑、保存、取消、删除、新增一行**，全部本机保存。
+> 本版修复中英文切换：英文下背景水印不再变成竖排英文；康波图英文标签不再互相重叠；建仓法则点「编辑」时中文条目不会被翻译；英文撇号不再显示成 `´`。
 
 
 ## 功能一览
