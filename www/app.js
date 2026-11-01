@@ -1668,8 +1668,9 @@ function delNote(kind, i) {
 /* ---------- 建仓法则：正 / 倒金字塔 × 加仓 / 减仓 ---------- */
 var BUILD_RULES = [
   {
-    key: 'up-add', tag: '正金字塔 · 加仓', sub: '追涨 / 右侧', tagEn: 'Pyramid · Add', subEn: 'Chasing / right-side',
+    key: 'up-add', tag: '正金字塔 · 加仓', sub: '追涨 / 右侧交易', tagEn: 'Pyramid · Add', subEn: 'Chasing / right-side trading',
     rows: [
+      ['时机', '已达底部跌不动，涨势萌动', 'Timing', 'Bottom holds — selling exhausted, upside starting to stir'],
       ['档位', '首档 40% → 30% → 20% → 10%（越涨加越少）', 'Tiers', '40% → 30% → 20% → 10% (add less as it rises)'],
       ['档差', '每涨 5%–8% 一档，价格确认上行再加', 'Spacing', 'One tier per 5–8% rise, add only after the uptrend is confirmed'],
       ['用途', '趋势确认后补仓，成本仍能压住', 'Purpose', 'Add after trend confirmation while keeping cost controlled'],
@@ -2955,7 +2956,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.6';
+var APP_VERSION = 'v1.6.7';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -3434,16 +3435,40 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
           verb: '涨', act: '卖', secT: '各档触发与卖出比例（以建仓价为起点）', unit1: '涨幅%', unit2: '卖出%',
             trigs: [5, 10, 15, 20], ratios: [10, 20, 30, 30], color: '#4a7fd4' }
   };
-  var cur = 'add';
-  var trigs = MODES.add.trigs.slice(), ratios = MODES.add.ratios.slice();
+  var PYR_KEY = 'fuley.pyr.v1';
+  var saved = loadJSON(PYR_KEY, null) || {};
+  function freshMode(m) {
+    return { trigs: MODES[m].trigs.slice(), ratios: MODES[m].ratios.slice(), laws: MODES[m].laws.slice() };
+  }
+  var state = { add: freshMode('add'), trim: freshMode('trim') };
+  // 恢复已保存的档位 / 比例 / 纪律（长度与数值不合法的部分回退默认）
+  ['add', 'trim'].forEach(function (m) {
+    var d = saved[m];
+    if (!d || typeof d !== 'object') return;
+    if (Array.isArray(d.trigs) && Array.isArray(d.ratios) &&
+        d.trigs.length === d.ratios.length && d.trigs.length >= 2 && d.trigs.length <= 10) {
+      var okT = d.trigs.every(function (x) { return isFinite(Number(x)) && Number(x) >= 0; });
+      var okR = d.ratios.every(function (x) { return isFinite(Number(x)); });
+      if (okT && okR) {
+        state[m].trigs = d.trigs.map(Number);
+        state[m].ratios = d.ratios.map(Number);
+      }
+    }
+    if (Array.isArray(d.laws) && d.laws.length) state[m].laws = d.laws.map(String);
+  });
+  var cur = (saved.mode === 'trim') ? 'trim' : 'add';
+  var trigs = state[cur].trigs, ratios = state[cur].ratios;
+  function savePyr() { saveJSON(PYR_KEY, { mode: cur, add: state.add, trim: state.trim }); }
 
   window.bSetMode = function (m) {
+    if (m !== 'add' && m !== 'trim') return;
     cur = m;
-    trigs = MODES[m].trigs.slice(); ratios = MODES[m].ratios.slice();
+    trigs = state[m].trigs; ratios = state[m].ratios;
     document.querySelectorAll('#bseg button').forEach(function (b) {
       b.classList.toggle('on', b.getAttribute('data-m') === m);
     });
     document.getElementById('bSecT').textContent = MODES[m].secT;
+    savePyr();
     bRender(); bSyncCycle();
   };
   window.bSyncCycle = function () {
@@ -3453,8 +3478,12 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
     document.getElementById('cyArcUp').classList.toggle('dim', cur === 'add');
   };
   window.bReset = function () {
-    trigs = MODES[cur].trigs.slice(); ratios = MODES[cur].ratios.slice();
+    state[cur].trigs = MODES[cur].trigs.slice();
+    state[cur].ratios = MODES[cur].ratios.slice();
+    trigs = state[cur].trigs; ratios = state[cur].ratios;
+    savePyr();
     bRender();
+    toast(L('已恢复默认档位', 'Tiers reset to default'));
   };
   window.bAddTier = function (d) {
     var n = ratios.length + d;
@@ -3468,17 +3497,58 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
     } else {
       trigs.pop(); ratios.pop();
     }
+    savePyr();
     bRender();
   };
   window.bSetTrig = function (i, v) {
     var x = parseFloat(v);
     trigs[i] = isFinite(x) && x >= 0 ? x : 0;
+    savePyr();
     bRender(true);
   };
   window.bSetRatio = function (i, v) {
     var x = parseFloat(v);
     ratios[i] = isFinite(x) && x > 0 ? x : 0;
+    savePyr();
     bRender(true);
+  };
+
+  /* 纪律：默认文案可能被翻译层改写，用 raw 标记保护；保存时去掉标记 */
+  function rawTxt(t) {
+    var v = String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return (window.FuleyI18N && window.FuleyI18N.raw) ? window.FuleyI18N.raw(v) : v;
+  }
+  function stripMark(t) { return String(t == null ? '' : t).replace(/[\uE000\uE001]/g, ''); }
+
+  window.bSetLaw = function (i, txt) {
+    var arr = state[cur].laws;
+    if (i < 0 || i >= arr.length) return;
+    var v = stripMark(txt).replace(/\s+/g, ' ').trim();
+    if (v === stripMark(arr[i])) return;      // 未改动
+    arr[i] = v;
+    savePyr();
+    toast(L('纪律已保存', 'Rule saved'));
+  };
+  window.bAddLaw = function () {
+    state[cur].laws.push('');
+    savePyr();
+    bRender();
+    var box = document.getElementById('bLaws');
+    var items = box.querySelectorAll('.bc-tx');
+    var last = items[items.length - 1];
+    if (last) {
+      last.focus();
+      var r = document.createRange(); r.selectNodeContents(last);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    }
+  };
+  window.bDelLaw = function (i) {
+    var arr = state[cur].laws;
+    if (i < 0 || i >= arr.length) return;
+    arr.splice(i, 1);
+    savePyr();
+    bRender();
+    toast(L('已删除该条纪律', 'Rule removed'));
   };
 
   window.bRender = function (keepFocus) {
@@ -3490,10 +3560,25 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
     document.getElementById('bhint').textContent = m.tag + ' · ' + m.hint;
     document.getElementById('bN').textContent = n;
     document.getElementById('bRec').innerHTML = m.rec;
-    document.getElementById('bLawT').textContent = m.tag + ' · 两条纪律';
-    document.getElementById('bLaws').innerHTML = m.laws.map(function (t, i) {
-      return '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span><span>' + t + '</span></div>';
+    var laws = state[cur].laws;
+    var en = IS_EN();
+    document.getElementById('bLawT').textContent = m.tag + ' · ' +
+      (en ? 'Discipline (' + laws.length + ')' : '纪律（' + laws.length + ' 条）');
+    var lbox = document.getElementById('bLaws');
+    lbox.innerHTML = laws.map(function (t, i) {
+      return '<div class="bc-law"><span class="bc-no">' + (i + 1) + '</span>'
+        + '<span class="bc-tx" contenteditable="true" data-i="' + i + '" spellcheck="false">' + rawTxt(t) + '</span>'
+        + '<button class="bc-del" data-i="' + i + '" title="' + (en ? 'Delete' : '删除') + '">×</button></div>';
     }).join('');
+    [].forEach.call(lbox.querySelectorAll('.bc-tx'), function (el) {
+      el.addEventListener('blur', function () { bSetLaw(Number(el.getAttribute('data-i')), el.textContent); });
+      el.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+      });
+    });
+    [].forEach.call(lbox.querySelectorAll('.bc-del'), function (btn) {
+      btn.addEventListener('click', function (e) { e.stopPropagation(); bDelLaw(Number(btn.getAttribute('data-i'))); });
+    });
 
     // 展示顺序：加仓为正常金字塔（顶尖朝上）；减仓倒置，使最大档在最上方、尖端朝下
     var disp = ratios.slice();
@@ -3555,7 +3640,10 @@ function IS_EN() { return !!(window.FuleyI18N && window.FuleyI18N.isEn && window
     document.getElementById('bsum').innerHTML = sumTxt;
   };
 
-  document.getElementById('bSecT').textContent = MODES.add.secT;
+  document.getElementById('bSecT').textContent = MODES[cur].secT;
+  document.querySelectorAll('#bseg button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-m') === cur);
+  });
   bSyncCycle();
   bRender();
 })();

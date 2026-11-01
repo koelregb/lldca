@@ -1,24 +1,15 @@
-## 最新版本 v1.6.6
+## 最新版本 v1.6.7
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.6.6.apk](https://github.com/koelregb/lldca/releases/download/v1.6.6/fuley-v1.6.6.apk)（仓库内：`fuley-v1.6.6.apk`、`tools/fuley-v1.6.6.apk`） |
-| 版本信息 | v1.6.6 / versionCode 37 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.6.7.apk](https://github.com/koelregb/lldca/releases/download/v1.6.7/fuley-v1.6.7.apk)（仓库内：`fuley-v1.6.7.apk`、`tools/fuley-v1.6.7.apk`） |
+| 版本信息 | v1.6.7 / versionCode 38 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.6.6-mockup.html](lldca-v1.6.6-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.6.7-mockup.html](lldca-v1.6.7-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版要点：登录页切换中英文不再闪现内容页；走势去掉「财报」子 tab；日历增加「下月重点」；仓位页为「仓位 / 仓位比」，仓位比支持自定义输入 20–100；加减仓法则两个模式按钮一行两列；账号支持找回密码；红绿灯预写笔记与交易法则支持中英切换。
+> 本版要点：加减仓法则的**档数 / 逐档比例 / 纪律**都会保存（切换页面、切换语言、重启 App 都不再回默认值）；纪律支持**点击直接改、× 删除、＋ 新增**；建仓法则「正金字塔 · 加仓」副标题改为「追涨 / 右侧交易」并新增「时机：已达底部跌不动，涨势萌动」。
 
-# 定投 (lldca)
-
-美股**月度定投**记录与收益统计 App。默认「七巨头」（苹果 / 微软 / 谷歌 / 亚马逊 / 英伟达 / Meta / 特斯拉）；计划页股票选择器中既可勾选 **41 只预设热门美股**（博通、AMD、台积电、奈飞、阿里巴巴、拼多多、可口可乐……），也可以**直接输入任意美股代码自定义添加**（如 SPOT、ROKU、COIN，1-5 个字母，BRK.B 形式亦可）。
-
-- 技术路线：移动端 PWA（纯前端、零依赖构建）+ Capacitor 封装原生 Android 工程
-- 数据全部存储在本地（localStorage），不上传任何服务器
-- 现价支持**腾讯财经行情自动获取**（国内可直连，无需 API Key），失败时可手动输入
-- 配色遵循 A 股惯例：**红涨绿跌**
-- 授权码机制已内置但**默认未启用**（打开即用，无需激活；需要时可按下文开启）
 
 ## 功能一览
 
