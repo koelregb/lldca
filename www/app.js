@@ -2909,6 +2909,12 @@ function homeTab(btn) {
   var sp = document.getElementById('scenPane');
   if (sp) sp.style.display = pane === 'scen' ? '' : 'none';
   document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
+  /* 涨跌推演只看推演表：隐藏指数条与金价卡（其余子 tab 照旧显示） */
+  var strip = document.getElementById('idxStrip');
+  var gq = document.getElementById('goldQuotes');
+  var showTop = pane !== 'scen';
+  if (strip) strip.style.display = showTop ? '' : 'none';
+  if (gq) gq.style.display = showTop ? '' : 'none';
   curHomePane = pane;
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', pane !== 'cal');
@@ -3325,7 +3331,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.7.0';
+var APP_VERSION = 'v1.7.1';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';

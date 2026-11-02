@@ -1377,3 +1377,5 @@ html[data-gate] .tabbar { visibility: hidden; }
   font-size: 10.5px; color: var(--sub); padding: 6px 12px 2px; text-align: right;
   letter-spacing: .2px;
 }
+/* 表格横向滚动条隐藏（有「左右滑动」提示即可，避免多出一条灰杠） */
+.scen-scroll::-webkit-scrollbar { height: 0; width: 0; }
