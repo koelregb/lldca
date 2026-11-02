@@ -1,14 +1,14 @@
-## 最新版本 v1.7.0
+## 最新版本 v1.7.1
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.7.0.apk](https://github.com/koelregb/lldca/releases/download/v1.7.0/fuley-v1.7.0.apk)（仓库内：`fuley-v1.7.0.apk`、`tools/fuley-v1.7.0.apk`） |
-| 版本信息 | v1.7.0 / versionCode 43 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.7.1.apk](https://github.com/koelregb/lldca/releases/download/v1.7.1/fuley-v1.7.1.apk)（仓库内：`fuley-v1.7.1.apk`、`tools/fuley-v1.7.1.apk`） |
+| 版本信息 | v1.7.1 / versionCode 44 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.7.0-mockup.html](lldca-v1.7.0-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.7.1-mockup.html](lldca-v1.7.1-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：走势子 tab「黄金」升级为**涨跌推演**——分层情景表（层级 / QQQ 区间 / VOO 区间 / 性质 / 实际情况），可新建多条推演、折叠展开、编辑保存删除；金价（伦敦金现、纽约期金）迁到走势页顶部常驻。
+> 本版：**涨跌推演页只留推演表** —— 页内不再显示标普 500 / 纳斯达克指数条与伦敦金现 / 纽约期金报价卡（这两个仍保留在「周期」「日历」子 tab 顶部）。
 
 
 ## 功能一览
