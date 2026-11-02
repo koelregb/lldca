@@ -2233,7 +2233,7 @@ function refreshGold() {
   return fetchGoldSpot().then(function (q) {
     if (q.hf_XAU) { goldSpot.xau = q.hf_XAU.price; goldSpot.xauChg = q.hf_XAU.chg; goldSpot.tm = q.hf_XAU.tm; }
     if (q.hf_GC) { goldSpot.gc = q.hf_GC.price; goldSpot.gcChg = q.hf_GC.chg; }
-    if (curHomePane === 'gold') renderGold();
+    renderGold();
   }, function () { /* 离线用内置 */ });
 }
 /* 518880 日 K / 分时（启动拉一次） */
@@ -2679,12 +2679,235 @@ function vixRestore() {
 }
 
 /* ---------- 走势 / 周期 / 黄金 / VIX / 日历 五子 Tab ---------- */
+/* ---------- 涨跌推演：只做中大级别下跌 / 上涨的分层推演表 ---------- */
+var SCEN_KEY = 'fuley.scen.v1';
+var scenEditId = null;
+
+function scenSeed() {
+  return [{
+    id: 'seed-1030',
+    title: '2026-10-30 大跌推演',
+    kind: 'down',
+    open: true,
+    rows: [
+      ['第一防线（近端）',
+       '$679–$684（约 -0.9% 至 -1.7%；200 日线 / EMA 约 $679.5）',
+       '$697–$705（约 -0.3% 至 +0.9%；布林下轨 $696.8 / 50 日线 $704.9）',
+       '短期止跌观察区；11/2 更新：收盘确认跌破 $679.5 则升级为多空性质分界线', ''],
+      ['第二防线（中期）',
+       '$660–$675（约 -2.2% 至 -4.4%；200 日线下方成交量真空区 / 前低参照）',
+       '$665–$668（约 -4.4% 至 -4.8%；200 日线核心区 $665.36）',
+       '较大概率的中期筑底区，需盈利验证；测试概率较一周前上升', ''],
+      ['极端情景（尾部）',
+       '$550–$600（约 -13% 至 -20%；深度回撤折算）',
+       '$577–$620（约 -11% 至 -17%；52 周低点 $577.76 附近）',
+       'AI 叙事系统性逆转、盈利预期崩塌才触发，低概率尾部情景', '']
+    ]
+  }];
+}
+var scenState = (function () {
+  var raw = loadJSON(SCEN_KEY, null);
+  if (!Array.isArray(raw) || !raw.length) return scenSeed();
+  var out = [];
+  raw.forEach(function (g, i) {
+    if (!g || typeof g !== 'object') return;
+    var rows = [];
+    if (Array.isArray(g.rows)) {
+      g.rows.forEach(function (r) {
+        if (!Array.isArray(r)) return;
+        rows.push([0, 1, 2, 3, 4].map(function (j) { return String(r[j] == null ? '' : r[j]); }));
+      });
+    }
+    out.push({
+      id: String(g.id || ('g' + i + '-' + Date.now())),
+      title: String(g.title || ''),
+      kind: g.kind === 'up' ? 'up' : 'down',
+      open: g.open !== false,
+      rows: rows.length ? rows : [['', '', '', '', '']]
+    });
+  });
+  return out.length ? out : scenSeed();
+})();
+function scenSave() { saveJSON(SCEN_KEY, scenState); }
+function scenById(id) {
+  var hit = null;
+  scenState.forEach(function (g) { if (g.id === id) hit = g; });
+  return hit;
+}
+function scenToday() {
+  var d = new Date();
+  function p(n) { return (n < 10 ? '0' : '') + n; }
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+var SCEN_COLS = [
+  { zh: '层级', en: 'Level', cls: 'c-lv', w: 96 },
+  { zh: 'QQQ 区间（含跌幅）', en: 'QQQ range (drop)', cls: 'c-qqq', w: 210 },
+  { zh: 'VOO 区间（含跌幅）', en: 'VOO range (drop)', cls: 'c-voo', w: 210 },
+  { zh: '性质', en: 'Nature', cls: 'c-nt', w: 220 },
+  { zh: '实际情况', en: 'What happened', cls: 'c-ac', w: 150 }
+];
+
+/* 单元格内容：非编辑态用 raw 包裹，避免英文模式把中文表格内容当界面文案翻译 */
+function scenCell(txt, ed) {
+  if (ed) return bRaw(txt);
+  return bRaw(txt);
+}
+function scenKindLabel(k) { return k === 'up' ? L('涨', 'Up') : L('跌', 'Down'); }
+
+window.scenToggle = function (id) {
+  if (scenEditId === id) return;      // 编辑中不折叠，避免误触
+  var g = scenById(id);
+  if (!g) return;
+  g.open = !g.open;
+  scenSave();
+  renderScen();
+};
+window.scenKind = function (id) {
+  var g = scenById(id);
+  if (!g) return;
+  g.kind = g.kind === 'up' ? 'down' : 'up';
+  scenSave();
+  renderScen();
+};
+window.scenNew = function () {
+  var id = 'g' + Date.now();
+  scenState.unshift({
+    id: id,
+    title: scenToday() + ' ' + L('大跌推演', 'Crash scenario'),
+    kind: 'down',
+    open: true,
+    rows: [['第一防线（近端）', '', '', '', ''], ['第二防线（中期）', '', '', '', ''], ['极端情景（尾部）', '', '', '', '']]
+  });
+  scenEditId = id;
+  scenSave();
+  renderScen();
+  var t = document.querySelector('.scen-card[data-id="' + id + '"] .scen-t');
+  if (t) { t.focus(); var r = document.createRange(); r.selectNodeContents(t); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+};
+window.scenEdit = function (id) { scenEditId = id; renderScen(); };
+window.scenCancel = function () { scenEditId = null; renderScen(); };
+window.scenDel = function (id) {
+  var g = scenById(id);
+  if (!g) return;
+  if (!confirm(L('删除「' + g.title + '」这条推演？', 'Delete this scenario?'))) return;
+  scenState = scenState.filter(function (x) { return x.id !== id; });
+  if (scenEditId === id) scenEditId = null;
+  scenSave();
+  renderScen();
+  toast(L('已删除该推演', 'Scenario deleted'));
+};
+window.scenRead = function (id) {
+  var card = document.querySelector('.scen-card[data-id="' + id + '"]');
+  var g = scenById(id);
+  if (!card || !g) return;
+  var t = card.querySelector('.scen-t');
+  if (t) g.title = bStrip(t.textContent).replace(/\s+/g, ' ').trim();
+  var rows = [];
+  Array.prototype.forEach.call(card.querySelectorAll('tbody tr'), function (tr) {
+    var cells = tr.querySelectorAll('td[data-c]');
+    var row = ['', '', '', '', ''];
+    Array.prototype.forEach.call(cells, function (td) {
+      var i = Number(td.getAttribute('data-c'));
+      if (i >= 0 && i < 5) row[i] = bStrip(td.textContent).replace(/\s+/g, ' ').trim();
+    });
+    rows.push(row);
+  });
+  if (rows.length) g.rows = rows;
+};
+window.scenSaveEdit = function (id) {
+  scenRead(id);
+  var g = scenById(id);
+  if (!g) return;
+  g.rows = g.rows.filter(function (r) { return r.join('').trim() !== ''; });
+  if (!g.rows.length) g.rows = [['', '', '', '', '']];
+  if (!g.title) g.title = scenToday() + ' ' + L('未命名推演', 'Untitled scenario');
+  scenEditId = null;
+  scenSave();
+  renderScen();
+  toast(L('已保存', 'Saved'));
+};
+window.scenAddRow = function (id) {
+  if (scenEditId === id) scenRead(id);
+  var g = scenById(id);
+  if (!g) return;
+  if (scenEditId !== id) scenEditId = id;
+  g.rows.push(['', '', '', '', '']);
+  scenSave();
+  renderScen();
+  var card = document.querySelector('.scen-card[data-id="' + id + '"]');
+  var trs = card ? card.querySelectorAll('tbody tr') : [];
+  var last = trs[trs.length - 1];
+  var td = last ? last.querySelector('td[data-c="0"]') : null;
+  if (td) { td.focus(); var r = document.createRange(); r.selectNodeContents(td); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+};
+window.scenDelRow = function (id, i) {
+  if (scenEditId === id) scenRead(id);
+  var g = scenById(id);
+  if (!g) return;
+  if (scenEditId !== id) scenEditId = id;
+  g.rows.splice(i, 1);
+  if (!g.rows.length) g.rows = [['', '', '', '', '']];
+  scenSave();
+  renderScen();
+};
+function scenCard(g) {
+  var ed = (scenEditId === g.id);
+  var h = '<div class="scen-card' + (g.open ? ' open' : '') + (ed ? ' editing' : '') + '" data-id="' + g.id + '">'
+    + '<div class="scen-hd" onclick="scenToggle(\'' + g.id + '\')">'
+    + '<span class="scen-kind ' + g.kind + '" onclick="event.stopPropagation();scenKind(\'' + g.id + '\')">' + scenKindLabel(g.kind) + '</span>'
+    + '<span class="scen-t"' + (ed ? ' contenteditable="true" spellcheck="false"' : '') + '>' + bRaw(g.title) + '</span>'
+    + '<span class="scen-n">' + L(g.rows.length + ' 层', g.rows.length + ' levels') + '</span>'
+    + '<span class="scen-cv">' + (g.open ? '\u25be' : '\u25b8') + '</span>'
+    + '</div>';
+  if (g.open) {
+    h += '<div class="scen-bd"><div class="scen-tip">' + L('← 左右滑动查看「性质」「实际情况」→', '← swipe to see Nature / What happened →') + '</div>'
+      + '<div class="scen-scroll"><table class="scen-tbl"><thead><tr>'
+      + SCEN_COLS.map(function (c) { return '<th class="' + c.cls + '">' + L(c.zh, c.en) + '</th>'; }).join('')
+      + (ed ? '<th class="c-x"></th>' : '')
+      + '</tr></thead><tbody>';
+    g.rows.forEach(function (r, i) {
+      h += '<tr>';
+      SCEN_COLS.forEach(function (c, j) {
+        h += '<td class="' + c.cls + '" data-c="' + j + '"' + (ed ? ' contenteditable="true" spellcheck="false"' : '') + '>' + scenCell(r[j], ed) + '</td>';
+      });
+      if (ed) h += '<td class="c-x"><i class="scen-x" onclick="scenDelRow(\'' + g.id + '\',' + i + ')">\u00d7</i></td>';
+      h += '</tr>';
+    });
+    h += '</tbody></table></div>';
+    h += '<div class="scen-ft">';
+    if (ed) {
+      h += '<button class="scen-b1" onclick="scenAddRow(\'' + g.id + '\')">' + L('＋ 添加一行', '+ Add row') + '</button>'
+        + '<button class="scen-b2" onclick="scenSaveEdit(\'' + g.id + '\')">' + L('保存', 'Save') + '</button>'
+        + '<button class="scen-b3" onclick="scenCancel()">' + L('取消', 'Cancel') + '</button>'
+        + '<button class="scen-b4" onclick="scenDel(\'' + g.id + '\')">' + L('删除推演', 'Delete') + '</button>';
+    } else {
+      h += '<button class="scen-b1" onclick="scenEdit(\'' + g.id + '\')">' + L('编辑', 'Edit') + '</button>'
+        + '<button class="scen-b4" onclick="scenDel(\'' + g.id + '\')">' + L('删除推演', 'Delete') + '</button>';
+    }
+    h += '</div></div>';
+  }
+  return h + '</div>';
+}
+function renderScen() {
+  var box = document.getElementById('scenList');
+  if (!box) return;
+  var h1 = document.getElementById('scenH1'), h2 = document.getElementById('scenH2'), nb = document.getElementById('scenNewBtn');
+  if (h1) h1.textContent = L('涨跌推演', 'Crash / Surge Scenarios');
+  if (h2) h2.textContent = L('只推演中大级别下跌 / 上涨，小跌小涨不做推演', 'Only mid-to-large drops or rallies are mapped; small moves are skipped');
+  if (nb) nb.textContent = L('＋ 新建推演', '+ New scenario');
+  var hint = document.getElementById('scenHint');
+  if (hint) hint.textContent = L('表格可编辑 · 点标题展开/收起 · 多个推演可并存（按日期与情景命名）',
+    'Editable table · tap a title to expand / collapse · multiple scenarios can coexist');
+  box.innerHTML = scenState.map(scenCard).join('');
+}
+
 function homeTab(btn) {
   var pane = btn.getAttribute('data-pane');
   document.querySelectorAll('#homeTabs button').forEach(function (b) { b.classList.remove('on'); });
   btn.classList.add('on');
   document.getElementById('econPane').style.display = pane === 'cycle' ? '' : 'none';
-  document.getElementById('goldPane').style.display = pane === 'gold' ? '' : 'none';
+  var sp = document.getElementById('scenPane');
+  if (sp) sp.style.display = pane === 'scen' ? '' : 'none';
   document.getElementById('calPane').style.display = pane === 'cal' ? '' : 'none';
   curHomePane = pane;
   var fab = document.getElementById('fab');
@@ -2692,7 +2915,8 @@ function homeTab(btn) {
   fab.setAttribute('title', '标记事件');
   if (pane === 'cal') renderCal();
   if (pane === 'cycle') renderEconCycle();
-  if (pane === 'gold') renderGold();
+  if (pane === 'scen') renderScen();
+  renderGold();          // 金价卡常驻在走势页顶部
 }
 var curHomePane = 'cycle';
 
@@ -3101,7 +3325,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.6.11';
+var APP_VERSION = 'v1.7.0';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -3554,8 +3778,8 @@ function toast(msg) {
   renderEconCycle();
   renderGold();
   // 黄金：518880 日 K / 分时拉取（失败则用内置快照）
-  fetchGoldKline().then(function (ok) { if (ok && curHomePane === 'gold') renderGold(); });
-  fetchGoldMin().then(function (ok) { if (ok && curHomePane === 'gold') renderGold(); });
+  fetchGoldKline().then(function () { renderGold(); });
+  fetchGoldMin().then(function () { renderGold(); });
 
   // Service Worker（PWA 离线可用；Capacitor 原生环境无 SW 时静默跳过）
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
