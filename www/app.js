@@ -2888,6 +2888,34 @@ function scenCard(g) {
   }
   return h + '</div>';
 }
+/* 电脑上可按住表格左右拖动（手机上用原生触摸滑动） */
+function scenBindDrag() {
+  Array.prototype.forEach.call(document.querySelectorAll('.scen-scroll'), function (el) {
+    if (el.__dragBound) return;
+    el.__dragBound = true;
+    var down = false, sx = 0, sl = 0;
+    el.addEventListener('pointerdown', function (e) {
+      if (e.pointerType && e.pointerType !== 'mouse') return;
+      if (el.closest('.scen-card.editing')) return;   // 编辑态留给选字
+      down = true; sx = e.clientX; sl = el.scrollLeft;
+      el.classList.add('dragging');
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (!down) return;
+      var dx = e.clientX - sx;
+      if (!dx) return;
+      el.scrollLeft = sl - dx;
+      if (Math.abs(dx) > 3) e.preventDefault();
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) {
+      el.addEventListener(t, function () {
+        if (!down) return;
+        down = false;
+        el.classList.remove('dragging');
+      });
+    });
+  });
+}
 function renderScen() {
   var box = document.getElementById('scenList');
   if (!box) return;
@@ -2899,6 +2927,7 @@ function renderScen() {
   if (hint) hint.textContent = L('表格可编辑 · 点标题展开/收起 · 多个推演可并存（按日期与情景命名）',
     'Editable table · tap a title to expand / collapse · multiple scenarios can coexist');
   box.innerHTML = scenState.map(scenCard).join('');
+  scenBindDrag();
 }
 
 function homeTab(btn) {
@@ -3331,7 +3360,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.7.1';
+var APP_VERSION = 'v1.7.2';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
