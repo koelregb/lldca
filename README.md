@@ -1,14 +1,14 @@
-## 最新版本 v1.7.3
+## 最新版本 v1.7.4
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.7.3.apk](https://github.com/koelregb/lldca/releases/download/v1.7.3/fuley-v1.7.3.apk)（仓库内：`fuley-v1.7.3.apk`、`tools/fuley-v1.7.3.apk`） |
-| 版本信息 | v1.7.3 / versionCode 46 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.7.4.apk](https://github.com/koelregb/lldca/releases/download/v1.7.4/fuley-v1.7.4.apk)（仓库内：`fuley-v1.7.4.apk`、`tools/fuley-v1.7.4.apk`） |
+| 版本信息 | v1.7.4 / versionCode 47 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.7.3-mockup.html](lldca-v1.7.3-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.7.4-mockup.html](lldca-v1.7.4-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：一条推演里同时有**大盘表**（QQQ / VOO）和**个股表**（标的代码可在编辑态直接改，如 NVDA / TSLA），层级 / 性质 / 实际情况在两张表里通用。
+> 本版：新建推演可选范围 —— **大盘 + 个股 / 仅大盘 / 仅个股**；只建个股的推演不再带大盘表，编辑态还能随时补「＋ 加大盘表 / ＋ 加个股表」。
 
 
 ## 功能一览

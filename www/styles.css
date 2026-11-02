@@ -1407,3 +1407,15 @@ html[data-gate] .tabbar { visibility: hidden; }
 .scen-card.editing .scen-colname:focus { box-shadow: inset 0 0 0 1.5px var(--accent); }
 /* 推演卡片盖住背景水印（水印是 fixed z-index:0，会透到卡片上） */
 .scen-card { position: relative; z-index: 1; }
+
+/* ---- v1.7.4: 新建推演可选范围（大盘 / 个股 / 两者） ---- */
+.scen-newmenu { display: flex; gap: 8px; margin: -4px 0 10px; flex-wrap: wrap; }
+.scen-newmenu button {
+  flex: 1; min-width: 92px; cursor: pointer; font-family: inherit;
+  border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+  border-radius: 10px; padding: 8px 6px; font-size: 12px; font-weight: 700;
+}
+.scen-newmenu button:first-child { border-color: var(--accent); color: var(--accent); background: transparent; }
+.scen-ft .scen-b5 {
+  background: transparent; border-style: dashed; color: var(--sub);
+}
