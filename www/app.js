@@ -2679,31 +2679,56 @@ function vixRestore() {
 }
 
 /* ---------- 走势 / 周期 / 黄金 / VIX / 日历 五子 Tab ---------- */
-/* ---------- 涨跌推演：只做中大级别下跌 / 上涨的分层推演表 ---------- */
+/* ---------- 涨跌推演：大盘 + 个股两张分层推演表 ---------- */
 var SCEN_KEY = 'fuley.scen.v1';
 var scenEditId = null;
 
+function scenSeedRows() {
+  return [
+    ['第一防线（近端）', '', '', '', ''],
+    ['第二防线（中期）', '', '', '', ''],
+    ['极端情景（尾部）', '', '', '', '']
+  ];
+}
 function scenSeed() {
   return [{
     id: 'seed-1030',
     title: '2026-10-30 大跌推演',
     kind: 'down',
     open: true,
-    rows: [
-      ['第一防线（近端）',
-       '$679–$684（约 -0.9% 至 -1.7%；200 日线 / EMA 约 $679.5）',
-       '$697–$705（约 -0.3% 至 +0.9%；布林下轨 $696.8 / 50 日线 $704.9）',
-       '短期止跌观察区；11/2 更新：收盘确认跌破 $679.5 则升级为多空性质分界线', ''],
-      ['第二防线（中期）',
-       '$660–$675（约 -2.2% 至 -4.4%；200 日线下方成交量真空区 / 前低参照）',
-       '$665–$668（约 -4.4% 至 -4.8%；200 日线核心区 $665.36）',
-       '较大概率的中期筑底区，需盈利验证；测试概率较一周前上升', ''],
-      ['极端情景（尾部）',
-       '$550–$600（约 -13% 至 -20%；深度回撤折算）',
-       '$577–$620（约 -11% 至 -17%；52 周低点 $577.76 附近）',
-       'AI 叙事系统性逆转、盈利预期崩塌才触发，低概率尾部情景', '']
-    ]
+    market: {
+      cols: ['QQQ', 'VOO'],
+      rows: [
+        ['第一防线（近端）',
+         '$679–$684（约 -0.9% 至 -1.7%；200 日线 / EMA 约 $679.5）',
+         '$697–$705（约 -0.3% 至 +0.9%；布林下轨 $696.8 / 50 日线 $704.9）',
+         '短期止跌观察区；11/2 更新：收盘确认跌破 $679.5 则升级为多空性质分界线', ''],
+        ['第二防线（中期）',
+         '$660–$675（约 -2.2% 至 -4.4%；200 日线下方成交量真空区 / 前低参照）',
+         '$665–$668（约 -4.4% 至 -4.8%；200 日线核心区 $665.36）',
+         '较大概率的中期筑底区，需盈利验证；测试概率较一周前上升', ''],
+        ['极端情景（尾部）',
+         '$550–$600（约 -13% 至 -20%；深度回撤折算）',
+         '$577–$620（约 -11% 至 -17%；52 周低点 $577.76 附近）',
+         'AI 叙事系统性逆转、盈利预期崩塌才触发，低概率尾部情景', '']
+      ]
+    },
+    stock: { cols: ['标的 A', '标的 B'], rows: scenSeedRows() }
   }];
+}
+function scenBlock(src, defCols) {
+  var cols = defCols.slice();
+  if (src && Array.isArray(src.cols) && src.cols.length >= 2) {
+    cols = [String(src.cols[0] || defCols[0]), String(src.cols[1] || defCols[1])];
+  }
+  var rows = [];
+  if (src && Array.isArray(src.rows)) {
+    src.rows.forEach(function (r) {
+      if (!Array.isArray(r)) return;
+      rows.push([0, 1, 2, 3, 4].map(function (j) { return String(r[j] == null ? '' : r[j]); }));
+    });
+  }
+  return { cols: cols, rows: rows.length ? rows : scenSeedRows() };
 }
 var scenState = (function () {
   var raw = loadJSON(SCEN_KEY, null);
@@ -2711,19 +2736,15 @@ var scenState = (function () {
   var out = [];
   raw.forEach(function (g, i) {
     if (!g || typeof g !== 'object') return;
-    var rows = [];
-    if (Array.isArray(g.rows)) {
-      g.rows.forEach(function (r) {
-        if (!Array.isArray(r)) return;
-        rows.push([0, 1, 2, 3, 4].map(function (j) { return String(r[j] == null ? '' : r[j]); }));
-      });
-    }
+    /* 旧版（单表 rows）自动迁移到「大盘」块 */
+    var marketSrc = g.market || (g.rows ? { cols: ['QQQ', 'VOO'], rows: g.rows } : null);
     out.push({
       id: String(g.id || ('g' + i + '-' + Date.now())),
       title: String(g.title || ''),
       kind: g.kind === 'up' ? 'up' : 'down',
       open: g.open !== false,
-      rows: rows.length ? rows : [['', '', '', '', '']]
+      market: scenBlock(marketSrc, ['QQQ', 'VOO']),
+      stock: scenBlock(g.stock, ['标的 A', '标的 B'])
     });
   });
   return out.length ? out : scenSeed();
@@ -2739,20 +2760,9 @@ function scenToday() {
   function p(n) { return (n < 10 ? '0' : '') + n; }
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
-var SCEN_COLS = [
-  { zh: '层级', en: 'Level', cls: 'c-lv', w: 96 },
-  { zh: 'QQQ 区间（含跌幅）', en: 'QQQ range (drop)', cls: 'c-qqq', w: 210 },
-  { zh: 'VOO 区间（含跌幅）', en: 'VOO range (drop)', cls: 'c-voo', w: 210 },
-  { zh: '性质', en: 'Nature', cls: 'c-nt', w: 220 },
-  { zh: '实际情况', en: 'What happened', cls: 'c-ac', w: 150 }
-];
-
-/* 单元格内容：非编辑态用 raw 包裹，避免英文模式把中文表格内容当界面文案翻译 */
-function scenCell(txt, ed) {
-  if (ed) return bRaw(txt);
-  return bRaw(txt);
-}
 function scenKindLabel(k) { return k === 'up' ? L('涨', 'Up') : L('跌', 'Down'); }
+function scenBlockName(w) { return w === 'stock' ? L('个股', 'Stocks') : L('大盘', 'Market'); }
+function scenCell(txt) { return bRaw(txt); }
 
 window.scenToggle = function (id) {
   if (scenEditId === id) return;      // 编辑中不折叠，避免误触
@@ -2776,7 +2786,8 @@ window.scenNew = function () {
     title: scenToday() + ' ' + L('大跌推演', 'Crash scenario'),
     kind: 'down',
     open: true,
-    rows: [['第一防线（近端）', '', '', '', ''], ['第二防线（中期）', '', '', '', ''], ['极端情景（尾部）', '', '', '', '']]
+    market: { cols: ['QQQ', 'VOO'], rows: scenSeedRows() },
+    stock: { cols: ['标的 A', '标的 B'], rows: scenSeedRows() }
   });
   scenEditId = id;
   scenSave();
@@ -2796,88 +2807,125 @@ window.scenDel = function (id) {
   renderScen();
   toast(L('已删除该推演', 'Scenario deleted'));
 };
+/* 编辑态下把某张表（大盘 / 个股）的 DOM 读回内存 */
+window.scenReadBlock = function (id, which) {
+  var card = document.querySelector('.scen-card[data-id="' + id + '"]');
+  var g = scenById(id);
+  if (!card || !g) return;
+  var blk = card.querySelector('.scen-block[data-w="' + which + '"]');
+  if (!blk) return;
+  var names = blk.querySelectorAll('.scen-colname');
+  if (names.length === 2) g[which].cols = [bStrip(names[0].textContent).trim() || g[which].cols[0],
+                                          bStrip(names[1].textContent).trim() || g[which].cols[1]];
+  var rows = [];
+  Array.prototype.forEach.call(blk.querySelectorAll('tbody tr'), function (tr) {
+    var row = ['', '', '', '', ''];
+    Array.prototype.forEach.call(tr.querySelectorAll('td[data-c]'), function (td) {
+      var i = Number(td.getAttribute('data-c'));
+      if (i >= 0 && i < 5) row[i] = bStrip(td.textContent).replace(/\s+/g, ' ').trim();
+    });
+    rows.push(row);
+  });
+  if (rows.length) g[which].rows = rows;
+};
 window.scenRead = function (id) {
   var card = document.querySelector('.scen-card[data-id="' + id + '"]');
   var g = scenById(id);
   if (!card || !g) return;
   var t = card.querySelector('.scen-t');
   if (t) g.title = bStrip(t.textContent).replace(/\s+/g, ' ').trim();
-  var rows = [];
-  Array.prototype.forEach.call(card.querySelectorAll('tbody tr'), function (tr) {
-    var cells = tr.querySelectorAll('td[data-c]');
-    var row = ['', '', '', '', ''];
-    Array.prototype.forEach.call(cells, function (td) {
-      var i = Number(td.getAttribute('data-c'));
-      if (i >= 0 && i < 5) row[i] = bStrip(td.textContent).replace(/\s+/g, ' ').trim();
-    });
-    rows.push(row);
-  });
-  if (rows.length) g.rows = rows;
+  scenReadBlock(id, 'market');
+  scenReadBlock(id, 'stock');
 };
 window.scenSaveEdit = function (id) {
   scenRead(id);
   var g = scenById(id);
   if (!g) return;
-  g.rows = g.rows.filter(function (r) { return r.join('').trim() !== ''; });
-  if (!g.rows.length) g.rows = [['', '', '', '', '']];
+  ['market', 'stock'].forEach(function (w) {
+    g[w].rows = g[w].rows.filter(function (r) { return r.join('').trim() !== ''; });
+    if (!g[w].rows.length) g[w].rows = [['', '', '', '', '']];
+  });
   if (!g.title) g.title = scenToday() + ' ' + L('未命名推演', 'Untitled scenario');
   scenEditId = null;
   scenSave();
   renderScen();
   toast(L('已保存', 'Saved'));
 };
-window.scenAddRow = function (id) {
+window.scenAddRow = function (id, which) {
+  which = which || 'market';
   if (scenEditId === id) scenRead(id);
   var g = scenById(id);
   if (!g) return;
   if (scenEditId !== id) scenEditId = id;
-  g.rows.push(['', '', '', '', '']);
+  g[which].rows.push(['', '', '', '', '']);
   scenSave();
   renderScen();
-  var card = document.querySelector('.scen-card[data-id="' + id + '"]');
+  var card = document.querySelector('.scen-card[data-id="' + id + '"] .scen-block[data-w="' + which + '"]');
   var trs = card ? card.querySelectorAll('tbody tr') : [];
   var last = trs[trs.length - 1];
   var td = last ? last.querySelector('td[data-c="0"]') : null;
   if (td) { td.focus(); var r = document.createRange(); r.selectNodeContents(td); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
 };
-window.scenDelRow = function (id, i) {
+window.scenDelRow = function (id, which, i) {
   if (scenEditId === id) scenRead(id);
   var g = scenById(id);
   if (!g) return;
   if (scenEditId !== id) scenEditId = id;
-  g.rows.splice(i, 1);
-  if (!g.rows.length) g.rows = [['', '', '', '', '']];
+  g[which].rows.splice(i, 1);
+  if (!g[which].rows.length) g[which].rows = [['', '', '', '', '']];
   scenSave();
   renderScen();
 };
+/* 一张表：层级 | 标的 A 区间 | 标的 B 区间 | 性质 | 实际情况 */
+function scenTable(g, which) {
+  var ed = (scenEditId === g.id);
+  var b = g[which];
+  var h = '<div class="scen-block" data-w="' + which + '">'
+    + '<div class="scen-sh"><b>' + scenBlockName(which) + '</b>'
+    + '<span class="scen-sh-s">' + bRaw(b.cols[0]) + ' · ' + bRaw(b.cols[1]) + '</span>'
+    + (ed ? '<button class="scen-addrow" onclick="scenAddRow(\'' + g.id + '\',\'' + which + '\')">' + L('＋ 一行', '+ Row') + '</button>' : '')
+    + '</div>'
+    + '<div class="scen-scroll"><table class="scen-tbl"><thead><tr>'
+    + '<th class="c-lv">' + L('层级', 'Level') + '</th>';
+  [0, 1].forEach(function (j) {
+    var suffix = L('区间（含跌幅）', 'range (drop)');
+    h += '<th class="' + (j === 0 ? 'c-qqq' : 'c-voo') + '">'
+      + '<span class="scen-colname"' + (ed ? ' contenteditable="true" spellcheck="false"' : '') + '>' + bRaw(b.cols[j]) + '</span> ' + suffix
+      + '</th>';
+  });
+  h += '<th class="c-nt">' + L('性质', 'Nature') + '</th>'
+    + '<th class="c-ac">' + L('实际情况', 'What happened') + '</th>'
+    + (ed ? '<th class="c-x"></th>' : '')
+    + '</tr></thead><tbody>';
+  b.rows.forEach(function (r, i) {
+    h += '<tr>';
+    for (var j = 0; j < 5; j++) {
+      var cls = ['c-lv', 'c-qqq', 'c-voo', 'c-nt', 'c-ac'][j];
+      h += '<td class="' + cls + '" data-c="' + j + '"' + (ed ? ' contenteditable="true" spellcheck="false"' : '') + '>' + scenCell(r[j]) + '</td>';
+    }
+    if (ed) h += '<td class="c-x"><i class="scen-x" onclick="scenDelRow(\'' + g.id + '\',\'' + which + '\',' + i + ')">\u00d7</i></td>';
+    h += '</tr>';
+  });
+  h += '</tbody></table></div></div>';
+  return h;
+}
 function scenCard(g) {
   var ed = (scenEditId === g.id);
   var h = '<div class="scen-card' + (g.open ? ' open' : '') + (ed ? ' editing' : '') + '" data-id="' + g.id + '">'
     + '<div class="scen-hd" onclick="scenToggle(\'' + g.id + '\')">'
     + '<span class="scen-kind ' + g.kind + '" onclick="event.stopPropagation();scenKind(\'' + g.id + '\')">' + scenKindLabel(g.kind) + '</span>'
     + '<span class="scen-t"' + (ed ? ' contenteditable="true" spellcheck="false"' : '') + '>' + bRaw(g.title) + '</span>'
-    + '<span class="scen-n">' + L(g.rows.length + ' 层', g.rows.length + ' levels') + '</span>'
+    + '<span class="scen-n">' + L((g.market.rows.length + g.stock.rows.length) + ' 层', (g.market.rows.length + g.stock.rows.length) + ' levels') + '</span>'
     + '<span class="scen-cv">' + (g.open ? '\u25be' : '\u25b8') + '</span>'
     + '</div>';
   if (g.open) {
-    h += '<div class="scen-bd"><div class="scen-tip">' + L('← 左右滑动查看「性质」「实际情况」→', '← swipe to see Nature / What happened →') + '</div>'
-      + '<div class="scen-scroll"><table class="scen-tbl"><thead><tr>'
-      + SCEN_COLS.map(function (c) { return '<th class="' + c.cls + '">' + L(c.zh, c.en) + '</th>'; }).join('')
-      + (ed ? '<th class="c-x"></th>' : '')
-      + '</tr></thead><tbody>';
-    g.rows.forEach(function (r, i) {
-      h += '<tr>';
-      SCEN_COLS.forEach(function (c, j) {
-        h += '<td class="' + c.cls + '" data-c="' + j + '"' + (ed ? ' contenteditable="true" spellcheck="false"' : '') + '>' + scenCell(r[j], ed) + '</td>';
-      });
-      if (ed) h += '<td class="c-x"><i class="scen-x" onclick="scenDelRow(\'' + g.id + '\',' + i + ')">\u00d7</i></td>';
-      h += '</tr>';
-    });
-    h += '</tbody></table></div>';
-    h += '<div class="scen-ft">';
+    h += '<div class="scen-bd">'
+      + '<div class="scen-tip">' + L('← 左右滑动查看「性质」「实际情况」→', '← swipe to see Nature / What happened →') + '</div>'
+      + scenTable(g, 'market')
+      + scenTable(g, 'stock')
+      + '<div class="scen-ft">';
     if (ed) {
-      h += '<button class="scen-b1" onclick="scenAddRow(\'' + g.id + '\')">' + L('＋ 添加一行', '+ Add row') + '</button>'
-        + '<button class="scen-b2" onclick="scenSaveEdit(\'' + g.id + '\')">' + L('保存', 'Save') + '</button>'
+      h += '<button class="scen-b2" onclick="scenSaveEdit(\'' + g.id + '\')">' + L('保存', 'Save') + '</button>'
         + '<button class="scen-b3" onclick="scenCancel()">' + L('取消', 'Cancel') + '</button>'
         + '<button class="scen-b4" onclick="scenDel(\'' + g.id + '\')">' + L('删除推演', 'Delete') + '</button>';
     } else {
@@ -2921,11 +2969,11 @@ function renderScen() {
   if (!box) return;
   var h1 = document.getElementById('scenH1'), h2 = document.getElementById('scenH2'), nb = document.getElementById('scenNewBtn');
   if (h1) h1.textContent = L('涨跌推演', 'Crash / Surge Scenarios');
-  if (h2) h2.textContent = L('只推演中大级别下跌 / 上涨，小跌小涨不做推演', 'Only mid-to-large drops or rallies are mapped; small moves are skipped');
+  if (h2) h2.textContent = L('大盘 + 个股两层推演 · 只做中大级别涨跌，小跌小涨不做', 'Market + single-stock tiers · only mid-to-large moves');
   if (nb) nb.textContent = L('＋ 新建推演', '+ New scenario');
   var hint = document.getElementById('scenHint');
-  if (hint) hint.textContent = L('表格可编辑 · 点标题展开/收起 · 多个推演可并存（按日期与情景命名）',
-    'Editable table · tap a title to expand / collapse · multiple scenarios can coexist');
+  if (hint) hint.textContent = L('每条推演含「大盘」「个股」两张表 · 点标题展开/收起 · 表格可编辑',
+    'Each scenario has a Market table and a Stocks table · tap a title to expand · tables are editable');
   box.innerHTML = scenState.map(scenCard).join('');
   scenBindDrag();
 }
@@ -3360,7 +3408,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.7.2';
+var APP_VERSION = 'v1.7.3';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
