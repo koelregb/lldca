@@ -1343,8 +1343,8 @@ html[data-gate] .tabbar { visibility: hidden; }
   border-bottom: 1px solid var(--line); background: var(--card); word-break: break-word;
 }
 .scen-tbl tr:last-child td { border-bottom: none; }
-.scen-tbl .c-lv { width: 82px; font-weight: 700; }
-.scen-tbl .c-qqq, .scen-tbl .c-voo { width: 168px; }
+.scen-tbl .c-lv { width: 94px; font-weight: 700; }
+.scen-tbl .c-qqq, .scen-tbl .c-voo { width: 162px; }
 .scen-tbl .c-nt { width: 158px; }
 .scen-tbl .c-ac { width: 116px; }
 .scen-tbl .c-x { width: 26px; text-align: center; }
@@ -1384,3 +1384,26 @@ html[data-gate] .tabbar { visibility: hidden; }
 .scen-scroll::-webkit-scrollbar-track { background: var(--chip); border-radius: 3px; }
 .scen-scroll::-webkit-scrollbar-thumb { background: rgba(140, 150, 170, .55); border-radius: 3px; }
 .scen-scroll::-webkit-scrollbar-thumb:hover { background: rgba(120, 130, 150, .8); }
+
+/* ---- v1.7.3: 推演卡片内「大盘 / 个股」两张表 ---- */
+.scen-block + .scen-block { border-top: 1px solid var(--line); margin-top: 2px; }
+.scen-sh { display: flex; align-items: center; gap: 8px; padding: 8px 12px 3px; }
+.scen-sh b { font-size: 12px; font-weight: 800; color: var(--ink); letter-spacing: .3px; }
+.scen-sh-s {
+  font-size: 10px; font-weight: 700; color: var(--sub);
+  background: var(--chip); border-radius: 6px; padding: 1.5px 6px;
+  max-width: 46%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.scen-addrow {
+  margin-left: auto; flex: none; cursor: pointer; font-family: inherit;
+  border: 1px dashed var(--line); background: transparent; color: var(--sub);
+  border-radius: 8px; padding: 3px 8px; font-size: 11px; font-weight: 700;
+}
+.scen-addrow:active { color: var(--accent); border-color: var(--accent); }
+.scen-colname { outline: none; border-radius: 5px; padding: 0 2px; }
+.scen-card.editing .scen-colname {
+  background: var(--card); box-shadow: inset 0 0 0 1px var(--line);
+}
+.scen-card.editing .scen-colname:focus { box-shadow: inset 0 0 0 1.5px var(--accent); }
+/* 推演卡片盖住背景水印（水印是 fixed z-index:0，会透到卡片上） */
+.scen-card { position: relative; z-index: 1; }
