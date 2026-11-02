@@ -1330,24 +1330,24 @@ html[data-gate] .tabbar { visibility: hidden; }
 .scen-bd { border-top: 1px solid var(--line); }
 .scen-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .scen-tbl {
-  border-collapse: separate; border-spacing: 0; min-width: 760px; width: 100%;
-  font-size: 11.5px; line-height: 1.5;
+  border-collapse: separate; border-spacing: 0; min-width: 640px; width: 100%;
+  font-size: 10.5px; line-height: 1.45;
 }
 .scen-tbl th {
   position: sticky; top: 0; z-index: 2;
   background: var(--chip); color: var(--sub); font-weight: 800; text-align: left;
-  padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap;
+  padding: 6px 7px; border-bottom: 1px solid var(--line); white-space: nowrap; font-size: 10px;
 }
 .scen-tbl td {
-  padding: 7px 8px; vertical-align: top; color: var(--ink);
+  padding: 6px 7px; vertical-align: top; color: var(--ink);
   border-bottom: 1px solid var(--line); background: var(--card); word-break: break-word;
 }
 .scen-tbl tr:last-child td { border-bottom: none; }
-.scen-tbl .c-lv { width: 104px; font-weight: 700; }
-.scen-tbl .c-qqq, .scen-tbl .c-voo { width: 205px; }
-.scen-tbl .c-nt { width: 220px; }
-.scen-tbl .c-ac { width: 150px; background: #fffdf3; }
-.scen-tbl .c-x { width: 30px; text-align: center; }
+.scen-tbl .c-lv { width: 82px; font-weight: 700; }
+.scen-tbl .c-qqq, .scen-tbl .c-voo { width: 168px; }
+.scen-tbl .c-nt { width: 158px; }
+.scen-tbl .c-ac { width: 116px; }
+.scen-tbl .c-x { width: 26px; text-align: center; }
 /* 首列固定，横向滑动时层级始终可见 */
 .scen-tbl td.c-lv { position: sticky; left: 0; z-index: 1; box-shadow: 1px 0 0 var(--line); }
 .scen-tbl th.c-lv { left: 0; z-index: 3; box-shadow: 1px 0 0 var(--line); }
@@ -1377,5 +1377,10 @@ html[data-gate] .tabbar { visibility: hidden; }
   font-size: 10.5px; color: var(--sub); padding: 6px 12px 2px; text-align: right;
   letter-spacing: .2px;
 }
-/* 表格横向滚动条隐藏（有「左右滑动」提示即可，避免多出一条灰杠） */
-.scen-scroll::-webkit-scrollbar { height: 0; width: 0; }
+/* 表格横向滚动条：细但可见、可拖（电脑上也能滑动） */
+.scen-scroll { cursor: grab; }
+.scen-scroll.dragging { cursor: grabbing; }
+.scen-scroll::-webkit-scrollbar { height: 6px; }
+.scen-scroll::-webkit-scrollbar-track { background: var(--chip); border-radius: 3px; }
+.scen-scroll::-webkit-scrollbar-thumb { background: rgba(140, 150, 170, .55); border-radius: 3px; }
+.scen-scroll::-webkit-scrollbar-thumb:hover { background: rgba(120, 130, 150, .8); }
