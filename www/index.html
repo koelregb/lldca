@@ -72,7 +72,12 @@
             <div class="scen-h1" id="scenH1">涨跌推演</div>
             <div class="scen-h2" id="scenH2">只推演中大级别下跌 / 上涨，小跌小涨不做推演</div>
           </div>
-          <button class="scen-new" id="scenNewBtn" onclick="scenNew()">＋ 新建推演</button>
+          <button class="scen-new" id="scenNewBtn" onclick="scenNewMenu()">＋ 新建推演</button>
+        </div>
+        <div class="scen-newmenu" id="scenNewMenu" style="display:none">
+          <button onclick="scenNew('both')">大盘 + 个股</button>
+          <button onclick="scenNew('market')">仅大盘</button>
+          <button onclick="scenNew('stock')">仅个股</button>
         </div>
         <div id="scenList"></div>
         <div class="hintbar" id="scenHint"></div>
@@ -429,7 +434,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.7.3</span>
+          <span class="mrow-v" id="appVer">v1.7.4</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>

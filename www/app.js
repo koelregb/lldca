@@ -2737,14 +2737,14 @@ var scenState = (function () {
   raw.forEach(function (g, i) {
     if (!g || typeof g !== 'object') return;
     /* 旧版（单表 rows）自动迁移到「大盘」块 */
-    var marketSrc = g.market || (g.rows ? { cols: ['QQQ', 'VOO'], rows: g.rows } : null);
+    var marketSrc = (g.market === null) ? null : (g.market || (g.rows ? { cols: ['QQQ', 'VOO'], rows: g.rows } : null));
     out.push({
       id: String(g.id || ('g' + i + '-' + Date.now())),
       title: String(g.title || ''),
       kind: g.kind === 'up' ? 'up' : 'down',
       open: g.open !== false,
-      market: scenBlock(marketSrc, ['QQQ', 'VOO']),
-      stock: scenBlock(g.stock, ['标的 A', '标的 B'])
+      market: (marketSrc === null && g.market === null) ? null : scenBlock(marketSrc, ['QQQ', 'VOO']),
+      stock: (g.stock === null) ? null : scenBlock(g.stock, ['标的 A', '标的 B'])
     });
   });
   return out.length ? out : scenSeed();
@@ -2762,6 +2762,9 @@ function scenToday() {
 }
 function scenKindLabel(k) { return k === 'up' ? L('涨', 'Up') : L('跌', 'Down'); }
 function scenBlockName(w) { return w === 'stock' ? L('个股', 'Stocks') : L('大盘', 'Market'); }
+function scenRowCount(g) {
+  return (g.market ? g.market.rows.length : 0) + (g.stock ? g.stock.rows.length : 0);
+}
 function scenCell(txt) { return bRaw(txt); }
 
 window.scenToggle = function (id) {
@@ -2779,21 +2782,44 @@ window.scenKind = function (id) {
   scenSave();
   renderScen();
 };
-window.scenNew = function () {
+window.scenNewMenu = function () {
+  var m = document.getElementById('scenNewMenu');
+  if (!m) return;
+  m.style.display = (m.style.display === 'none' || !m.style.display) ? 'flex' : 'none';
+};
+function scenBaseRows() { return scenSeedRows().map(function (r) { return r.slice(); }); }
+window.scenNew = function (scope) {
+  scope = (scope === 'market' || scope === 'stock') ? scope : 'both';
   var id = 'g' + Date.now();
+  var name = scope === 'stock' ? L('个股推演', 'Stock scenario')
+           : scope === 'market' ? L('大盘推演', 'Market scenario')
+           : L('大跌推演', 'Crash scenario');
   scenState.unshift({
     id: id,
-    title: scenToday() + ' ' + L('大跌推演', 'Crash scenario'),
+    title: scenToday() + ' ' + name,
     kind: 'down',
     open: true,
-    market: { cols: ['QQQ', 'VOO'], rows: scenSeedRows() },
-    stock: { cols: ['标的 A', '标的 B'], rows: scenSeedRows() }
+    market: scope === 'stock' ? null : { cols: ['QQQ', 'VOO'], rows: scenBaseRows() },
+    stock: scope === 'market' ? null : { cols: ['标的 A', '标的 B'], rows: scenBaseRows() }
   });
   scenEditId = id;
   scenSave();
+  var menu = document.getElementById('scenNewMenu');
+  if (menu) menu.style.display = 'none';
   renderScen();
   var t = document.querySelector('.scen-card[data-id="' + id + '"] .scen-t');
   if (t) { t.focus(); var r = document.createRange(); r.selectNodeContents(t); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); }
+};
+window.scenAddBlock = function (id, which) {
+  if (scenEditId === id) scenRead(id);
+  var g = scenById(id);
+  if (!g || g[which]) return;
+  g[which] = which === 'stock'
+    ? { cols: ['标的 A', '标的 B'], rows: scenBaseRows() }
+    : { cols: ['QQQ', 'VOO'], rows: scenBaseRows() };
+  scenEditId = id;
+  scenSave();
+  renderScen();
 };
 window.scenEdit = function (id) { scenEditId = id; renderScen(); };
 window.scenCancel = function () { scenEditId = null; renderScen(); };
@@ -2834,14 +2860,15 @@ window.scenRead = function (id) {
   if (!card || !g) return;
   var t = card.querySelector('.scen-t');
   if (t) g.title = bStrip(t.textContent).replace(/\s+/g, ' ').trim();
-  scenReadBlock(id, 'market');
-  scenReadBlock(id, 'stock');
+  if (g.market) scenReadBlock(id, 'market');
+  if (g.stock) scenReadBlock(id, 'stock');
 };
 window.scenSaveEdit = function (id) {
   scenRead(id);
   var g = scenById(id);
   if (!g) return;
   ['market', 'stock'].forEach(function (w) {
+    if (!g[w]) return;
     g[w].rows = g[w].rows.filter(function (r) { return r.join('').trim() !== ''; });
     if (!g[w].rows.length) g[w].rows = [['', '', '', '', '']];
   });
@@ -2857,6 +2884,7 @@ window.scenAddRow = function (id, which) {
   var g = scenById(id);
   if (!g) return;
   if (scenEditId !== id) scenEditId = id;
+  if (!g[which]) return;
   g[which].rows.push(['', '', '', '', '']);
   scenSave();
   renderScen();
@@ -2871,6 +2899,7 @@ window.scenDelRow = function (id, which, i) {
   var g = scenById(id);
   if (!g) return;
   if (scenEditId !== id) scenEditId = id;
+  if (!g[which]) return;
   g[which].rows.splice(i, 1);
   if (!g[which].rows.length) g[which].rows = [['', '', '', '', '']];
   scenSave();
@@ -2915,16 +2944,18 @@ function scenCard(g) {
     + '<div class="scen-hd" onclick="scenToggle(\'' + g.id + '\')">'
     + '<span class="scen-kind ' + g.kind + '" onclick="event.stopPropagation();scenKind(\'' + g.id + '\')">' + scenKindLabel(g.kind) + '</span>'
     + '<span class="scen-t"' + (ed ? ' contenteditable="true" spellcheck="false"' : '') + '>' + bRaw(g.title) + '</span>'
-    + '<span class="scen-n">' + L((g.market.rows.length + g.stock.rows.length) + ' 层', (g.market.rows.length + g.stock.rows.length) + ' levels') + '</span>'
+    + '<span class="scen-n">' + L(scenRowCount(g) + ' 层', scenRowCount(g) + ' levels') + '</span>'
     + '<span class="scen-cv">' + (g.open ? '\u25be' : '\u25b8') + '</span>'
     + '</div>';
   if (g.open) {
     h += '<div class="scen-bd">'
       + '<div class="scen-tip">' + L('← 左右滑动查看「性质」「实际情况」→', '← swipe to see Nature / What happened →') + '</div>'
-      + scenTable(g, 'market')
-      + scenTable(g, 'stock')
+      + (g.market ? scenTable(g, 'market') : '')
+      + (g.stock ? scenTable(g, 'stock') : '')
       + '<div class="scen-ft">';
     if (ed) {
+      if (!g.market) h += '<button class="scen-b5" onclick="scenAddBlock(\'' + g.id + '\',\'market\')">' + L('＋ 加大盘表', '+ Market table') + '</button>';
+      if (!g.stock) h += '<button class="scen-b5" onclick="scenAddBlock(\'' + g.id + '\',\'stock\')">' + L('＋ 加个股表', '+ Stocks table') + '</button>';
       h += '<button class="scen-b2" onclick="scenSaveEdit(\'' + g.id + '\')">' + L('保存', 'Save') + '</button>'
         + '<button class="scen-b3" onclick="scenCancel()">' + L('取消', 'Cancel') + '</button>'
         + '<button class="scen-b4" onclick="scenDel(\'' + g.id + '\')">' + L('删除推演', 'Delete') + '</button>';
@@ -2971,6 +3002,8 @@ function renderScen() {
   if (h1) h1.textContent = L('涨跌推演', 'Crash / Surge Scenarios');
   if (h2) h2.textContent = L('大盘 + 个股两层推演 · 只做中大级别涨跌，小跌小涨不做', 'Market + single-stock tiers · only mid-to-large moves');
   if (nb) nb.textContent = L('＋ 新建推演', '+ New scenario');
+  var nm = document.getElementById('scenNewMenu');
+  if (nm) nm.style.display = 'none';
   var hint = document.getElementById('scenHint');
   if (hint) hint.textContent = L('每条推演含「大盘」「个股」两张表 · 点标题展开/收起 · 表格可编辑',
     'Each scenario has a Market table and a Stocks table · tap a title to expand · tables are editable');
@@ -3408,7 +3441,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.7.3';
+var APP_VERSION = 'v1.7.4';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
