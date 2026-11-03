@@ -1419,3 +1419,18 @@ html[data-gate] .tabbar { visibility: hidden; }
 .scen-ft .scen-b5 {
   background: transparent; border-style: dashed; color: var(--sub);
 }
+
+/* ---- v1.7.5: 仓位 / 仓位比 拖动排序 ---- */
+.drag-h {
+  flex: none; width: 26px; align-self: stretch; margin: -4px -8px -4px 0;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--sub); font-size: 16px; line-height: 1; letter-spacing: -1px;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  border-radius: 8px; font-weight: 700;
+}
+.drag-h:active { color: var(--accent); background: var(--chip); }
+.lrow.dragging {
+  background: var(--chip); position: relative; z-index: 2;
+  box-shadow: 0 8px 20px rgba(30, 40, 60, .16); border-radius: 10px;
+}
+.lrow.dragging .drag-h { cursor: grabbing; color: var(--accent); }
