@@ -719,15 +719,17 @@ function renderPlans() {
     html += '<div class="empty">' + L('还没有仓位记录<br>点右下角 + 添加名称与仓位比', 'No positions yet<br>Tap + to add a name and weight') + '</div>';
   } else {
     allocs.forEach(function (a2) {
-      html += '<div class="lrow pos-row" onclick="openAllocForm(\'' + a2.id + '\')">'
+      html += '<div class="lrow pos-row" data-id="' + a2.id + '" onclick="openAllocForm(\'' + a2.id + '\')">'
         + '<div class="linfo"><div class="lname">' + esc(a2.name) + (a2.code ? '<span class="inv-code">' + esc(a2.code) + '</span>' : '') + '</div>'
         + '<div class="lsub">' + L('仓位比', 'Weight') + '</div></div>'
         + '<div class="lval"><div class="v1">' + fmtPct1(a2.pct) + '%</div>'
         + '<div class="v2">' + L('点击修改', 'tap to edit') + '</div></div>'
+        + allocHandle(a2.id)
         + '</div>';
     });
   }
   box.innerHTML = html;
+  bindAllocDrag();
 }
 function openPlanForm() {
   var p = editPlanId ? plans.filter(function (x) { return x.id === editPlanId; })[0] : null;
@@ -821,6 +823,77 @@ var allocs = loadJSON(ALLOC_KEY, []);
 if (!Array.isArray(allocs)) allocs = [];
 var editAllocId = null;
 function saveAllocs() { saveJSON(ALLOC_KEY, allocs); }
+/* 仓位 / 仓位比：拖动 ≡ 上下排序（指针事件，手机与电脑通用） */
+function allocHandle(id) {
+  return '<span class="drag-h" data-id="' + id + '" title="' + L('拖动排序', 'Drag to reorder') + '"'
+    + ' onclick="event.stopPropagation()">\u2261</span>';
+}
+var allocDrag = null;
+function bindAllocDrag() {
+  ['planList', 'posAlloc'].forEach(function (boxId) {
+    var box = document.getElementById(boxId);
+    if (!box) return;
+    Array.prototype.forEach.call(box.querySelectorAll('.drag-h'), function (h) {
+      if (h.__dhb) return;
+      h.__dhb = true;
+      h.addEventListener('pointerdown', function (e) {
+        var row = h.closest('.lrow');
+        if (!row) return;
+        e.preventDefault();
+        e.stopPropagation();
+        allocDrag = {
+          row: row, wrap: row.parentNode, startY: e.clientY, moved: false,
+          pointerId: e.pointerId
+        };
+        row.classList.add('dragging');
+        try { h.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      });
+      h.addEventListener('pointermove', function (e) {
+        if (!allocDrag || allocDrag.pointerId !== e.pointerId) return;
+        if (Math.abs(e.clientY - allocDrag.startY) < 4) return;
+        allocDrag.moved = true;
+        e.preventDefault();
+        var rows = Array.prototype.slice.call(allocDrag.wrap.querySelectorAll('.lrow'));
+        var ref = null;
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          if (r === allocDrag.row) continue;
+          var rect = r.getBoundingClientRect();
+          if (e.clientY < rect.top + rect.height / 2) { ref = r; break; }
+        }
+        if (ref) {
+          if (ref.previousSibling !== allocDrag.row) allocDrag.wrap.insertBefore(allocDrag.row, ref);
+        } else if (allocDrag.wrap.lastElementChild !== allocDrag.row) {
+          allocDrag.wrap.appendChild(allocDrag.row);
+        }
+      });
+      ['pointerup', 'pointercancel'].forEach(function (t) {
+        h.addEventListener(t, function (e) {
+          if (!allocDrag || allocDrag.pointerId !== e.pointerId) return;
+          var d = allocDrag;
+          allocDrag = null;
+          d.row.classList.remove('dragging');
+          try { h.releasePointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+          if (!d.moved) return;
+          /* 按新的 DOM 顺序重排 allocs */
+          var order = Array.prototype.slice.call(d.wrap.querySelectorAll('.lrow'))
+            .map(function (r) { return r.getAttribute('data-id'); });
+          var map = {}, next = [];
+          allocs.forEach(function (a) { map[a.id] = a; });
+          order.forEach(function (id) {
+            if (map[id]) { next.push(map[id]); delete map[id]; }
+          });
+          allocs.forEach(function (a) { if (map[a.id]) next.push(a); });
+          allocs = next;
+          saveAllocs();
+          renderPlans();
+          renderPosRatio();
+          toast(L('顺序已保存', 'Order saved'));
+        });
+      });
+    });
+  });
+}
 function fmtPct1(v) { var n = Number(v) || 0; return n % 1 ? n.toFixed(1) : String(n); }
 function allocTotal() {
   var t = 0;
@@ -917,17 +990,19 @@ function renderPosRatio() {
     h += '<div class="empty">' + L('还没有标的占比<br>点右下角 + 添加股票名称与占比', 'No weights yet<br>Tap + to add a name and weight') + '</div>';
   } else {
     allocs.forEach(function (a) {
-      h += '<div class="lrow pos-row" onclick="openAllocForm(\'' + a.id + '\')">'
+      h += '<div class="lrow pos-row" data-id="' + a.id + '" onclick="openAllocForm(\'' + a.id + '\')">'
         + '<div class="linfo"><div class="lname">' + esc(a.name) + (a.code ? '<span class="inv-code">' + esc(a.code) + '</span>' : '') + '</div>'
         + '<div class="lsub">' + L('仓位占比', 'Weight') + '</div></div>'
         + '<div class="lval"><div class="v1">' + fmtPct1(a.pct) + '%</div>'
         + '<div class="v2">' + L('目标', 'target') + '</div></div>'
+        + allocHandle(a.id)
         + '</div>';
     });
   }
   h += '</div>';
-  h += '<div class="hintbar" style="margin-top:4px">' + L('点击条目可修改名称 / 代码 / 占比 · 合计超过 100% 会标红提示', 'Tap a row to edit name / code / weight · over 100% is flagged') + '</div>';
+  h += '<div class="hintbar" style="margin-top:4px">' + L('拖动右侧 ≡ 可上下排序 · 点击条目修改名称 / 代码 / 占比 · 合计超过 100% 会标红提示', 'Drag ≡ to reorder · tap a row to edit name / code / weight · over 100% is flagged') + '</div>';
   box.innerHTML = h;
+  bindAllocDrag();
 }
 function posSet(btn) {
   var r = btn.getAttribute('data-r');
@@ -3441,7 +3516,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.7.4';
+var APP_VERSION = 'v1.7.5';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';

@@ -1,14 +1,14 @@
-## 最新版本 v1.7.4
+## 最新版本 v1.7.5
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.7.4.apk](https://github.com/koelregb/lldca/releases/download/v1.7.4/fuley-v1.7.4.apk)（仓库内：`fuley-v1.7.4.apk`、`tools/fuley-v1.7.4.apk`） |
-| 版本信息 | v1.7.4 / versionCode 47 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.7.5.apk](https://github.com/koelregb/lldca/releases/download/v1.7.5/fuley-v1.7.5.apk)（仓库内：`fuley-v1.7.5.apk`、`tools/fuley-v1.7.5.apk`） |
+| 版本信息 | v1.7.5 / versionCode 48 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.7.4-mockup.html](lldca-v1.7.4-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.7.5-mockup.html](lldca-v1.7.5-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：新建推演可选范围 —— **大盘 + 个股 / 仅大盘 / 仅个股**；只建个股的推演不再带大盘表，编辑态还能随时补「＋ 加大盘表 / ＋ 加个股表」。
+> 本版：**仓位 / 仓位比 里的股票可以上下拖动排序** —— 按住每行右侧的 ≡ 往上/下拖，松手自动保存，两个子 tab 顺序同步。
 
 
 ## 功能一览
