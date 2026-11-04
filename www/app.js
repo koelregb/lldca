@@ -1165,8 +1165,8 @@ function renderVal() {
           : L('合理估值 ' + fmtVal(b.fair) + (b.stop !== null ? ' · 停止线 ' + fmtVal(b.stop) : ''),
               'Fair ' + fmtVal(b.fair) + (b.stop !== null ? ' · stop ' + fmtVal(b.stop) : ''))) + '</div>'
       + '</div>'
-      + (open ? '' : miniGrid(b))
-      + '</div>';
+      + '</div>'
+      + (open ? '' : miniGrid(b));
     if (open) {
       if (b.fair === null) {
         h += '<div class="val-ladder blank">' + L('填入合理估值后自动生成三档买卖价', 'Set a fair value to generate three tiers') + '</div>';
@@ -3669,7 +3669,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.7.7';
+var APP_VERSION = 'v1.7.8';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';

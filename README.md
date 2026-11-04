@@ -1,14 +1,14 @@
-## 最新版本 v1.7.7
+## 最新版本 v1.7.8
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.7.7.apk](https://github.com/koelregb/lldca/releases/download/v1.7.7/fuley-v1.7.7.apk)（仓库内：`fuley-v1.7.7.apk`、`tools/fuley-v1.7.7.apk`） |
-| 版本信息 | v1.7.7 / versionCode 50 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.7.8.apk](https://github.com/koelregb/lldca/releases/download/v1.7.8/fuley-v1.7.8.apk)（仓库内：`fuley-v1.7.8.apk`、`tools/fuley-v1.7.8.apk`） |
+| 版本信息 | v1.7.8 / versionCode 51 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.7.7-mockup.html](lldca-v1.7.7-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.7.8-mockup.html](lldca-v1.7.8-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：仓位页新增子 tab **买值卖值** —— 每个持仓填「合理估值」，按三档折价 / 溢价自动算出 **三档买价 + 三档卖价**，每档带资金比例；卡片可折叠，折叠时右侧以 2×3 箭头网格显示（买绿↓ / 卖红↑，圆圈标档号 ①②③）。
+> 本版：修复「买值卖值」折叠卡片的排版 —— 名称不再被右侧价格压成竖排，改为**名称独占一行、三档价格网格独占一行**（三列等分，长价格如 398.05 / 472500 也不会挤）。
 
 
 ## 功能一览
