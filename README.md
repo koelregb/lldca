@@ -1,14 +1,14 @@
-## 最新版本 v1.7.5
+## 最新版本 v1.7.6
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.7.5.apk](https://github.com/koelregb/lldca/releases/download/v1.7.5/fuley-v1.7.5.apk)（仓库内：`fuley-v1.7.5.apk`、`tools/fuley-v1.7.5.apk`） |
-| 版本信息 | v1.7.5 / versionCode 48 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.7.6.apk](https://github.com/koelregb/lldca/releases/download/v1.7.6/fuley-v1.7.6.apk)（仓库内：`fuley-v1.7.6.apk`、`tools/fuley-v1.7.6.apk`） |
+| 版本信息 | v1.7.6 / versionCode 49 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.7.5-mockup.html](lldca-v1.7.5-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.7.6-mockup.html](lldca-v1.7.6-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：**仓位 / 仓位比 里的股票可以上下拖动排序** —— 按住每行右侧的 ≡ 往上/下拖，松手自动保存，两个子 tab 顺序同步。
+> 本版：「走势 → 周期」页去掉了底部的**沪金 ETF（518880）走势图**，周期页只保留康波内容；走势页顶部的伦敦金现 / 纽约期金报价卡不受影响。
 
 
 ## 功能一览
