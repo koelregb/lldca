@@ -932,16 +932,20 @@ function saveAllocForm() {
   saveAllocs();
   renderPosRatio();
   renderPlans();
+  renderVal();
   closeSheet();
   toast(editAllocId ? L('已保存', 'Saved') : L('已添加 ' + name, 'Added ' + name));
   editAllocId = null;
 }
 function delAlloc() {
   if (!editAllocId) return;
+  var goneId = editAllocId;
   allocs = allocs.filter(function (a) { return a.id !== editAllocId; });
+  if (valMap[goneId]) { delete valMap[goneId]; saveVals(); }
   saveAllocs();
   renderPosRatio();
   renderPlans();
+  renderVal();
   closeSheet();
   toast(L('已删除', 'Removed'));
   editAllocId = null;
@@ -1004,6 +1008,275 @@ function renderPosRatio() {
   box.innerHTML = h;
   bindAllocDrag();
 }
+/* ---------- 估值区间：每个持仓的合理估值上下限（用 ≥ ≤ 表达） ---------- */
+var VAL_KEY = 'fuley.val.v1';
+var valMap = loadJSON(VAL_KEY, {}) || {};
+var valEditId = null;
+var valOpen = {};
+
+function saveVals() { saveJSON(VAL_KEY, valMap); }
+/* 三档买 / 三档卖：每档一个折价(溢价) + 一个资金比例 */
+var VAL_LADDER_DEF = {
+  buys: [{ d: 0.20, p: 30 }, { d: 0.30, p: 40 }, { d: 0.40, p: 30 }],
+  sells: [{ d: 0.20, p: 30 }, { d: 0.30, p: 30 }, { d: 0.40, p: 40 }]
+};
+function defLadder(kind) {
+  return VAL_LADDER_DEF[kind].map(function (x) { return { d: x.d, p: x.p }; });
+}
+function normLadder(arr, kind) {
+  var out = defLadder(kind);
+  if (!Array.isArray(arr)) return out;
+  for (var i = 0; i < 3; i++) {
+    var it = arr[i];
+    if (!it || typeof it !== 'object') continue;
+    var d = Number(it.d), q = Number(it.p);
+    if (isFinite(d) && d >= 0 && d <= 1) out[i].d = d;
+    if (isFinite(q) && q >= 0 && q <= 100) out[i].p = q;
+  }
+  return out;
+}
+function valBand(id) {
+  var v = valMap[id] || {};
+  function num(x) {
+    if (x === null || x === undefined || x === '') return null;
+    var n = Number(x);
+    return isFinite(n) ? n : null;
+  }
+  var fair = num(v.fair), stop = num(v.stop);
+  /* 旧数据兼容 */
+  if (fair === null && v.hi != null) fair = num(v.hi);
+  if (stop === null && v.lo != null) stop = num(v.lo);
+  var buys = normLadder(v.buys, 'buys');
+  var sells = normLadder(v.sells, 'sells');
+  if (!v.buys && v.disc != null) { var d0 = num(v.disc); if (d0 !== null) buys[0].d = d0; }
+  if (!v.sells && v.prem != null) { var p0 = num(v.prem); if (p0 !== null) sells[0].d = p0; }
+  return { fair: fair, stop: stop, buys: buys, sells: sells };
+}
+function fmtVal(v) {
+  var n = Number(v);
+  if (!isFinite(n)) return '';
+  if (n % 1 === 0) return String(n);
+  return n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+function fmtPct(v) { return Math.round(Number(v) * 1000) / 10 + '%'; }
+function valBuy(fair, disc) {
+  if (fair === null || !isFinite(Number(fair))) return null;
+  var d = Number(disc) || 0;
+  return Math.round(Number(fair) * (1 - d) * 100) / 100;
+}
+function valSell(fair, prem) {
+  if (fair === null || !isFinite(Number(fair))) return null;
+  var p = Number(prem) || 0;
+  return Math.round(Number(fair) * (1 + p) * 100) / 100;
+}
+function ladderSum(rows) {
+  return rows.reduce(function (a, r) { return a + (Number(r.p) || 0); }, 0);
+}
+function ladderCol(kind, rows, fair) {
+  var isBuy = kind === 'buy';
+  var h = '<div class="ld-col ' + kind + '">'
+    + '<div class="ld-h">' + (isBuy ? L('买', 'Buy') : L('卖', 'Sell'))
+    + '<i>' + Math.round(ladderSum(rows)) + '%</i></div>';
+  rows.forEach(function (r, i) {
+    var px = isBuy ? valBuy(fair, r.d) : valSell(fair, r.d);
+    h += '<div class="ld-row"><b>' + (i + 1) + '</b>'
+      + '<span class="ld-p">' + (px === null ? '—' : (isBuy ? '\u2264 ' : '\u2265 ') + fmtVal(px)) + '</span>'
+      + '<span class="ld-q">' + fmtVal(r.p) + '%</span></div>';
+  });
+  return h + '</div>';
+}
+/* 折叠态右侧：两行三列，买 ↓123 在上、卖 ↑123 在下 */
+function miniGrid(b) {
+  if (b.fair === null) {
+    return '<div class="vm-none">' + L('未设置', 'Not set') + '</div>';
+  }
+  function cell(kind, i, px, q) {
+    var isBuy = kind === 'buy';
+    return '<div class="vm-c ' + kind + '">'
+      + '<div class="vm-top">'
+      +   '<span class="vm-ar">' + (isBuy ? '\u2193' : '\u2191') + '</span>'
+      +   '<span class="vm-n">' + (i + 1) + '</span>'
+      +   '<span class="vm-p">' + fmtVal(px) + '</span>'
+      + '</div>'
+      + '<div class="vm-q">' + fmtVal(q) + '%</div>'
+      + '</div>';
+  }
+  var h = '<div class="vm-grid">';
+  b.buys.forEach(function (r, i) { h += cell('buy', i, valBuy(b.fair, r.d), r.p); });
+  b.sells.forEach(function (r, i) { h += cell('sell', i, valSell(b.fair, r.d), r.p); });
+  return h + '</div>';
+}
+window.valToggle = function (id) {
+  if (valEditId === id) { valEditId = null; }
+  valOpen[id] = !valOpen[id];
+  renderVal();
+};
+function renderVal() {
+  var box = document.getElementById('valList');
+  if (!box) return;
+  var src = document.getElementById('valSrc'), hint = document.getElementById('valHint');
+  var done = 0;
+  allocs.forEach(function (a) { var b = valBand(a.id); if (b.fair !== null) done++; });
+
+  if (src) {
+    var buySrc = [
+      L('证券 APP 显示的支撑位', 'Broker app support level'),
+      L('200 周线（4 年平均成本）', '200-week MA (4-year avg cost)'),
+      L('历史估值低点', 'Historical low')
+    ];
+    var sellSrc = [
+      L('证券 APP 显示的压力位', 'Broker app resistance'),
+      L('前期高点 / 密集区（套牢盘）', 'Prior high / volume zone'),
+      L('历史估值高位（分位 80%+）', 'Historical high (80%+)')
+    ];
+    var rows = '<div class="vh2-h">' + L('买值 · 合理估值取其一', 'Buy · fair value source') + '</div>'
+      + '<div class="vh2-h">' + L('卖值 · 参考以下', 'Sell · reference') + '</div>';
+    for (var vi = 0; vi < 3; vi++) {
+      rows += '<div class="vh2-row"><b>' + (vi + 1) + '</b><span>' + buySrc[vi] + '</span></div>'
+        + '<div class="vh2-row"><b>' + (vi + 1) + '</b><span>' + sellSrc[vi] + '</span></div>';
+    }
+    src.innerHTML = '<div class="vh2-grid">' + rows + '</div>';
+  }
+
+  if (hint) {
+    hint.innerHTML = '<div>' + L('买值 = 合理估值 ×（1 − 折价）　卖值 = 合理估值 ×（1 + 溢价）',
+        'Buy = fair × (1 − discount)　Sell = fair × (1 + premium)') + '</div>'
+      + '<div>' + L('已设 ' + done + ' / ' + allocs.length + ' · 点卡片展开三档 · 比例之和建议 100%',
+        done + ' / ' + allocs.length + ' set · tap a card to expand tiers · weights should sum to 100%') + '</div>';
+  }
+
+  if (!allocs.length) {
+    box.innerHTML = '<div class="listcard"><div class="empty">' + L('还没有标的<br>先到「仓位」添加股票，或点右下角 +', 'No holdings yet<br>Add a name in Position first, or tap +') + '</div></div>';
+    return;
+  }
+
+  var h = '';
+  allocs.forEach(function (a) {
+    var b = valBand(a.id);
+    var ed = (valEditId === a.id);
+    var open = ed || !!valOpen[a.id];
+    h += '<div class="val-row' + (ed ? ' editing' : '') + (open ? ' open' : '') + '" data-id="' + a.id + '"'
+      + (open ? '' : ' onclick="valToggle(\'' + a.id + '\')"') + '>'
+      + '<div class="val-head">'
+      + '<div class="val-l">'
+      + '<div class="lname">' + esc(a.name) + (a.code ? '<span class="inv-code">' + esc(a.code) + '</span>' : '') + '</div>'
+      + '<div class="lsub">' + (b.fair === null
+          ? L('未设置 · 点击填写', 'Not set · tap to fill')
+          : L('合理估值 ' + fmtVal(b.fair) + (b.stop !== null ? ' · 停止线 ' + fmtVal(b.stop) : ''),
+              'Fair ' + fmtVal(b.fair) + (b.stop !== null ? ' · stop ' + fmtVal(b.stop) : ''))) + '</div>'
+      + '</div>'
+      + (open ? '' : miniGrid(b))
+      + '</div>';
+    if (open) {
+      if (b.fair === null) {
+        h += '<div class="val-ladder blank">' + L('填入合理估值后自动生成三档买卖价', 'Set a fair value to generate three tiers') + '</div>';
+      } else {
+        h += '<div class="val-ladder">' + ladderCol('buy', b.buys, b.fair) + ladderCol('sell', b.sells, b.fair) + '</div>';
+      }
+    }
+    if (ed) {
+      h += '<div class="val-edit">'
+        + '<div class="ve-top"><span class="ve-l">' + L('合理估值', 'Fair value') + '</span>'
+        + '<label class="val-f"><input id="valFair" type="number" step="0.01" inputmode="decimal" placeholder="' + L('如 175', 'e.g. 175') + '" value="' + (b.fair === null ? '' : fmtVal(b.fair)) + '"></label>'
+        + '<span class="ve-l">' + L('停止线', 'Stop') + '</span>'
+        + '<label class="val-f"><input id="valStop" type="number" step="0.01" inputmode="decimal" placeholder="' + L('可留空', 'optional') + '" value="' + (b.stop === null ? '' : fmtVal(b.stop)) + '"></label></div>'
+        + '<div class="ve-grid">'
+        + '<div class="ve-gh"></div><div class="ve-gh">' + L('折价 %', 'Disc %') + '</div><div class="ve-gh">' + L('比例 %', 'Weight %') + '</div>'
+        + b.buys.map(function (r, i) {
+            return '<div class="ve-gl">' + L('买', 'Buy') + (i + 1) + '</div>'
+              + '<label class="val-f"><input id="bD' + i + '" type="number" step="1" inputmode="decimal" value="' + (Math.round(r.d * 1000) / 10) + '"></label>'
+              + '<label class="val-f"><input id="bP' + i + '" type="number" step="1" inputmode="decimal" value="' + fmtVal(r.p) + '"></label>';
+          }).join('')
+        + '<div class="ve-gh"></div><div class="ve-gh">' + L('溢价 %', 'Prem %') + '</div><div class="ve-gh">' + L('比例 %', 'Weight %') + '</div>'
+        + b.sells.map(function (r, i) {
+            return '<div class="ve-gl">' + L('卖', 'Sell') + (i + 1) + '</div>'
+              + '<label class="val-f"><input id="sD' + i + '" type="number" step="1" inputmode="decimal" value="' + (Math.round(r.d * 1000) / 10) + '"></label>'
+              + '<label class="val-f"><input id="sP' + i + '" type="number" step="1" inputmode="decimal" value="' + fmtVal(r.p) + '"></label>';
+          }).join('')
+        + '</div>'
+        + '<div class="val-note">' + L('每档价格自动按 合理估值 ×（1 ∓ 折溢价） 计算；比例是该档占总资金的比例',
+            'Each tier price = fair × (1 ∓ discount/premium); weight is the share of capital') + '</div>'
+        + '<div class="val-actions">'
+        + '<button class="va-save" onclick="valSave(\'' + a.id + '\')">' + L('保存', 'Save') + '</button>'
+        + '<button class="va-cancel" onclick="valCancel()">' + L('取消', 'Cancel') + '</button>'
+        + '<button class="va-reset" onclick="valReset(' + "'" + a.id + "'" + ')">' + L('默认档位', 'Defaults') + '</button>'
+        + '<button class="va-clear" onclick="valClear(\'' + a.id + '\')">' + L('清空', 'Clear') + '</button>'
+        + '</div>'
+        + '</div>';
+    } else if (open) {
+      h += '<div class="val-more">'
+        + '<button onclick="event.stopPropagation();valEdit(\'' + a.id + '\')">' + L('编辑档位', 'Edit tiers') + '</button>'
+        + '<button onclick="event.stopPropagation();valToggle(\'' + a.id + '\')">' + L('收起', 'Collapse') + '</button>'
+        + '</div>';
+    }
+    h += '</div>';
+  });
+  box.innerHTML = h;
+}
+window.valReset = function (id) {
+  var b = valBand(id);
+  valMap[id] = { fair: b.fair, stop: b.stop, buys: defLadder('buys'), sells: defLadder('sells') };
+  saveVals();
+  renderVal();
+  toast(L('已恢复默认 20/30/40', 'Default 20/30/40 restored'));
+};
+window.valEdit = function (id) {
+  valOpen[id] = true;
+  if (valEditId === id) return;
+  valEditId = id;
+  renderVal();
+  var el = document.getElementById('valFair');
+  if (el) { try { el.focus(); el.select(); } catch (e) {} }
+};
+window.valCancel = function () { valEditId = null; renderVal(); };
+window.valSave = function (id) {
+  function val(id_) { var el = document.getElementById(id_); return el ? String(el.value || '').trim() : ''; }
+  var fairRaw = val('valFair'), stopRaw = val('valStop');
+  var fair = fairRaw === '' ? null : Number(fairRaw);
+  var stop = stopRaw === '' ? null : Number(stopRaw);
+  if (fair !== null && (!isFinite(fair) || fair <= 0)) { toast(L('合理估值需大于 0', 'Fair value must be above 0')); return; }
+  if (stop !== null && (!isFinite(stop) || stop < 0)) { toast(L('停止线不能为负', 'Stop cannot be negative')); return; }
+
+  var buys = [], sells = [], err = null;
+  [0, 1, 2].forEach(function (i) {
+    if (err) return;
+    var bd = val('bD' + i), bp = val('bP' + i), sd = val('sD' + i), sp = val('sP' + i);
+    var d1 = bd === '' ? 0 : Number(bd) / 100, q1 = bp === '' ? 0 : Number(bp);
+    var d2 = sd === '' ? 0 : Number(sd) / 100, q2 = sp === '' ? 0 : Number(sp);
+    if (!isFinite(d1) || d1 < 0 || d1 > 0.6) { err = L('买' + (i + 1) + ' 折价需在 0–60%', 'Buy' + (i + 1) + ' discount 0–60%'); return; }
+    if (!isFinite(d2) || d2 < 0 || d2 > 1) { err = L('卖' + (i + 1) + ' 溢价需在 0–100%', 'Sell' + (i + 1) + ' premium 0–100%'); return; }
+    if (!isFinite(q1) || q1 < 0 || q1 > 100) { err = L('买' + (i + 1) + ' 比例需在 0–100%', 'Buy' + (i + 1) + ' weight 0–100%'); return; }
+    if (!isFinite(q2) || q2 < 0 || q2 > 100) { err = L('卖' + (i + 1) + ' 比例需在 0–100%', 'Sell' + (i + 1) + ' weight 0–100%'); return; }
+    buys.push({ d: d1, p: q1 });
+    sells.push({ d: d2, p: q2 });
+  });
+  if (err) { toast(err); return; }
+
+  if (fair !== null) {
+    var minBuy = Math.min.apply(null, buys.map(function (r) { return valBuy(fair, r.d); }));
+    if (stop !== null && stop >= minBuy) {
+      toast(L('停止线要低于最低一档买价 ' + fmtVal(minBuy), 'Stop must be below the lowest buy tier ' + fmtVal(minBuy))); return;
+    }
+  }
+  if (fair === null && stop === null) { delete valMap[id]; }
+  else { valMap[id] = { fair: fair, stop: stop, buys: buys, sells: sells }; }
+  saveVals();
+  valEditId = null;
+  renderVal();
+  var sumB = ladderSum(buys), sumS = ladderSum(sells);
+  toast(Math.abs(sumB - 100) > 0.5 || Math.abs(sumS - 100) > 0.5
+    ? L('已保存（买 ' + Math.round(sumB) + '% / 卖 ' + Math.round(sumS) + '%，未满 100%）',
+        'Saved (buy ' + Math.round(sumB) + '% / sell ' + Math.round(sumS) + '%)')
+    : L('三档买卖价已保存', 'Three tiers saved'));
+};
+window.valClear = function (id) {
+  delete valMap[id];
+  saveVals();
+  valEditId = null;
+  renderVal();
+  toast(L('已清空该区间', 'Band cleared'));
+};
+
 function posSet(btn) {
   var r = btn.getAttribute('data-r');
   posCfg.override = r === 'auto' ? null : Number(r);
@@ -1047,12 +1320,15 @@ function planTab(btn) {
   btn.classList.add('on');
   document.getElementById('planPane').style.display = pane === 'list' ? '' : 'none';
   document.getElementById('posPane').style.display = pane === 'pos' ? '' : 'none';
+  var vp = document.getElementById('valPane');
+  if (vp) vp.style.display = pane === 'val' ? '' : 'none';
   curPlanPane = pane;
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', false);
-  fab.setAttribute('title', pane === 'pos' ? L('添加标的占比', 'Add allocation') : L('添加定投提醒', 'Add plan'));
+  fab.setAttribute('title', (pane === 'pos' || pane === 'val') ? L('添加标的', 'Add holding') : L('添加定投提醒', 'Add plan'));
   if (pane === 'list') renderPlans();
   if (pane === 'pos') { syncPosTune(); renderPosRatio(); }
+  if (pane === 'val') renderVal();
 }
 
 /* ---------- 已定投：每笔定投记录 / 定投数量 / 定投股价 / 浮盈浮亏 ---------- */
@@ -3393,7 +3669,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.7.6';
+var APP_VERSION = 'v1.7.7';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';

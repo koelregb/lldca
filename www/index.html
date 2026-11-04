@@ -123,6 +123,7 @@
       <div class="ntabs plain t4" id="planTabs">
         <button class="on" data-pane="list" onclick="planTab(this)">仓位</button>
         <button data-pane="pos" onclick="planTab(this)">仓位比</button>
+        <button data-pane="val" onclick="planTab(this)">买值卖值</button>
       </div>
 
       <div id="planPane">
@@ -166,6 +167,23 @@
           </div>
           <div class="hintbar">仓位比 = 本期投入比例 · 剩余留作现金 · 依据 VIX 情绪分位 · 可输入 20–100 自定义</div>
         </div>
+      </div>
+
+      <div id="valPane" style="display:none">
+        <div class="val-src" id="valSrc">
+          <div class="vh2-grid">
+            <div class="vh2-h">买值 · 合理估值取其一</div>
+            <div class="vh2-h">卖值 · 参考以下</div>
+            <div class="vh2-row"><b>1</b><span>证券 APP 显示的支撑位</span></div>
+            <div class="vh2-row"><b>1</b><span>证券 APP 显示的压力位</span></div>
+            <div class="vh2-row"><b>2</b><span>200 周线（4 年平均成本）</span></div>
+            <div class="vh2-row"><b>2</b><span>前期高点 / 密集区（套牢盘）</span></div>
+            <div class="vh2-row"><b>3</b><span>历史估值低点</span></div>
+            <div class="vh2-row"><b>3</b><span>历史估值高位（分位 80%+）</span></div>
+          </div>
+        </div>
+        <div id="valList"></div>
+        <div class="hintbar" id="valHint"></div>
       </div>
 
     </section>
@@ -426,7 +444,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.7.6</span>
+          <span class="mrow-v" id="appVer">v1.7.7</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>

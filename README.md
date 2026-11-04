@@ -1,14 +1,14 @@
-## 最新版本 v1.7.6
+## 最新版本 v1.7.7
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.7.6.apk](https://github.com/koelregb/lldca/releases/download/v1.7.6/fuley-v1.7.6.apk)（仓库内：`fuley-v1.7.6.apk`、`tools/fuley-v1.7.6.apk`） |
-| 版本信息 | v1.7.6 / versionCode 49 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.7.7.apk](https://github.com/koelregb/lldca/releases/download/v1.7.7/fuley-v1.7.7.apk)（仓库内：`fuley-v1.7.7.apk`、`tools/fuley-v1.7.7.apk`） |
+| 版本信息 | v1.7.7 / versionCode 50 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.7.6-mockup.html](lldca-v1.7.6-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.7.7-mockup.html](lldca-v1.7.7-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：「走势 → 周期」页去掉了底部的**沪金 ETF（518880）走势图**，周期页只保留康波内容；走势页顶部的伦敦金现 / 纽约期金报价卡不受影响。
+> 本版：仓位页新增子 tab **买值卖值** —— 每个持仓填「合理估值」，按三档折价 / 溢价自动算出 **三档买价 + 三档卖价**，每档带资金比例；卡片可折叠，折叠时右侧以 2×3 箭头网格显示（买绿↓ / 卖红↑，圆圈标档号 ①②③）。
 
 
 ## 功能一览
