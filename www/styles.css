@@ -1629,3 +1629,13 @@ html[data-gate] .tabbar { visibility: hidden; }
 .vm-ar { font-size: 10px; }
 .vm-n { width: 10px; height: 10px; font-size: 7px; }
 .vm-p { font-size: 12px; }
+
+/* 折叠态：名称独占一行，网格独占一行（避免长名称被挤成竖排） */
+.val-head { display: block; }
+.vm-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px 10px; margin-top: 9px; width: 100%;
+}
+.vm-c { width: 100%; justify-content: space-between; gap: 6px; }
+.vm-p { font-size: 12.5px; }
+.vm-q { font-size: 9px; }
