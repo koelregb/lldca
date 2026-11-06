@@ -1,14 +1,19 @@
-## 最新版本 v1.7.8
+## 最新版本 v1.8.0
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.7.8.apk](https://github.com/koelregb/lldca/releases/download/v1.7.8/fuley-v1.7.8.apk)（仓库内：`fuley-v1.7.8.apk`、`tools/fuley-v1.7.8.apk`） |
-| 版本信息 | v1.7.8 / versionCode 51 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.8.0.apk](https://github.com/koelregb/lldca/releases/download/v1.8.0/fuley-v1.8.0.apk)（仓库内：`fuley-v1.8.0.apk`、`tools/fuley-v1.8.0.apk`） |
+| 版本信息 | v1.8.0 / versionCode 52 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.7.8-mockup.html](lldca-v1.7.8-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.8.0-mockup.html](lldca-v1.8.0-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：修复「买值卖值」折叠卡片的排版 —— 名称不再被右侧价格压成竖排，改为**名称独占一行、三档价格网格独占一行**（三列等分，长价格如 398.05 / 472500 也不会挤）。
+> 本版：**我的 → 电子书**。公众号 / 网页内容复制后粘贴即可存成一本，自建栏目归类，点开即读（离线、字号可调、进度记忆）。
+> - 列表只显示标题 / 时间 / 来源三要素，来源可填公众号名或网址，时间自动生成；
+> - 正文支持富文本粘贴，自动去掉公众号排版垃圾（样式、二维码提示、重复段），图片保留原链接；
+> - 正文也能从相册 / 拍照上传图片，自动压到 1100px 宽再存本机；
+> - 导出：单篇或整库都可导出 **Markdown / 网页（图片内嵌）/ 纯文本**，写入手机「文档」目录并弹出分享面板；
+> - 电子书、栏目会一并写进导出 / 备份 JSON，换机可恢复。
 
 
 ## 功能一览
