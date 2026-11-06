@@ -637,6 +637,7 @@ function switchTab(btn) {
   btn.classList.add('on');
   var id = btn.getAttribute('data-tab');
   curTab = id;
+  if (id !== 'signals') vixPanicLeave();
   try { sessionStorage.setItem('fuley.tab.v1', id); } catch (e) { /* ignore */ }
   document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('on', 'active'); });
   document.getElementById('view-' + id).classList.add('active');
@@ -2385,7 +2386,7 @@ function sigTab(btn) {
   fab.setAttribute('title', L('自定义题目', 'Custom question'));
   if (pane === 'quiz') renderQuiz();
   if (pane === 'build') renderBuildRules();
-  if (pane === 'panic') renderPanic();
+  if (pane === 'panic') { renderPanic(); vixPanicEnter(); } else { vixPanicLeave(); }
 }
 
 /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
@@ -2425,6 +2426,7 @@ function renderPanic() {
       + '</div>';
   });
   document.getElementById('krFlow').innerHTML = html;
+  renderPanicVix();
 }
 function renderPanicCard() {
   var card = document.getElementById('panicCard');
@@ -2440,6 +2442,246 @@ function renderPanicCard() {
     + '<div class="pc-f">' + lv.f + '</div>'
     + '<div class="pc-q">' + lv.q + '</div>';
 }
+/* ---------- 恐慌指数 VIX：实时数字 + 迷你走势 + 建议自评等级 ---------- */
+var VIX_LIVE_KEY = 'fuley.vixlive.v1';
+var VIX_HIST_KEY = 'fuley.vixhist.v1';
+var vixLive = loadJSON(VIX_LIVE_KEY, null);
+if (!vixLive || typeof vixLive !== 'object' || !isFinite(Number(vixLive.v))) vixLive = null;
+var vixTimer = null, vixBusy = false;
+var vixHistAt = Number(loadJSON(VIX_HIST_KEY, 0)) || 0;
+var VIX_CNBC = 'https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol'
+  + '?symbols=.VIX&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json';
+
+function vixNow() {
+  if (vixLive && isFinite(Number(vixLive.v))) return Number(vixLive.v);
+  if (typeof VIX_DATA !== 'undefined' && VIX_DATA.length) return Number(VIX_DATA[VIX_DATA.length - 1][1]);
+  return null;
+}
+function vixPrevVal() {
+  if (vixLive && vixLive.prev != null && isFinite(Number(vixLive.prev))) return Number(vixLive.prev);
+  if (typeof VIX_DATA !== 'undefined' && VIX_DATA.length > 1) return Number(VIX_DATA[VIX_DATA.length - 2][1]);
+  return null;
+}
+/* VIX → 自评 1–10 级（与 PANIC_LEVELS 的语义对齐） */
+function vixSuggested(v) {
+  var t = [[13, 1], [15, 2], [17, 3], [20, 4], [23, 5], [26, 6], [32, 7], [40, 8], [50, 9]];
+  for (var i = 0; i < t.length; i++) if (v < t[i][0]) return t[i][1];
+  return 10;
+}
+function vixMiniSvg(color) {
+  var arr = (typeof VIX_DATA !== 'undefined' ? VIX_DATA : []).slice(-30);
+  if (arr.length < 2) return '';
+  var w = 320, h = 46, pad = 4;
+  var vs = arr.map(function (p) { return Number(p[1]); });
+  var mn = Math.min.apply(null, vs), mx = Math.max.apply(null, vs);
+  var rng = Math.max(0.6, mx - mn);
+  var pts = vs.map(function (v, i) {
+    var x = pad + i * (w - pad * 2) / (vs.length - 1);
+    var y = h - pad - (v - mn) / rng * (h - pad * 2);
+    return [x, y];
+  });
+  var line = pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ');
+  var area = 'M' + pts[0][0].toFixed(1) + ',' + (h - 1) + ' L' + line.replace(/ /g, ' L') + ' L' + pts[pts.length - 1][0].toFixed(1) + ',' + (h - 1) + ' Z';
+  var lp = pts[pts.length - 1];
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" class="vixc-svg">'
+    + '<defs><linearGradient id="vixmg" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0" stop-color="' + color + '" stop-opacity=".22"/>'
+    + '<stop offset="1" stop-color="' + color + '" stop-opacity="0"/></linearGradient></defs>'
+    + '<path d="' + area + '" fill="url(#vixmg)"/>'
+    + '<polyline points="' + line + '" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>'
+    + '<circle cx="' + lp[0].toFixed(1) + '" cy="' + lp[1].toFixed(1) + '" r="2.6" fill="' + color + '"/>'
+    + '</svg>';
+}
+function vixAsOfText() {
+  if (vixLive && vixLive.tm) {
+    var s = String(vixLive.tm).replace('T', ' ').slice(0, 16);
+    var hasTime = /\d{2}:\d{2}/.test(s);
+    return L('截至 ' + s + (hasTime ? ' ET' : ' 收盘'), 'As of ' + s);
+  }
+  if (typeof VIX_DATA !== 'undefined' && VIX_DATA.length) {
+    return L('截至 ' + vixDateFull(String(VIX_DATA[VIX_DATA.length - 1][0])) + ' 收盘', 'Close ' + vixDateFull(String(VIX_DATA[VIX_DATA.length - 1][0])));
+  }
+  return L('暂无数据', 'No data');
+}
+function renderPanicVix() {
+  if (!document.getElementById('vixCard')) return;
+  var v = vixNow();
+  var num = document.getElementById('vixNum');
+  if (v == null) {
+    num.textContent = '—';
+    document.getElementById('vixChg').textContent = '';
+    document.getElementById('vixLvName').textContent = L('暂无数据', 'No data');
+    document.getElementById('vixLvState').textContent = '';
+    document.getElementById('vixAsOf').textContent = L('点右上角刷新', 'Tap refresh');
+    document.getElementById('vixSpark').innerHTML = '';
+    document.getElementById('vixSrc').textContent = '';
+    return;
+  }
+  var prev = vixPrevVal();
+  var chg = prev != null ? v - prev : null;
+  var pct = prev ? chg / prev * 100 : null;
+  var lv = vixLevelOf(v);
+  var n = vixSuggested(v);
+  num.textContent = v.toFixed(2);
+  num.style.color = lv.color;
+  var chgEl = document.getElementById('vixChg');
+  if (chg == null || Math.abs(chg) < 0.005) {
+    chgEl.textContent = L('持平', 'flat');
+    chgEl.className = 'vixc-chg flat';
+  } else {
+    chgEl.textContent = (chg > 0 ? '▲ +' : '▼ ') + chg.toFixed(2)
+      + (pct != null ? '  ' + (pct > 0 ? '+' : '') + pct.toFixed(2) + '%' : '');
+    chgEl.className = 'vixc-chg ' + (chg > 0 ? 'up' : 'down');   // 红涨绿跌
+  }
+  document.getElementById('vixDot').style.background = lv.color;
+  document.getElementById('vixLvName').textContent = L(lv.name, { '平静': 'Calm', '温和': 'Mild', '正常': 'Normal', '高波动': 'High vol', '极端': 'Extreme' }[lv.name] || lv.name);
+  document.getElementById('vixLvState').textContent = '· ' + L(lv.state, lv.state) + ' · ' + L(lv.act, lv.act);
+  document.getElementById('vixSpark').innerHTML = vixMiniSvg(lv.color);
+  document.getElementById('vixAsOf').textContent = vixAsOfText();
+  var srcTxt = L('内置收盘', 'built-in');
+  if (vixLive) {
+    if (vixLive.src === 'CBOE') srcTxt = L('CBOE · 延迟', 'CBOE · delayed');
+    else if (vixLive.src === 'CNBC') srcTxt = 'CNBC';
+    else srcTxt = (vixLive.src || 'LIVE') + ' · ' + L('延迟', 'delayed');
+  }
+  document.getElementById('vixSrc').textContent = srcTxt;
+  document.getElementById('vixApply').textContent = L('套用为自评 ' + n + ' 级', 'Apply level ' + n);
+}
+function vixMerge(rows) {
+  var changed = false;
+  (rows || []).forEach(function (r) {
+    var d = String(r[0]), val = Number(r[1]);
+    if (!/^\d{6}$/.test(d) || !isFinite(val) || val <= 0) return;
+    if (!VIX_DATA.length) { VIX_DATA.push([d, val]); changed = true; return; }
+    var last = VIX_DATA[VIX_DATA.length - 1];
+    if (d > last[0]) { VIX_DATA.push([d, val]); changed = true; }
+    else if (d === last[0] && Number(last[1]) !== val) { last[1] = val; changed = true; }
+  });
+  return changed;
+}
+function vixPersist() {
+  try { lsSet('fuley.vix.v1', JSON.stringify(VIX_DATA.slice(-400))); } catch (e) { /* ignore */ }
+}
+function vixParseFredRows(txt) {
+  if (typeof txt !== 'string' || txt.indexOf('observation_date') < 0) return [];
+  var rows = [];
+  txt.trim().split(/\r?\n/).slice(1).forEach(function (line) {
+    var p = line.split(',');
+    if (p.length < 2 || !p[1] || p[1] === '.') return;
+    rows.push([p[0].replace(/-/g, '').slice(2), p[1]]);
+  });
+  return rows;
+}
+function vixParseCboe(t) {
+  var o = typeof t === 'string' ? JSON.parse(t) : t;
+  var d = o && o.data;
+  if (!d) return null;
+  var v = Number(d.current_price);
+  if (!isFinite(v) || v <= 0) return null;
+  return { v: v, prev: Number(d.prev_day_close) || null, tm: String(d.last_trade_time || d.timestamp || ''), src: 'CBOE' };
+}
+function vixParseCnbc(t) {
+  var o = typeof t === 'string' ? JSON.parse(t) : t;
+  var q = o && o.FormattedQuoteResult && o.FormattedQuoteResult.FormattedQuote
+    && o.FormattedQuoteResult.FormattedQuote[0];
+  if (!q) return null;
+  var v = Number(String(q.last || '').replace(/,/g, ''));
+  if (!isFinite(v) || v <= 0) return null;
+  return {
+    v: v,
+    prev: Number(String(q.previous_day_closing || '').replace(/,/g, '')) || null,
+    tm: String(q.last_time || ''), src: 'CNBC'
+  };
+}
+function vixHttpGet(url) {
+  var CH = (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp) || window.CapacitorHttp;
+  if (CH && CH.get) {
+    return CH.get({ url: url, connectTimeout: 8000, readTimeout: 12000 })
+      .then(function (r) { return r ? r.data : null; });
+  }
+  return fetch(url, { cache: 'no-store' }).then(function (r) { return r.text(); });
+}
+function vixApplyQuote(q) {
+  var d = String(q.tm || '').slice(0, 10).replace(/-/g, '').slice(2);
+  if (/^\d{6}$/.test(d)) vixMerge([[d, q.v]]);
+  /* 前收优先取本地日线序列：CBOE / CNBC 的 prev_day_close 偶尔等于现价（脏字段） */
+  var prev = null;
+  for (var i = VIX_DATA.length - 1; i > 0; i--) {
+    if (VIX_DATA[i][0] === d) { prev = Number(VIX_DATA[i - 1][1]); break; }
+  }
+  if (prev == null && q.prev != null && Math.abs(Number(q.prev) - q.v) > 0.005) prev = Number(q.prev);
+  vixLive = { v: q.v, prev: prev, tm: q.tm || '', src: q.src || 'LIVE', ts: Date.now() };
+  saveJSON(VIX_LIVE_KEY, vixLive);
+  vixPersist();
+}
+function vixRefresh(manual) {
+  if (vixBusy) return Promise.resolve(false);
+  vixBusy = true;
+  var btn = document.getElementById('vixRef');
+  if (btn) btn.classList.add('spin');
+  var needHist = !vixHistAt || Date.now() - vixHistAt > 6 * 3600e3;
+  var hist = Promise.resolve();
+  if (needHist && typeof VIX_DATA !== 'undefined' && VIX_DATA.length) {
+    hist = vixHttpGet('https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS&cosd=' + vixDateFull(String(vixLast()[0])))
+      .then(function (t) {
+        var rows = vixParseFredRows(t);
+        if (rows.length) {
+          vixMerge(rows);
+          vixHistAt = Date.now();
+          saveJSON(VIX_HIST_KEY, vixHistAt);
+        }
+      })
+      .catch(function () { /* 历史取不到就用内置 */ });
+  }
+  return hist.then(function () {
+    return vixHttpGet('https://cdn.cboe.com/api/global/delayed_quotes/quotes/_VIX.json')
+      .then(function (t) { return vixParseCboe(t); })
+      .catch(function () { return null; });
+  }).then(function (q) {
+    if (q) return q;
+    return vixHttpGet(VIX_CNBC).then(function (t) { return vixParseCnbc(t); }).catch(function () { return null; });
+  }).then(function (q) {
+    if (q) vixApplyQuote(q);
+    vixBusy = false;
+    if (btn) btn.classList.remove('spin');
+    renderPanicVix();
+    if (typeof renderPosRatio === 'function' && curTab === 'plan' && curPlanPane === 'pos') renderPosRatio();
+    if (manual) {
+      if (q) toast(L('已更新 VIX ' + Number(q.v).toFixed(2), 'VIX updated to ' + Number(q.v).toFixed(2)));
+      else toast(L('没取到最新行情，先显示已有数据', 'Could not fetch the latest quote'));
+    }
+    return !!q;
+  }).catch(function () {
+    vixBusy = false;
+    if (btn) btn.classList.remove('spin');
+    renderPanicVix();
+    if (manual) toast(L('刷新失败，先显示已有数据', 'Refresh failed — showing saved data'));
+    return false;
+  });
+}
+function vixPanicEnter() {
+  renderPanicVix();
+  vixRefresh(false);
+  if (vixTimer) clearInterval(vixTimer);
+  vixTimer = setInterval(function () { if (!document.hidden) vixRefresh(false); }, 60000);
+}
+function vixPanicLeave() {
+  if (vixTimer) { clearInterval(vixTimer); vixTimer = null; }
+}
+function vixApplyLevel() {
+  var v = vixNow();
+  if (v == null) { toast(L('还没有 VIX 数据', 'No VIX data yet')); return; }
+  var n = vixSuggested(v);
+  panicLv = n;
+  lsSet(PANIC_KEY, String(n));
+  document.querySelectorAll('#panicPick button').forEach(function (b) {
+    b.classList.toggle('on', Number(b.textContent) === n);
+  });
+  renderPanicCard();
+  toast(L('VIX ' + v.toFixed(1) + ' → 自评 ' + n + ' 级 · ' + PANIC_LEVELS[n - 1].s,
+          'VIX ' + v.toFixed(1) + ' → level ' + n + ' · ' + PANIC_LEVELS[n - 1].s));
+}
+
 function panicPick(btn, lv) {
   panicLv = lv;
   lsSet(PANIC_KEY, String(lv));
@@ -2755,7 +2997,9 @@ var VIX_DATA = [
   ["260918",14.81],["260921",14.87],["260922",14.21],["260923",15.18],["260924",15.67],["260925",14.87],
   ["260928",16.07],["260929",16.04],["260930",16.34],["261001",16.39],["261002",15.31],["261005",15.52],
   ["261006",15.01],["261007",15.08],["261008",15.41],["261009",14.84],["261012",15.21],["261013",15.27],
-  ["261014",16.87],["261015",16.46],["261016",19.99],["261019",18.44],["261020",17.31],["261021",16.68]
+  ["261014",16.87],["261015",16.46],["261016",19.99],["261019",18.44],["261020",17.31],["261021",16.68],["261022",19.03],["261023",19.45],
+  ["261026",18.39],["261027",17.52],["261028",16.91],["261029",17.20],["261030",19.42],
+  ["261102",21.15],["261103",20.83],["261104",16.61],["261105",28.18]
 ];
 var VIX_LEVELS = [
   { max: 13,  name: '平静',   color: '#1a9e5c', state: '市场几乎无恐慌 · 贪婪区', act: '定投照常，切忌追高' },
@@ -3676,7 +3920,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.8.0';
+var APP_VERSION = 'v1.8.1';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -5221,6 +5465,7 @@ function toast(msg) {
   renderNotes();
   renderQuiz();
   renderPanic();
+  if (curTab === 'signals' && curSigPane === 'panic') vixPanicEnter();
   renderCal();
   renderBookCats();
   renderBooks();

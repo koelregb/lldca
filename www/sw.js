@@ -1,7 +1,7 @@
 /* 浮乐 (fuley) — Service Worker（离线可用）
    策略：仅缓存本站静态资源（白名单）；所有跨域请求（腾讯行情/黄金K线/FRED 等）
    一律直连网络，绝不缓存 —— 否则行情会被首次响应冻结，后续刷新永远拿旧数据。 */
-const CACHE = 'fuley-v1.8.0';
+const CACHE = 'fuley-v1.8.1';
 const ASSETS = [
   './',
   './index.html',

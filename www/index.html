@@ -363,6 +363,25 @@
       </div>
 
       <div id="panicPane" style="display:none">
+        <div class="vixc" id="vixCard">
+          <div class="vixc-h">
+            <span class="vixc-t">恐慌指数 <b>VIX</b></span>
+            <span class="vixc-src" id="vixSrc">—</span>
+            <button class="vixc-ref" id="vixRef" onclick="vixRefresh(true)" aria-label="刷新恐慌指数">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
+            </button>
+          </div>
+          <div class="vixc-main">
+            <span class="vixc-num" id="vixNum">—</span>
+            <span class="vixc-chg" id="vixChg"></span>
+          </div>
+          <div class="vixc-lv"><i id="vixDot"></i><b id="vixLvName">—</b><span id="vixLvState"></span></div>
+          <div class="vixc-spark" id="vixSpark"></div>
+          <div class="vixc-foot">
+            <span id="vixAsOf">—</span>
+            <button class="vixc-apply" id="vixApply" onclick="vixApplyLevel()">套用为自评</button>
+          </div>
+        </div>
         <div class="me-sec">市场恐慌等级(自评)</div>
         <div class="panic-guide">围绕当前市场的恐慌情况做 1–10 级自评：1 = 几乎无恐慌，10 = 极度恐慌。级别越高，越要按纪律而非情绪操作。</div>
         <div class="panic-pick" id="panicPick">
@@ -450,7 +469,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.8.0</span>
+          <span class="mrow-v" id="appVer">v1.8.1</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>

@@ -1869,3 +1869,50 @@ body.bk-open { overflow: hidden; }
 .bk-exp button:active { transform: scale(.99); background: var(--card); }
 .bk-exp button b { display: block; font-size: 13.5px; font-weight: 750; margin-bottom: 3px; }
 .bk-exp button span { display: block; font-size: 11px; color: var(--sub); line-height: 1.55; }
+
+/* ---------- 恐慌级别评估：VIX 恐慌指数卡 ---------- */
+.vixc {
+  position: relative; z-index: 1;          /* 压在装饰水印之上，数字与曲线保持干净 */
+  background: var(--card); border-radius: 14px; padding: 12px 14px 10px;
+  box-shadow: var(--shadow); margin-bottom: 12px;
+}
+.vixc-h { display: flex; align-items: center; gap: 8px; }
+.vixc-t { font-size: 12px; font-weight: 700; color: var(--sub); }
+.vixc-t b { color: var(--ink); font-size: 12.5px; letter-spacing: .5px; }
+.vixc-src {
+  margin-left: auto; font-size: 9.5px; color: var(--sub);
+  background: var(--chip); padding: 2px 6px; border-radius: 5px; white-space: nowrap;
+}
+.vixc-ref {
+  width: 26px; height: 26px; border: none; border-radius: 8px; background: var(--chip);
+  color: var(--sub); display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.vixc-ref svg { width: 14px; height: 14px; }
+.vixc-ref.spin svg { animation: spin 1s linear infinite; }
+.vixc-main { display: flex; align-items: baseline; gap: 10px; margin-top: 5px; }
+.vixc-num {
+  font-size: 34px; font-weight: 800; line-height: 1.08; letter-spacing: -.5px;
+  font-variant-numeric: tabular-nums;
+}
+.vixc-chg { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.vixc-chg.up { color: var(--up); }
+.vixc-chg.down { color: var(--down); }
+.vixc-chg.flat { color: var(--sub); }
+.vixc-lv {
+  display: flex; align-items: baseline; gap: 6px; margin-top: 4px;
+  font-size: 10.5px; color: var(--sub); line-height: 1.5;
+}
+.vixc-lv i { width: 8px; height: 8px; border-radius: 50%; background: var(--sub); flex: none; align-self: center; }
+.vixc-lv b { font-size: 11.5px; color: var(--ink); }
+.vixc-spark { margin: 7px -2px 0; height: 46px; }
+.vixc-svg { width: 100%; height: 46px; display: block; overflow: visible; }
+.vixc-foot { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.vixc-foot span {
+  flex: 1; min-width: 0; font-size: 9.5px; color: var(--sub);
+  font-variant-numeric: tabular-nums;
+}
+.vixc-apply {
+  flex: none; border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+  border-radius: 8px; padding: 5px 9px; font-size: 10.5px; font-weight: 700; cursor: pointer;
+}
+.vixc-apply:active { transform: scale(.96); }
