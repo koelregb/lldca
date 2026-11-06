@@ -288,26 +288,25 @@
     <section class="view" id="view-signals">
       <div class="wmark" aria-hidden="true" data-i18n-raw="1">耐心　信心　恒心</div>
       <div class="ntabs plain" id="sigTabs">
-        <button class="on" data-pane="quiz" onclick="sigTab(this)">加减仓条件</button>
+        <button class="on" data-pane="alert" onclick="sigTab(this)">通知提醒</button>
         <button data-pane="build" onclick="sigTab(this)">建仓法则</button>
         <button data-pane="pyr" onclick="sigTab(this)">加减仓法则</button>
         <button data-pane="panic" onclick="sigTab(this)">恐慌级别评估</button>
       </div>
 
-      <div id="quizPane">
-        <div class="dimseg quiz-sub" id="quizSubTabs">
-          <button class="on" data-side="buy" onclick="quizSub(this)">加仓</button>
-          <button data-side="sell" onclick="quizSub(this)">减仓</button>
+      <div id="alertPane">
+        <div class="dimseg alert-seg" id="alertSeg">
+          <button class="on" data-kind="price" onclick="alertSegPick(this,'price')">个股价格</button>
+          <button data-kind="vix" onclick="alertSegPick(this,'vix')">恐慌指数</button>
         </div>
-        <div class="quiz-head">
-          <div class="qh-l">已完成 <b id="qDone">0</b> / <span id="qTotal">10</span></div>
-          <div class="qbar"><i id="qFill"></i></div>
+        <div class="al-status" id="alertStatus"></div>
+        <div id="alertList"></div>
+        <button class="qadd" onclick="openAlertForm()">+ 新建提醒</button>
+        <div class="hintbar">
+          「消息通知」= 通知栏消息；「震动」= 只振动；「闹钟」= 响铃 + 振动 + 全屏弹窗 · 三种可任意组合<br>
+          频率：仅一次（触发后自动关闭）· 每日一次 · 持续提醒（条件成立时每 5 分钟一次）<br>
+          App 打开时每 60 秒检查一次，切回前台立即检查
         </div>
-        <div class="quiz-verdict" id="quizVerdict"></div>
-        <div id="quizList"></div>
-        <button class="qadd" onclick="addQuizItem()">+ 自定义题目</button>
-        <button class="qreset" onclick="resetQuiz()">重置，再来一轮</button>
-        <div class="hintbar">加仓 / 减仓各十道题 · 打勾计分，8 分及以上判定为「加仓 / 减仓」，不到 8 分为「不建议」<br>题库依据公开分享的加减仓体系整理：选股「第一或唯一」· 仓位 7–8.5 成 · 金字塔加减仓（档差 8%–15%）· 卖出四情形 · 2-3-3-2 节奏 · 仅作纪律检查清单，非投资建议</div>
       </div>
 
       <div id="buildPane" style="display:none">
@@ -469,7 +468,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.8.1</span>
+          <span class="mrow-v" id="appVer">v1.8.2</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
@@ -582,6 +581,18 @@
 
 <!-- 电子书：图片查看 -->
 <div id="bkImgView" onclick="bookImgClose()"><img id="bkImg" alt=""></div>
+
+<!-- 到价闹钟（全屏） -->
+<div id="alarmBox">
+  <div class="ab-card">
+    <div class="ab-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7.2"/><path d="M12 9.6V13l2.4 1.6"/><path d="M5 4.5 2.8 6.8M19 4.5l2.2 2.3"/></svg>
+    </div>
+    <div class="ab-t" id="abTitle"></div>
+    <div class="ab-b" id="abBody"></div>
+    <button class="ab-btn" onclick="closeAlarm()">我知道了</button>
+  </div>
+</div>
 
 <!-- 全屏走势大图 -->
 <div class="chartfull" id="chartFull">

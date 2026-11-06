@@ -668,7 +668,7 @@ var sheetDir = 1;             // 加减仓方向：1 加 / -1 减
 var sheetPeOp = 'lte';        // 市盈率条件方向：lte = ≤ / gte = ≥
 function openSheet() {
   if (curTab === 'home' && curHomePane === 'cal') { openCalEvent(); return; }
-  if (curTab === 'signals' && curSigPane === 'quiz') { openQuizSheet(); return; }
+  if (curTab === 'signals' && curSigPane === 'alert') { openAlertForm(); return; }
   if (curTab === 'me' && curMePane === 'book') { bookImport(); return; }
   if (curTab === 'plan') { editAllocId = null; openAllocForm(); return; }   // 仓位页：新增标的仓位比（无价格字段）
   if (curTab === 'signals') { editSigId = null; openSignalForm(); return; }
@@ -689,6 +689,7 @@ function sheetSave() {
   if (sheetMode === 'book') { bookSaveFromSheet(); return; }
   if (sheetMode === 'bookcat') { bookCatSave(); return; }
   if (sheetMode === 'bookren') { bookRenameSave(); return; }
+  if (sheetMode === 'alert') { saveAlertForm(); return; }
   if (sheetMode === 'plan') { savePlanForm(); return; }
   if (sheetMode === 'alloc') { saveAllocForm(); return; }
   if (sheetMode === 'inv') { saveInvForm(); return; }
@@ -2370,12 +2371,13 @@ function addQuizFromSheet() {
   closeSheet();
   toast('已添加第 ' + items.length + ' 题');
 }
-var curSigPane = 'quiz';
+var curSigPane = 'alert';
 function sigTab(btn) {
   var pane = btn.getAttribute('data-pane');
   document.querySelectorAll('#sigTabs button').forEach(function (b) { b.classList.remove('on'); });
   btn.classList.add('on');
-  document.getElementById('quizPane').style.display = pane === 'quiz' ? '' : 'none';
+  var ap = document.getElementById('alertPane');
+  if (ap) ap.style.display = pane === 'alert' ? '' : 'none';
   document.getElementById('buildPane').style.display = pane === 'build' ? '' : 'none';
   var pyrEl = document.getElementById('pyrPane');
   if (pyrEl) pyrEl.style.display = pane === 'pyr' ? '' : 'none';
@@ -2383,10 +2385,454 @@ function sigTab(btn) {
   curSigPane = pane;
   var fab = document.getElementById('fab');
   fab.classList.toggle('hide', pane === 'panic' || pane === 'build' || pane === 'pyr');
-  fab.setAttribute('title', L('自定义题目', 'Custom question'));
-  if (pane === 'quiz') renderQuiz();
+  fab.setAttribute('title', pane === 'alert' ? L('新建提醒', 'New alert') : L('自定义题目', 'Custom question'));
+  if (pane === 'alert') renderAlerts();
   if (pane === 'build') renderBuildRules();
   if (pane === 'panic') { renderPanic(); vixPanicEnter(); } else { vixPanicLeave(); }
+}
+
+/* =========================================================
+   通知提醒：个股价格 / 恐慌指数 → 系统通知 或 闹钟
+   - 条件：低于（≤）/ 大于（≥）
+   - 频率：仅一次 / 每日一次 / 持续提醒
+   - 检查：App 打开时每 60 秒一轮，切回前台立即查一次
+   - 「通知」普通通道；「闹钟」独立通道（响铃 + 振动）+ 全屏弹窗
+   ========================================================= */
+var ALERT_KEY = 'fuley.alerts.v1';
+var alerts = loadJSON(ALERT_KEY, []);
+if (!Array.isArray(alerts)) alerts = [];
+alerts = alerts.filter(function (a) { return a && typeof a === 'object' && (a.type === 'price' || a.type === 'vix'); });
+alerts.forEach(function (a) {
+  if (!a.id) a.id = genId();
+  if (!a.code) a.code = '';
+  if (!a.name) a.name = '';
+  if (a.op !== 'lte') a.op = 'gte';
+  if (!Array.isArray(a.modes)) {
+    a.modes = a.mode === 'notify' ? ['notify'] : (a.mode === 'alarm' ? ['alarm'] : ['notify', 'alarm']);
+  }
+  a.modes = a.modes.filter(function (m) { return m === 'notify' || m === 'vibrate' || m === 'alarm'; });
+  if (!a.modes.length) a.modes = ['notify'];
+  if (a.freq !== 'once' && a.freq !== 'daily' && a.freq !== 'always') a.freq = 'once';
+  a.value = Number(a.value) || 0;
+  a.on = a.on === false ? false : true;
+  a.was = a.was ? 1 : 0;
+  if (!a.created) a.created = Date.now();
+});
+var alertKind = 'price';
+var alertQuotes = {};
+var alertTimer = null;
+var alertLastCheck = 0;
+var alertForm = { id: null, op: 'lte', modes: ['notify', 'vibrate'], freq: 'once', draft: null };
+
+function alEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+function alertTime(ts) {
+  var d = new Date(Number(ts) || Date.now());
+  return pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+function saveAlerts() {
+  try { window.localStorage.setItem(ALERT_KEY, JSON.stringify(alerts)); }
+  catch (e) { toast(L('保存失败：本机存储空间不足', 'Save failed: storage full')); }
+}
+function alertById(id) {
+  for (var i = 0; i < alerts.length; i++) if (alerts[i].id === id) return alerts[i];
+  return null;
+}
+function alertFreqName(f) {
+  if (f === 'daily') return L('每日一次', 'Once a day');
+  if (f === 'always') return L('持续提醒', 'Every crossing');
+  return L('仅一次', 'Only once');
+}
+function alertModeOne(m) {
+  if (m === 'alarm') return L('闹钟', 'Alarm');
+  if (m === 'vibrate') return L('震动', 'Vibrate');
+  return L('消息通知', 'Notify');
+}
+function alertModesName(a) {
+  var ms = (a && a.modes) || ['notify'];
+  var order = ['notify', 'vibrate', 'alarm'];
+  return order.filter(function (m) { return ms.indexOf(m) >= 0; }).map(alertModeOne).join(' + ');
+}
+/* 是否允许此刻触发（频率 / 防抖） */
+function alertCanFire(a) {
+  if (!a.on) return false;
+  if (a.freq === 'once' && a.done) return false;
+  if (a.freq === 'daily' && a.day === todayKey()) return false;
+  /* 持续提醒：条件一直成立时每 5 分钟再响一次；其余频率只在上穿瞬间触发（1 分钟防抖） */
+  var gap = a.freq === 'always' ? 5 * 60 * 1000 : 60000;
+  if (a.last && Date.now() - a.last < gap) return false;
+  return true;
+}
+
+/* ---------- 列表 ---------- */
+function alertSegPick(btn, kind) {
+  alertKind = kind;
+  document.querySelectorAll('#alertSeg button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-kind') === kind);
+  });
+  renderAlerts();
+}
+function alertEmptyHtml() {
+  return '<div class="al-empty">'
+    + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15.5V10a6 6 0 1 0-12 0v5.5L4.5 18h15L18 15.5z"/><path d="M10 20.2c.5.8 1.2 1.2 2 1.2s1.5-.4 2-1.2"/></svg>'
+    + '<div class="al-empty-t">' + L('还没有提醒', 'No alerts yet') + '</div>'
+    + '<div class="al-empty-s">' + L('添加一条价格或 VIX 提醒，到条件就通知你', 'Add a price or VIX alert and get notified when it hits') + '</div>'
+    + '</div>';
+}
+function alertCardHtml(a) {
+  var isP = a.type === 'price';
+  var cur = isP ? (alertQuotes[a.code] ? Number(alertQuotes[a.code].price) : null) : vixNow();
+  var title = isP ? (a.name || a.code) : L('恐慌指数', 'Panic index');
+  var sub = isP ? a.code : 'VIX';
+  var cond = (a.op === 'gte' ? '≥ ' : '≤ ') + Number(a.value).toFixed(2);
+  var st = !a.on ? (a.done ? L('已完成', 'Done') : L('已暂停', 'Paused')) : L('监控中', 'Watching');
+  return '<div class="al-card' + (a.on ? '' : ' off') + '">'
+    + '<div class="al-h">'
+    + '<span class="al-k ' + (isP ? 'price' : 'vix') + '">' + (isP ? '价' : 'VIX') + '</span>'
+    + '<span class="al-nm">' + alEsc(title) + ' <i>' + alEsc(sub) + '</i></span>'
+    + '<button class="al-sw' + (a.on ? ' on' : '') + '" onclick="alertToggle(\'' + a.id + '\')" aria-label="'
+    + L('开关提醒', 'Toggle alert') + '"></button>'
+    + '</div>'
+    + '<div class="al-c"><b>' + cond + '</b><span>' + L('现价 ', 'now ')
+    + (cur == null ? '—' : Number(cur).toFixed(2)) + '</span></div>'
+    + '<div class="al-m">'
+    + '<span class="al-chip">' + alertFreqName(a.freq) + '</span>'
+    + '<span class="al-chip">' + alertModesName(a) + '</span>'
+    + '<span class="al-st' + (a.on ? '' : ' off') + '">' + st + '</span>'
+    + '<button class="al-lnk" onclick="openAlertForm(\'' + a.id + '\')">' + L('编辑', 'Edit') + '</button>'
+    + '<button class="al-lnk del" onclick="alertDel(\'' + a.id + '\')">' + L('删除', 'Delete') + '</button>'
+    + '</div>'
+    + '</div>';
+}
+function renderAlerts() {
+  var box = document.getElementById('alertList');
+  if (!box) return;
+  var priceN = alerts.filter(function (a) { return a.type === 'price'; }).length;
+  var vixN = alerts.filter(function (a) { return a.type === 'vix'; }).length;
+  var seg = document.getElementById('alertSeg');
+  if (seg) {
+    var b1 = seg.querySelector('[data-kind="price"]'), b2 = seg.querySelector('[data-kind="vix"]');
+    if (b1) b1.textContent = L('个股价格', 'Stock price') + ' ' + priceN;
+    if (b2) b2.textContent = L('恐慌指数', 'VIX') + ' ' + vixN;
+    seg.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('on', b.getAttribute('data-kind') === alertKind);
+    });
+  }
+  var list = alerts.filter(function (a) { return a.type === alertKind; })
+    .sort(function (a, b) { return (b.on ? 1 : 0) - (a.on ? 1 : 0) || (b.created || 0) - (a.created || 0); });
+  box.innerHTML = list.length ? list.map(alertCardHtml).join('') : alertEmptyHtml();
+  var onN = alerts.filter(function (a) { return a.on; }).length;
+  var st = document.getElementById('alertStatus');
+  if (st) {
+    st.innerHTML = '<span>' + L('已开启 ' + onN + ' 条 · 每 60 秒检查 · 上次 ',
+      onN + ' on · every 60s · last ')
+      + (alertLastCheck ? alertTime(alertLastCheck) : '—') + '</span>'
+      + '<button onclick="alertTick(true)">' + L('立即检查', 'Check now') + '</button>';
+  }
+}
+function alertToggle(id) {
+  var a = alertById(id);
+  if (!a) return;
+  a.on = !a.on;
+  if (a.on) { a.done = 0; a.was = 0; a.day = ''; }
+  saveAlerts();
+  renderAlerts();
+  toast(a.on ? L('已开启提醒', 'Alert on') : L('已暂停提醒', 'Alert paused'));
+  if (a.on) { ensureAlertChannels(); alertTick(); }
+}
+function alertDel(id) {
+  var a = alertById(id);
+  if (!a) return;
+  if (!window.confirm(L('删除这条提醒？', 'Delete this alert?'))) return;
+  alerts = alerts.filter(function (x) { return x.id !== id; });
+  saveAlerts();
+  renderAlerts();
+  toast(L('已删除', 'Deleted'));
+}
+
+/* ---------- 新建 / 编辑 ---------- */
+function openAlertForm(id) {
+  var a = id ? alertById(id) : null;
+  if (a) alertKind = a.type;
+  alertForm.id = a ? a.id : null;
+  alertForm.op = a ? a.op : 'lte';
+  alertForm.modes = a && a.modes ? a.modes.slice() : ['notify', 'vibrate'];
+  alertForm.freq = a ? a.freq : 'once';
+  var draft = alertForm.draft || {};
+  alertForm.draft = null;
+  var isP = alertKind === 'price';
+  sheetMode = 'alert';
+  document.getElementById('sheetTitle').textContent = a ? L('编辑提醒', 'Edit alert') : L('新建提醒', 'New alert');
+  document.getElementById('sheetSave').textContent = L('保存', 'Save');
+
+  var h = '<div class="al-types"><button class="' + (isP ? 'on' : '') + '" onclick="alertFormType(\'price\')">'
+    + L('个股价格', 'Stock price') + '</button>'
+    + '<button class="' + (!isP ? 'on' : '') + '" onclick="alertFormType(\'vix\')">'
+    + L('恐慌指数', 'VIX') + '</button></div>';
+
+  if (isP) {
+    h += '<div class="bk-row2">'
+      + '<div class="field"><label>' + L('代码', 'Code') + '</label>'
+      + '<input type="text" id="alCode" maxlength="12" autocomplete="off" placeholder="AAPL / 600519 / 00700">' 
+      + '</div>'
+      + '<div class="field"><label>' + L('名称（可选）', 'Name (optional)') + '</label>'
+      + '<input type="text" id="alName" maxlength="16" autocomplete="off" placeholder="' + L('苹果', 'Apple') + '"></div>'
+      + '</div>';
+  } else {
+    h += '<div class="al-vixnow">' + L('当前 VIX', 'Current VIX') + '：<b>'
+      + (vixNow() == null ? '—' : Number(vixNow()).toFixed(2)) + '</b>'
+      + (vixLive && vixLive.tm ? ' · ' + alEsc(String(vixLive.tm).slice(0, 10)) : '') + '</div>';
+  }
+
+  h += '<div class="field"><label>' + L('条件', 'Condition') + '</label>'
+    + '<div class="seg al-seg" id="alOpSeg">'
+    + '<button data-op="lte" class="' + (alertForm.op === 'lte' ? 'on' : '') + '" onclick="alPick(this,\'op\')">'
+    + L('低于 / 等于', 'At or below') + '</button>'
+    + '<button data-op="gte" class="' + (alertForm.op === 'gte' ? 'on' : '') + '" onclick="alPick(this,\'op\')">'
+    + L('大于 / 等于', 'At or above') + '</button>'
+    + '</div></div>';
+
+  h += '<div class="field"><label>' + (isP ? L('价格', 'Price') : L('VIX 数值', 'VIX level')) + '</label>'
+    + '<input type="number" id="alVal" step="0.01" inputmode="decimal" placeholder="'
+    + (isP ? '200.00' : '28.00') + '" value="' + (draft.value != null ? alEsc(draft.value) : (a ? a.value : '')) + '"></div>';
+
+  h += '<div class="field"><label>' + L('提醒方式（可多选）', 'Delivery (multi-select)') + '</label>'
+    + '<div class="al-modes" id="alModeBox">'
+    + ['notify', 'vibrate', 'alarm'].map(function (m) {
+      return '<button data-mode="' + m + '" class="' + (alertForm.modes.indexOf(m) >= 0 ? 'on' : '') + '" onclick="alModeToggle(this,\'' + m + '\')">'
+        + alertModeOne(m) + '</button>';
+    }).join('')
+    + '</div>'
+    + '<div class="al-freqhint">' + L('可同时选多项；闹钟会响铃 + 振动 + 全屏弹窗', 'Pick any combination; alarm rings, vibrates and shows full screen') + '</div></div>';
+
+  h += '<div class="field"><label>' + L('提醒频率', 'Frequency') + '</label>'
+    + '<div class="seg al-seg" id="alFreqSeg">'
+    + '<button data-freq="once" class="' + (alertForm.freq === 'once' ? 'on' : '') + '" onclick="alPick(this,\'freq\')">'
+    + L('仅一次', 'Once') + '</button>'
+    + '<button data-freq="daily" class="' + (alertForm.freq === 'daily' ? 'on' : '') + '" onclick="alPick(this,\'freq\')">'
+    + L('每日一次', 'Daily') + '</button>'
+    + '<button data-freq="always" class="' + (alertForm.freq === 'always' ? 'on' : '') + '" onclick="alPick(this,\'freq\')">'
+    + L('持续提醒', 'Every time') + '</button>'
+    + '</div>'
+    + '<div class="al-freqhint" id="alFreqHint">' + L('仅一次：触发后自动关闭；每日一次：当天只提醒一次；持续提醒：条件一直成立时每 5 分钟再提醒',
+      'Once: auto-off after firing; Daily: max once a day; Every time: repeats every 5 min while true') + '</div></div>';
+
+  h += '<div class="al-testrow"><button class="al-test" onclick="alertTest()">' + L('试一下这个提醒', 'Test this alert') + '</button></div>';
+
+  document.getElementById('sheetBody').innerHTML = h;
+  var ci = document.getElementById('alCode'), ni = document.getElementById('alName');
+  if (ci) ci.value = a ? a.code : (draft.code || '');
+  if (ni) ni.value = a ? a.name : (draft.name || '');
+  showSheet();
+  setTimeout(function () { var el = document.getElementById('alVal'); if (el && !el.value) el.focus(); }, 120);
+}
+function alPick(btn, field) {
+  var seg = btn.parentNode;
+  seg.querySelectorAll('button').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
+  alertForm[field] = btn.getAttribute('data-' + field);
+  if (field === 'freq') {
+    var h = document.getElementById('alFreqHint');
+    if (h) {
+      h.textContent = alertForm.freq === 'once'
+        ? L('触发一次后自动关闭，需要重新开启', 'Fires once then turns itself off')
+        : (alertForm.freq === 'daily'
+          ? L('每个自然日最多提醒一次', 'At most once per calendar day')
+          : L('条件一直成立时每 5 分钟再提醒一次，回落再上穿也会立即提醒', 'Repeats every 5 minutes while true; a new crossing also fires'));
+    }
+  }
+}
+function alModeToggle(btn, m) {
+  var i = alertForm.modes.indexOf(m);
+  if (i >= 0) alertForm.modes.splice(i, 1);
+  else alertForm.modes.push(m);
+  btn.classList.toggle('on', alertForm.modes.indexOf(m) >= 0);
+}
+function alertFormType(kind) {
+  if (kind === alertKind) return;
+  var c = document.getElementById('alCode'), n = document.getElementById('alName'), v = document.getElementById('alVal');
+  alertForm.draft = { code: c ? c.value : '', name: n ? n.value : '', value: v ? v.value : '' };
+  alertKind = kind;
+  openAlertForm(alertForm.id);
+}
+function saveAlertForm() {
+  var valEl = document.getElementById('alVal');
+  var val = Number(valEl && valEl.value);
+  if (!isFinite(val) || val <= 0) { toast(L('请填写提醒数值', 'Enter a value')); return; }
+  if (alertKind === 'vix' && (val < 5 || val > 150)) { toast(L('VIX 数值请填 5–150', 'VIX must be 5–150')); return; }
+  var code = '', name = '';
+  if (alertKind === 'price') {
+    var ci = document.getElementById('alCode'), ni = document.getElementById('alName');
+    code = String(ci && ci.value || '').trim().toUpperCase();
+    name = String(ni && ni.value || '').trim();
+    if (!code) { toast(L('请填写代码', 'Enter a code')); return; }
+    if (!quoteCodeFor(code)) { toast(L('代码格式不支持，示例：AAPL / 600519 / 00700', 'Unsupported code')); return; }
+  }
+  if (!alertForm.modes.length) { toast(L('至少选一种提醒方式', 'Pick at least one delivery')); return; }
+  var a = alertForm.id ? alertById(alertForm.id) : null;
+  if (!a) { a = { id: genId(), created: Date.now(), was: 0, last: 0 }; alerts.push(a); }
+  a.type = alertKind;
+  a.code = code;
+  a.name = name;
+  a.op = alertForm.op;
+  a.value = val;
+  a.modes = alertForm.modes.slice();
+  a.freq = alertForm.freq;
+  a.on = true;
+  a.done = 0;
+  a.was = 0;
+  a.day = '';
+  saveAlerts();
+  closeSheet();
+  renderAlerts();
+  ensureAlertChannels();
+  toast(L('已保存 · ' + alertFreqName(a.freq), 'Saved · ' + alertFreqName(a.freq)));
+  alertTick();
+}
+function alertTest() {
+  var valEl = document.getElementById('alVal');
+  var val = Number(valEl && valEl.value);
+  if (!isFinite(val) || val <= 0) { toast(L('先填个数值再试', 'Enter a value first')); return; }
+  var nameEl = document.getElementById('alName');
+  var codeEl = document.getElementById('alCode');
+  var fake = {
+    type: alertKind,
+    code: alertKind === 'price' ? String(codeEl && codeEl.value || 'TEST').toUpperCase() : '',
+    name: alertKind === 'price' ? String(nameEl && nameEl.value || '') : '',
+    op: alertForm.op, value: val, modes: alertForm.modes.slice(), freq: alertForm.freq, on: true
+  };
+  fireAlert(fake, val);
+  toast(L('已发送测试提醒', 'Test alert sent'));
+}
+
+/* ---------- 触发 ---------- */
+function ensureAlertChannels() {
+  var LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+  if (!LN || !LN.createChannel) return;
+  try {
+    LN.createChannel({ id: 'fuley_alert', name: '浮乐提醒', description: '价格 / 指数到价提醒', importance: 4, visibility: 1, vibration: true }).catch(function () {});
+  } catch (e) { /* ignore */ }
+  try {
+    LN.createChannel({ id: 'fuley_alarm', name: '浮乐闹钟', description: '闹钟式强提醒（响铃 + 振动）', importance: 5, visibility: 1, sound: 'alarm.wav', vibration: true }).catch(function () {});
+  } catch (e) { /* ignore */ }
+}
+function pushAlertNotify(title, body, channelId) {
+  if (!hasLN()) { toast(title + ' · ' + body); return; }
+  var LN = window.Capacitor.Plugins.LocalNotifications;
+  ensureNotifyPermission().then(function (p) {
+    if (p && p.display === 'denied') return;
+    var n = {
+      id: Math.floor(Math.random() * 2000000000),
+      title: title,
+      body: body,
+      channelId: channelId,
+      schedule: { at: new Date(Date.now() + 700), allowWhileIdle: true }
+    };
+    if (channelId === 'fuley_alarm') n.sound = 'alarm.wav';
+    LN.schedule({ notifications: [n] }).catch(function () {});
+  });
+}
+function showAlarm(title, body) {
+  var box = document.getElementById('alarmBox');
+  if (!box) return;
+  document.getElementById('abTitle').textContent = title;
+  document.getElementById('abBody').textContent = body;
+  box.classList.add('on');
+  try { if (navigator.vibrate) navigator.vibrate([600, 300, 600, 300, 600]); } catch (e) { /* ignore */ }
+}
+function closeAlarm() {
+  var box = document.getElementById('alarmBox');
+  if (box) box.classList.remove('on');
+  try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) { /* ignore */ }
+}
+function fireAlert(a, cur) {
+  var isP = a.type === 'price';
+  var val = Number(cur).toFixed(2);
+  var dir = a.op === 'gte' ? L('已高于 ', 'above ') : L('已低于 ', 'below ');
+  var title = isP
+    ? (a.name ? a.name + ' ' + a.code : a.code) + L(' 价格提醒', ' price alert')
+    : L('VIX 恐慌指数提醒', 'VIX alert');
+  var body = isP
+    ? L(a.code + ' 现价 ' + val + '，' + dir + Number(a.value).toFixed(2),
+        a.code + ' now ' + val + ' — ' + dir + Number(a.value).toFixed(2))
+    : L('VIX 现价 ' + val + '，' + dir + Number(a.value).toFixed(2),
+        'VIX now ' + val + ' — ' + dir + Number(a.value).toFixed(2));
+  a.last = Date.now();
+  a.lastVal = Number(cur);
+  a.was = 1;
+  if (a.freq === 'daily') a.day = todayKey();
+  if (a.freq === 'once') { a.done = 1; a.on = false; }
+  if (alertById(a.id)) { saveAlerts(); renderAlerts(); }
+  var modes = a.modes || ['notify'];
+  if (modes.indexOf('alarm') >= 0) {
+    pushAlertNotify(title, body, 'fuley_alarm');
+    showAlarm(title, body);
+  } else if (modes.indexOf('notify') >= 0) {
+    pushAlertNotify(title, body, 'fuley_alert');
+  }
+  if (modes.indexOf('vibrate') >= 0 && modes.indexOf('alarm') < 0) {
+    try { if (navigator.vibrate) navigator.vibrate([420, 220, 420]); } catch (e) { /* ignore */ }
+    if (modes.indexOf('notify') < 0) toast(title + ' · ' + body);
+  }
+}
+function evalAlertsOf(kind, getVal) {
+  alerts.slice().forEach(function (a) {
+    if (a.type !== kind) return;
+    var cur = getVal(a);
+    if (cur == null || !isFinite(cur)) return;
+    var hit = a.op === 'gte' ? cur >= a.value : cur <= a.value;
+    if (hit && (a.freq === 'always' || !a.was) && alertCanFire(a)) fireAlert(a, cur);
+    if (!!a.was !== hit) {
+      a.was = hit ? 1 : 0;
+      saveAlerts();
+    }
+  });
+}
+function alertTick(manual) {
+  var priceOn = alerts.filter(function (a) { return a.on && a.type === 'price'; });
+  var vixOn = alerts.filter(function (a) { return a.on && a.type === 'vix'; });
+  var jobs = [];
+  if (priceOn.length) {
+    var map = {};
+    priceOn.forEach(function (a) { var q = quoteCodeFor(a.code); if (q) map[q] = a.code; });
+    if (Object.keys(map).length) {
+      jobs.push(fetchQuoteBatch(map, alertQuotes).then(function () {
+        evalAlertsOf('price', function (a) {
+          return alertQuotes[a.code] ? Number(alertQuotes[a.code].price) : null;
+        });
+      }).catch(function () {}));
+    }
+  }
+  if (vixOn.length) {
+    var v = vixNow();
+    if (v == null || !vixLive || Date.now() - (Number(vixLive.ts) || 0) > 60000) {
+      jobs.push(vixRefresh(false).catch(function () {}));
+    }
+    evalAlertsOf('vix', function () { return vixNow(); });
+  }
+  if (!jobs.length) {
+    alertLastCheck = Date.now();
+    if (manual) toast(L('没有需要检查的提醒', 'Nothing to check'));
+    renderAlerts();
+    return;
+  }
+  Promise.all(jobs).then(function () {
+    alertLastCheck = Date.now();
+    if (manual) toast(L('已检查', 'Checked'));
+    renderAlerts();
+  }, function () {
+    alertLastCheck = Date.now();
+    renderAlerts();
+  });
+}
+function startAlertEngine() {
+  ensureAlertChannels();
+  if (alertTimer) return;
+  alertTimer = setInterval(function () { if (!document.hidden) alertTick(); }, 60000);
+  setTimeout(function () { alertTick(); }, 2500);
 }
 
 /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
@@ -3920,7 +4366,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.8.1';
+var APP_VERSION = 'v1.8.2';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -5380,7 +5826,7 @@ function restoreData(input) {
         try { window.localStorage.setItem(BOOK_PROG_KEY, JSON.stringify(bookProgMap)); } catch (e) { /* ignore */ }
       }
       if (Array.isArray(d.bookCats)) { bookCats = d.bookCats; saveBookCats(); }
-      renderPlans(); renderSignals(); renderNotes(); renderQuiz(); renderPanic(); renderCal();
+      renderPlans(); renderSignals(); renderNotes(); renderAlerts(); renderPanic(); renderCal();
       renderBookCats(); renderBooks();
       var cnt = plans.length + signals.length + notes.red.length + notes.green.length + notes.case.length + books.length;
       toast('恢复成功，共 ' + cnt + ' 条');
@@ -5463,13 +5909,14 @@ function toast(msg) {
   renderPosRatio();
   renderSignals();
   renderNotes();
-  renderQuiz();
+  renderAlerts();
   renderPanic();
   if (curTab === 'signals' && curSigPane === 'panic') vixPanicEnter();
   renderCal();
   renderBookCats();
   renderBooks();
-  if (curTab === 'signals') { renderQuiz(); }
+  if (curTab === 'signals') { renderAlerts(); }
+  startAlertEngine();
 
   // 定投通知重排（重启 / 数据恢复后）
   if (hasLN()) {

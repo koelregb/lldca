@@ -1,14 +1,16 @@
-## 最新版本 v1.8.1
+## 最新版本 v1.8.2
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.8.1.apk](https://github.com/koelregb/lldca/releases/download/v1.8.1/fuley-v1.8.1.apk)（仓库内：`fuley-v1.8.1.apk`、`tools/fuley-v1.8.1.apk`） |
-| 版本信息 | v1.8.1 / versionCode 53 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.8.2.apk](https://github.com/koelregb/lldca/releases/download/v1.8.2/fuley-v1.8.2.apk)（仓库内：`fuley-v1.8.2.apk`、`tools/fuley-v1.8.2.apk`） |
+| 版本信息 | v1.8.2 / versionCode 54 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.8.1-mockup.html](lldca-v1.8.1-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.8.2-mockup.html](lldca-v1.8.2-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：**加减仓 → 恐慌级别评估新增 VIX 恐慌指数卡**。大号数字 + 当日涨跌 + 五档情绪分级 + 30 日迷你走势，每分钟自动刷新（CBOE 主源、CNBC 兜底、FRED 补历史），并可一键把 VIX 换算成 1–10 级自评。
+> 本版：**「加减仓条件」整块换成「通知提醒」**。支持个股价格 / 恐慌指数两类，条件可选「低于·大于」，频率可选「仅一次 / 每日一次 / 持续提醒」，送达方式可选「消息通知 / 震动 / 闹钟」，三种可任意组合——闹钟走高优先级通道，响铃 + 振动 + 全屏弹窗。
+>
+> 上一版：**恐慌级别评估接入 VIX 指数卡**。大号数字 + 当日涨跌 + 五档情绪分级 + 30 日迷你走势，每分钟自动刷新（CBOE 主源、CNBC 兜底、FRED 补历史），并可一键把 VIX 换算成 1–10 级自评。
 >
 > 上一版：**我的 → 电子书**。公众号 / 网页内容复制后粘贴即可存成一本，自建栏目归类，点开即读（离线、字号可调、进度记忆）。
 > - 列表只显示标题 / 时间 / 来源三要素，来源可填公众号名或网址，时间自动生成；

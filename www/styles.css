@@ -1916,3 +1916,115 @@ body.bk-open { overflow: hidden; }
   border-radius: 8px; padding: 5px 9px; font-size: 10.5px; font-weight: 700; cursor: pointer;
 }
 .vixc-apply:active { transform: scale(.96); }
+
+/* ---------- 加减仓 · 通知提醒 ---------- */
+.alert-seg { margin-bottom: 9px; }
+.al-status {
+  display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--sub);
+  padding: 0 2px 8px; line-height: 1.5;
+}
+.al-status span { flex: 1; min-width: 0; }
+.al-status button {
+  flex: none; border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  border-radius: 8px; padding: 4px 9px; font-size: 10.5px; font-weight: 650; cursor: pointer;
+}
+.al-card {
+  position: relative; z-index: 1;          /* 压在装饰水印之上 */
+  background: var(--card); border-radius: 14px; padding: 11px 13px 9px;
+  box-shadow: var(--shadow); margin-bottom: 8px;
+}
+.al-card.off { opacity: .6; }
+.al-h { display: flex; align-items: center; gap: 8px; }
+.al-k {
+  flex: none; width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center; font-size: 9.5px; font-weight: 800; color: #fff;
+}
+.al-k.price { background: #4a7fd4; }
+.al-k.vix { background: #dfa32a; }
+.al-nm {
+  flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.al-nm i { font-style: normal; font-size: 9.5px; color: var(--sub); font-weight: 600; margin-left: 4px; }
+.al-sw {
+  flex: none; width: 38px; height: 22px; border-radius: 11px; border: none;
+  background: #d5dbe5; position: relative; cursor: pointer; transition: background .18s;
+}
+.al-sw:after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+  border-radius: 50%; background: #fff; transition: transform .18s; box-shadow: 0 1px 2px rgba(0,0,0,.22);
+}
+.al-sw.on { background: var(--accent); }
+.al-sw.on:after { transform: translateX(16px); }
+.al-c { display: flex; align-items: baseline; gap: 8px; margin-top: 7px; }
+.al-c b { font-size: 19px; font-weight: 800; letter-spacing: -.3px; font-variant-numeric: tabular-nums; }
+.al-c span { font-size: 11px; color: var(--sub); font-variant-numeric: tabular-nums; }
+.al-m { display: flex; align-items: center; gap: 6px; margin-top: 7px; font-size: 10px; color: var(--sub); flex-wrap: wrap; }
+.al-chip { background: var(--chip); border-radius: 5px; padding: 1px 6px; font-weight: 650; }
+.al-st { margin-left: auto; color: var(--accent); font-weight: 700; }
+.al-st.off { color: var(--sub); }
+.al-lnk { border: none; background: none; color: var(--sub); font-size: 10.5px; font-weight: 650; cursor: pointer; padding: 2px 3px; }
+.al-lnk.del { color: var(--up); }
+.al-empty {
+  position: relative; z-index: 1;
+  background: var(--card); border-radius: 16px; padding: 30px 18px; text-align: center;
+  box-shadow: var(--shadow); margin-bottom: 10px;
+}
+.al-empty svg { width: 34px; height: 34px; color: var(--sub); opacity: .65; margin-bottom: 8px; }
+.al-empty-t { font-size: 14px; font-weight: 700; }
+.al-empty-s { font-size: 11.5px; color: var(--sub); margin-top: 5px; line-height: 1.6; }
+.al-types { display: flex; gap: 6px; margin-bottom: 12px; }
+.al-types button {
+  flex: 1; border: none; border-radius: 10px; padding: 9px 0; font-size: 12.5px; font-weight: 650;
+  background: var(--chip); color: var(--sub); cursor: pointer;
+}
+.al-types button.on { background: var(--accent); color: #fff; }
+.al-vixnow {
+  font-size: 11.5px; color: var(--sub); background: var(--chip);
+  border-radius: 9px; padding: 8px 10px; margin-bottom: 12px;
+}
+.al-vixnow b { color: var(--ink); font-size: 14px; margin-left: 4px; }
+.al-freqhint { font-size: 10.5px; color: var(--sub); margin-top: 6px; line-height: 1.55; }
+.al-testrow { margin-top: 2px; }
+.al-test {
+  width: 100%; border: 1px dashed var(--line); background: transparent; color: var(--sub);
+  border-radius: 10px; padding: 9px 0; font-size: 12px; font-weight: 650; cursor: pointer;
+}
+.al-seg button { font-size: 12px; }
+
+/* 全屏闹钟 */
+#alarmBox {
+  position: fixed; inset: 0; z-index: 96; display: none; align-items: center; justify-content: center;
+  background: rgba(198, 58, 58, .965); padding: 20px;
+}
+#alarmBox.on { display: flex; }
+.ab-card {
+  width: min(360px, 100%); background: #fff; border-radius: 22px; padding: 26px 20px 18px;
+  text-align: center; box-shadow: 0 22px 60px rgba(0, 0, 0, .35);
+  animation: abShake .5s ease 2;
+}
+@keyframes abShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.ab-ico {
+  width: 56px; height: 56px; margin: 0 auto 12px; border-radius: 18px;
+  background: #fdecec; color: #d64545; display: grid; place-items: center;
+}
+.ab-ico svg { width: 30px; height: 30px; }
+.ab-t { font-size: 17px; font-weight: 800; color: #1a2233; line-height: 1.4; }
+.ab-b { font-size: 13px; color: #5d6577; line-height: 1.65; margin-top: 8px; }
+.ab-btn {
+  margin-top: 18px; width: 100%; border: none; border-radius: 12px;
+  background: #d64545; color: #fff; font-size: 14.5px; font-weight: 700; padding: 12px 0; cursor: pointer;
+}
+
+/* 提醒方式：多选 */
+.al-modes { display: flex; gap: 6px; }
+.al-modes button {
+  flex: 1; border: 1px solid var(--line); background: var(--chip); color: var(--sub);
+  border-radius: 10px; padding: 9px 0; font-size: 12px; font-weight: 650; cursor: pointer;
+}
+.al-modes button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.al-modes button:active { transform: scale(.97); }
