@@ -690,6 +690,7 @@ function sheetSave() {
   if (sheetMode === 'bookcat') { bookCatSave(); return; }
   if (sheetMode === 'bookren') { bookRenameSave(); return; }
   if (sheetMode === 'alert') { saveAlertForm(); return; }
+  if (sheetMode === 'tone') { saveToneSheet(); return; }
   if (sheetMode === 'plan') { savePlanForm(); return; }
   if (sheetMode === 'alloc') { saveAllocForm(); return; }
   if (sheetMode === 'inv') { saveInvForm(); return; }
@@ -2422,7 +2423,30 @@ var alertKind = 'price';
 var alertQuotes = {};
 var alertTimer = null;
 var alertLastCheck = 0;
-var alertForm = { id: null, op: 'lte', modes: ['notify', 'vibrate'], freq: 'once', draft: null };
+var alertForm = { id: null, op: 'lte', modes: ['notify', 'vibrate'], freq: 'once', tone: null, draft: null };
+/* 闹钟铃声：内置 4 段 + 跟随系统；每个音调一个独立通道（安卓通道声音创建后不可改） */
+var ALERT_TONE_KEY = 'fuley.alerttone.v1';
+var ALERT_TONES = [
+  { id: 'alarm', name: '三短一长', file: 'alarm.wav' },
+  { id: 'beep', name: '滴滴', file: 'beep.wav' },
+  { id: 'deep', name: '低沉', file: 'deep.wav' },
+  { id: 'chime', name: '上行三音', file: 'chime.wav' },
+  { id: 'system', name: '跟随系统', file: null }
+];
+var alertTone = (function () {
+  var v = lsGet(ALERT_TONE_KEY) || 'alarm';
+  for (var i = 0; i < ALERT_TONES.length; i++) if (ALERT_TONES[i].id === v) return v;
+  return 'alarm';
+})();
+function alertToneById(id) {
+  for (var i = 0; i < ALERT_TONES.length; i++) if (ALERT_TONES[i].id === id) return ALERT_TONES[i];
+  return ALERT_TONES[0];
+}
+function alertChannelId() { return 'fuley_alarm_' + alertTone; }
+function alertSaveTone(id) {
+  alertTone = alertToneById(id).id;
+  try { window.localStorage.setItem(ALERT_TONE_KEY, alertTone); } catch (e) { /* ignore */ }
+}
 
 function alEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -2524,6 +2548,8 @@ function renderAlerts() {
   var list = alerts.filter(function (a) { return a.type === alertKind; })
     .sort(function (a, b) { return (b.on ? 1 : 0) - (a.on ? 1 : 0) || (b.created || 0) - (a.created || 0); });
   box.innerHTML = list.length ? list.map(alertCardHtml).join('') : alertEmptyHtml();
+  var toneEl = document.getElementById('alertToneNow');
+  if (toneEl) toneEl.textContent = alertToneById(alertTone).name;
   var onN = alerts.filter(function (a) { return a.on; }).length;
   var st = document.getElementById('alertStatus');
   if (st) {
@@ -2560,6 +2586,7 @@ function openAlertForm(id) {
   alertForm.id = a ? a.id : null;
   alertForm.op = a ? a.op : 'lte';
   alertForm.modes = a && a.modes ? a.modes.slice() : ['notify', 'vibrate'];
+  alertForm.tone = alertTone;
   alertForm.freq = a ? a.freq : 'once';
   var draft = alertForm.draft || {};
   alertForm.draft = null;
@@ -2608,6 +2635,16 @@ function openAlertForm(id) {
     + '</div>'
     + '<div class="al-freqhint">' + L('可同时选多项；闹钟会响铃 + 振动 + 全屏弹窗', 'Pick any combination; alarm rings, vibrates and shows full screen') + '</div></div>';
 
+  h += '<div class="field"><label>' + L('闹钟铃声', 'Alarm tone') + '</label>'
+    + '<div class="al-tones" id="alToneBox">'
+    + ALERT_TONES.map(function (t) {
+      return '<button data-tone="' + t.id + '" class="' + (alertForm.tone === t.id ? 'on' : '') + '" onclick="alPickTone(this,\'' + t.id + '\')">'
+        + L(t.name, ({ alarm: 'Triple + long', beep: 'Beeps', deep: 'Deep', chime: 'Chime', system: 'System' })[t.id]) + '</button>';
+    }).join('')
+    + '</div>'
+    + '<button class="al-sysbtn" onclick="openSystemNotifSettings()">' + L('系统里改铃声 ›', 'Change in system settings ›') + '</button>'
+    + '<div class="al-freqhint">' + L('先用「试一下」听效果；选「跟随系统」则用手机默认通知音', 'Use Test to preview; System follows the phone default') + '</div></div>';
+
   h += '<div class="field"><label>' + L('提醒频率', 'Frequency') + '</label>'
     + '<div class="seg al-seg" id="alFreqSeg">'
     + '<button data-freq="once" class="' + (alertForm.freq === 'once' ? 'on' : '') + '" onclick="alPick(this,\'freq\')">'
@@ -2651,6 +2688,76 @@ function alModeToggle(btn, m) {
   else alertForm.modes.push(m);
   btn.classList.toggle('on', alertForm.modes.indexOf(m) >= 0);
 }
+function alPickTone(btn, id) {
+  alertForm.tone = id;
+  document.querySelectorAll('#alToneBox button, #alToneBox2 button').forEach(function (b) {
+    b.classList.toggle('on', b.getAttribute('data-tone') === id);
+  });
+}
+function openToneSheet() {
+  sheetMode = 'tone';
+  alertForm.tone = alertTone;
+  document.getElementById('sheetTitle').textContent = L('闹钟铃声', 'Alarm tone');
+  document.getElementById('sheetSave').textContent = L('保存', 'Save');
+  var h = '<div class="al-tones" id="alToneBox2">'
+    + ALERT_TONES.map(function (t) {
+      return '<button data-tone="' + t.id + '" class="' + (alertTone === t.id ? 'on' : '') + '" onclick="alPickTone(this,\'' + t.id + '\')">'
+        + L(t.name, ({ alarm: 'Triple + long', beep: 'Beeps', deep: 'Deep', chime: 'Chime', system: 'System' })[t.id]) + '</button>';
+    }).join('')
+    + '</div>'
+    + '<button class="al-sysbtn" onclick="closeSheet();openSystemNotifSettings()">' + L('系统里改铃声 ›', 'Change in system settings ›') + '</button>'
+    + '<div class="al-freqhint">' + L('选「跟随系统」则用手机默认通知音；换铃声后新提醒立即生效（已排队的旧通知不受影响）',
+      'System uses the phone default; new alerts use the new tone right away') + '</div>'
+    + '<div class="al-testrow"><button class="al-test" onclick="alertToneTest()">' + L('试听这个铃声', 'Preview this tone') + '</button></div>';
+  document.getElementById('sheetBody').innerHTML = h;
+  showSheet();
+}
+function saveToneSheet() {
+  if (alertForm.tone && alertForm.tone !== alertTone) {
+    alertSaveTone(alertForm.tone);
+    ensureAlertChannels();
+  }
+  closeSheet();
+  renderAlerts();
+  toast(L('铃声已切换', 'Tone updated'));
+}
+function alertToneTest() {
+  if (alertForm.tone && alertForm.tone !== alertTone) {
+    alertSaveTone(alertForm.tone);
+    ensureAlertChannels();
+  }
+  var fake = {
+    type: 'price', code: 'TEST', name: L('试听', 'Preview'), op: 'gte', value: 0,
+    modes: ['alarm'], freq: 'once', on: true
+  };
+  fireAlert(fake, 0);
+  toast(L('已发送试听提醒', 'Preview sent'));
+}
+function openSystemNotifSettings() {
+  var P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AppSettings;
+  if (P && P.openNotificationSettings) {
+    P.openNotificationSettings().catch(function () { alertSysGuide(); });
+    return;
+  }
+  alertSysGuide();
+}
+function alertSysGuide() {
+  sheetMode = 'alguide';
+  document.getElementById('sheetTitle').textContent = L('在系统里改铃声', 'Change tone in system');
+  document.getElementById('sheetSave').textContent = L('知道了', 'Got it');
+  document.getElementById('sheetBody').innerHTML =
+    '<div class="al-guide">'
+    + '<div class="al-guide-t">' + L('路径（Android 8 及以上）', 'Path (Android 8+)') + '</div>'
+    + '<ol>'
+    + '<li>' + L('系统「设置」→ 应用（应用管理）→ 浮乐', 'Settings → Apps → Fuley') + '</li>'
+    + '<li>' + L('通知 → 找到「浮乐闹钟 · ' + alertToneById(alertTone).name + '」通道',
+        'Notifications → the "Fuley alarm" channel') + '</li>'
+    + '<li>' + L('点「声音」，选手机里的铃声', 'Tap Sound and pick a ringtone') + '</li>'
+    + '</ol>'
+    + '<div class="al-guide-n">' + L('如果列表里还没有闹钟通道，先在 App 里点一次「试一下这个提醒」，通道注册后就会出现在系统设置里。', 'If the channel is missing, send one test alert first — the channel then appears in system settings.') + '</div>'
+    + '</div>';
+  showSheet();
+}
 function alertFormType(kind) {
   if (kind === alertKind) return;
   var c = document.getElementById('alCode'), n = document.getElementById('alName'), v = document.getElementById('alVal');
@@ -2680,6 +2787,7 @@ function saveAlertForm() {
   a.op = alertForm.op;
   a.value = val;
   a.modes = alertForm.modes.slice();
+  if (alertForm.tone && alertForm.tone !== alertTone) alertSaveTone(alertForm.tone);
   a.freq = alertForm.freq;
   a.on = true;
   a.done = 0;
@@ -2696,6 +2804,10 @@ function alertTest() {
   var valEl = document.getElementById('alVal');
   var val = Number(valEl && valEl.value);
   if (!isFinite(val) || val <= 0) { toast(L('先填个数值再试', 'Enter a value first')); return; }
+  if (alertForm.modes.indexOf('alarm') >= 0 && alertForm.tone && alertForm.tone !== alertTone) {
+    alertSaveTone(alertForm.tone);
+    ensureAlertChannels();
+  }
   var nameEl = document.getElementById('alName');
   var codeEl = document.getElementById('alCode');
   var fake = {
@@ -2715,9 +2827,22 @@ function ensureAlertChannels() {
   try {
     LN.createChannel({ id: 'fuley_alert', name: '浮乐提醒', description: '价格 / 指数到价提醒', importance: 4, visibility: 1, vibration: true }).catch(function () {});
   } catch (e) { /* ignore */ }
+  var tone = alertToneById(alertTone);
   try {
-    LN.createChannel({ id: 'fuley_alarm', name: '浮乐闹钟', description: '闹钟式强提醒（响铃 + 振动）', importance: 5, visibility: 1, sound: 'alarm.wav', vibration: true }).catch(function () {});
+    var ch = {
+      id: alertChannelId(),
+      name: '浮乐闹钟 · ' + L(tone.name, ({ alarm: 'Triple + long', beep: 'Beeps', deep: 'Deep', chime: 'Chime', system: 'System' })[tone.id]),
+      description: '闹钟式强提醒（响铃 + 振动）',
+      importance: 5, visibility: 1, vibration: true
+    };
+    if (tone.file) ch.sound = tone.file;
+    LN.createChannel(ch).catch(function () {});
   } catch (e) { /* ignore */ }
+  /* 切铃声后清掉旧音调通道，避免系统设置里堆一堆 */
+  ALERT_TONES.forEach(function (t) {
+    if (t.id === alertTone) return;
+    try { if (LN.deleteChannel) LN.deleteChannel({ id: 'fuley_alarm_' + t.id }).catch(function () {}); } catch (e2) { /* ignore */ }
+  });
 }
 function pushAlertNotify(title, body, channelId) {
   if (!hasLN()) { toast(title + ' · ' + body); return; }
@@ -2731,7 +2856,6 @@ function pushAlertNotify(title, body, channelId) {
       channelId: channelId,
       schedule: { at: new Date(Date.now() + 700), allowWhileIdle: true }
     };
-    if (channelId === 'fuley_alarm') n.sound = 'alarm.wav';
     LN.schedule({ notifications: [n] }).catch(function () {});
   });
 }
@@ -2768,7 +2892,7 @@ function fireAlert(a, cur) {
   if (alertById(a.id)) { saveAlerts(); renderAlerts(); }
   var modes = a.modes || ['notify'];
   if (modes.indexOf('alarm') >= 0) {
-    pushAlertNotify(title, body, 'fuley_alarm');
+    pushAlertNotify(title, body, alertChannelId());
     showAlarm(title, body);
   } else if (modes.indexOf('notify') >= 0) {
     pushAlertNotify(title, body, 'fuley_alert');
@@ -4366,7 +4490,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.8.2';
+var APP_VERSION = 'v1.8.3';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';

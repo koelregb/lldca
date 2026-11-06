@@ -1,14 +1,16 @@
-## 最新版本 v1.8.2
+## 最新版本 v1.8.3
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.8.2.apk](https://github.com/koelregb/lldca/releases/download/v1.8.2/fuley-v1.8.2.apk)（仓库内：`fuley-v1.8.2.apk`、`tools/fuley-v1.8.2.apk`） |
-| 版本信息 | v1.8.2 / versionCode 54 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.8.3.apk](https://github.com/koelregb/lldca/releases/download/v1.8.3/fuley-v1.8.3.apk)（仓库内：`fuley-v1.8.3.apk`、`tools/fuley-v1.8.3.apk`） |
+| 版本信息 | v1.8.3 / versionCode 55 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.8.2-mockup.html](lldca-v1.8.2-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.8.3-mockup.html](lldca-v1.8.3-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
-> 本版：**「加减仓条件」整块换成「通知提醒」**。支持个股价格 / 恐慌指数两类，条件可选「低于·大于」，频率可选「仅一次 / 每日一次 / 持续提醒」，送达方式可选「消息通知 / 震动 / 闹钟」，三种可任意组合——闹钟走高优先级通道，响铃 + 振动 + 全屏弹窗。
+> 本版：**闹钟铃声可选 + 一键跳系统设置**。内置 4 段铃声（三短一长 / 滴滴 / 低沉 / 上行三音）与「跟随系统」，表单里点一下就能换，并附「试一下」当场试听；另提供「系统里改铃声」入口，直接跳到本应用的通知设置，按通道自选手机铃声。
+>
+> 上一版：**「加减仓条件」整块换成「通知提醒」**。支持个股价格 / 恐慌指数两类，条件可选「低于·大于」，频率可选「仅一次 / 每日一次 / 持续提醒」，送达方式可选「消息通知 / 震动 / 闹钟」，三种可任意组合——闹钟走高优先级通道，响铃 + 振动 + 全屏弹窗。
 >
 > 上一版：**恐慌级别评估接入 VIX 指数卡**。大号数字 + 当日涨跌 + 五档情绪分级 + 30 日迷你走势，每分钟自动刷新（CBOE 主源、CNBC 兜底、FRED 补历史），并可一键把 VIX 换算成 1–10 级自评。
 >
