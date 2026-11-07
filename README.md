@@ -1,11 +1,11 @@
-## 最新版本 v1.8.6
+## 最新版本 v1.8.7
 
 | 项目 | 下载 / 入口 |
 | --- | --- |
-| Android 安装包 | [fuley-v1.8.6.apk](https://github.com/koelregb/lldca/releases/download/v1.8.6/fuley-v1.8.6.apk)（仓库内：`fuley-v1.8.6.apk`、`tools/fuley-v1.8.6.apk`） |
-| 版本信息 | v1.8.6 / versionCode 58 / Android 7.0+ |
+| Android 安装包 | [fuley-v1.8.7.apk](https://github.com/koelregb/lldca/releases/download/v1.8.7/fuley-v1.8.7.apk)（仓库内：`fuley-v1.8.7.apk`、`tools/fuley-v1.8.7.apk`） |
+| 版本信息 | v1.8.7 / versionCode 59 / Android 7.0+ |
 | 全部历史版本 | [Releases](https://github.com/koelregb/lldca/releases) |
-| 页面模型（原型） | [lldca-v1.8.6-mockup.html](lldca-v1.8.6-mockup.html)（手机壳内即当前版本 App 本体） |
+| 页面模型（原型） | [lldca-v1.8.7-mockup.html](lldca-v1.8.7-mockup.html)（手机壳内即当前版本 App 本体） |
 | 原型生成脚本 | `python tools/make-mockup.py`（改完 `www/` 重新生成） |
 
 > 本版：**闹钟真会响了 + 自检面板**。修掉三处静音原因：后台把消息发到了已删除的旧通道（安卓直接丢弃）、前台通知依赖精确闹钟排期、声音只靠通知通道。现在闹钟触发时额外用原生播放器循环响铃（闹钟音量，前台响到点「我知道了」），并新增「闹钟不响？点这里自检」，一屏看完通知权限 / 通道 / 勿扰 / 闹钟音量 / 省电白名单。
