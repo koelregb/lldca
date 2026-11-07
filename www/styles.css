@@ -2057,3 +2057,74 @@ body.bk-open { overflow: hidden; }
 .al-setrow-l { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 650; }
 .al-setrow b { font-size: 12px; color: var(--sub); font-weight: 600; }
 .al-setrow i { font-style: normal; color: var(--sub); font-size: 14px; }
+
+/* ---------- 后台监测卡 ---------- */
+.wt-card {
+  position: relative; z-index: 1;
+  background: var(--card); border-radius: 14px; padding: 11px 13px 10px;
+  box-shadow: var(--shadow); margin-bottom: 10px;
+}
+.wt-h { display: flex; align-items: center; gap: 8px; }
+.wt-t { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 700; }
+.wt-t i {
+  font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--sub);
+  background: var(--chip); border-radius: 5px; padding: 1px 5px; margin-left: 6px;
+}
+.wt-sub { font-size: 10.5px; color: var(--sub); line-height: 1.55; margin-top: 4px; }
+.wt-seg { display: flex; gap: 6px; margin-top: 9px; }
+.wt-seg button {
+  flex: 1; border: 1px solid var(--line); background: var(--chip); color: var(--sub);
+  border-radius: 9px; padding: 6px 0; font-size: 11.5px; font-weight: 650; cursor: pointer;
+}
+.wt-seg button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.wt-seg button:active { transform: scale(.97); }
+.wt-foot {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-size: 10px; color: var(--sub); font-variant-numeric: tabular-nums;
+}
+.wt-foot span { flex: 1; min-width: 0; }
+.wt-bat {
+  flex: none; border: 1px solid var(--line); background: var(--chip); color: var(--accent);
+  border-radius: 7px; padding: 3px 8px; font-size: 10px; font-weight: 700; cursor: pointer;
+}
+
+/* 后台监测：自定义间隔 */
+.wt-cust {
+  display: flex; align-items: center; gap: 7px; margin-top: 7px;
+  font-size: 11px; color: var(--sub);
+}
+.wt-cust-l { flex: none; }
+.wt-cust input {
+  width: 68px; border: 1px solid var(--line); border-radius: 8px; background: var(--chip);
+  color: var(--ink); font-size: 12.5px; font-weight: 700; padding: 5px 8px; text-align: center;
+  font-variant-numeric: tabular-nums; outline: none;
+}
+.wt-cust input:focus { border-color: var(--accent); background: var(--card); }
+.wt-cust-u { flex: none; }
+.wt-cust input.active { border-color: var(--accent); color: var(--accent); background: var(--card); }
+
+/* 铃声多了以后限制高度，弹层内可滚动 */
+.al-tones { max-height: 42vh; overflow-y: auto; padding-right: 2px; -webkit-overflow-scrolling: touch; }
+
+/* 闹钟自检 */
+.al-diagrow {
+  display: flex; align-items: center; gap: 4px; justify-content: center;
+  font-size: 10.5px; color: var(--sub); padding: 8px 0 2px; cursor: pointer;
+}
+.al-diagrow i { font-style: normal; }
+.dg { margin-bottom: 4px; }
+.dg-row { display: flex; gap: 9px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.dg-row:last-child { border-bottom: none; }
+.dg-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; background: var(--sub); }
+.dg-dot.ok { background: #1a9e5c; }
+.dg-dot.warn { background: #dfa32a; }
+.dg-dot.bad { background: var(--up); }
+.dg-main { flex: 1; min-width: 0; }
+.dg-l { font-size: 12.5px; font-weight: 650; }
+.dg-d { font-size: 10.5px; color: var(--sub); line-height: 1.55; margin-top: 2px; }
+.dg-act { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }
+.dg-act button {
+  border: 1px solid var(--line); background: var(--chip); color: var(--ink);
+  border-radius: 10px; padding: 9px 0; font-size: 12px; font-weight: 650; cursor: pointer;
+}
+.dg-act button:active { transform: scale(.97); }

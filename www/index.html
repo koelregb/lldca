@@ -295,22 +295,44 @@
       </div>
 
       <div id="alertPane">
-        <div class="dimseg alert-seg" id="alertSeg">
-          <button class="on" data-kind="price" onclick="alertSegPick(this,'price')">个股价格</button>
-          <button data-kind="vix" onclick="alertSegPick(this,'vix')">恐慌指数</button>
-        </div>
         <div class="al-status" id="alertStatus"></div>
+
+        <div class="wt-card" id="watchCard">
+          <div class="wt-h">
+            <div class="wt-t">后台监测<i id="watchState">已关闭</i></div>
+            <button class="al-sw" id="watchSw" onclick="watchToggle()" aria-label="后台监测开关"></button>
+          </div>
+          <div class="wt-sub" id="watchSub">关掉 App 也会定时检查 VIX，到条件直接推送</div>
+          <div class="wt-seg" id="watchSeg">
+            <button data-min="15" class="on" onclick="watchPickMin(this,15)">15</button>
+            <button data-min="30" onclick="watchPickMin(this,30)">30</button>
+            <button data-min="60" onclick="watchPickMin(this,60)">60</button>
+            <button data-min="120" onclick="watchPickMin(this,120)">120</button>
+          </div>
+          <div class="wt-cust">
+            <span class="wt-cust-l">自定义</span>
+            <input type="number" id="watchMinIn" min="15" max="720" step="5" inputmode="numeric" value="15"
+                   onchange="watchApplyMin(true)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
+            <span class="wt-cust-u">分钟</span>
+          </div>
+          <div class="wt-foot">
+            <span id="watchFoot">上次后台检查 —</span>
+            <button class="wt-bat" id="watchBat" onclick="watchBattery()">省电白名单</button>
+          </div>
+        </div>
+
         <div id="alertList"></div>
         <button class="qadd" onclick="openAlertForm()">+ 新建提醒</button>
         <div class="al-setrow" onclick="openToneSheet()">
           <span class="al-setrow-l">闹钟铃声</span>
-          <b id="alertToneNow">三短一长</b>
+          <b id="alertToneNow">致爱丽丝</b>
           <i>›</i>
         </div>
+        <div class="al-diagrow" onclick="openDiagnose()">闹钟不响？点这里自检 <i>›</i></div>
         <div class="hintbar">
           「消息通知」= 通知栏消息；「震动」= 只振动；「闹钟」= 响铃 + 振动 + 全屏弹窗 · 三种可任意组合<br>
           频率：仅一次（触发后自动关闭）· 每日一次 · 持续提醒（条件成立时每 5 分钟一次）<br>
-          App 打开时每 60 秒检查一次，切回前台立即检查
+          后台监测开启后关掉 App 也会检查；关闭时只有打开 App 才检查（每 60 秒）
         </div>
       </div>
 
@@ -473,7 +495,7 @@
         <div class="mrow">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 8.2v.02M11 11.5h1V16h1.2"/></svg>
           <div class="mrow-l">当前版本</div>
-          <span class="mrow-v" id="appVer">v1.8.3</span>
+          <span class="mrow-v" id="appVer">v1.8.6</span>
         </div>
         <div class="mrow" onclick="toast('已是最新版本')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v4.5h-4.5"/></svg>
@@ -544,7 +566,7 @@
   <h3 class="sheet-title" id="sheetTitle">添加</h3>
   <div class="sheet-body" id="sheetBody"></div>
   <div class="sheet-foot">
-    <button class="btn btn-ghost" onclick="closeSheet()">取消</button>
+    <button class="btn btn-ghost" id="sheetCancel" onclick="closeSheet()">取消</button>
     <button class="btn" id="sheetSave" onclick="sheetSave()">保存</button>
   </div>
 </div>

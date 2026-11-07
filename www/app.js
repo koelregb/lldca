@@ -676,6 +676,9 @@ function openSheet() {
 function showSheet() {
   document.getElementById('backdrop').classList.add('on');
   document.getElementById('sheet').classList.add('on');
+  /* 自检页只有一个「关闭」，不需要取消 */
+  var cancel = document.getElementById('sheetCancel');
+  if (cancel) cancel.style.display = (sheetMode === 'diag') ? 'none' : '';
 }
 function closeSheet() {
   document.getElementById('backdrop').classList.remove('on');
@@ -691,6 +694,7 @@ function sheetSave() {
   if (sheetMode === 'bookren') { bookRenameSave(); return; }
   if (sheetMode === 'alert') { saveAlertForm(); return; }
   if (sheetMode === 'tone') { saveToneSheet(); return; }
+  if (sheetMode === 'diag') { closeSheet(); return; }
   if (sheetMode === 'plan') { savePlanForm(); return; }
   if (sheetMode === 'alloc') { saveAllocForm(); return; }
   if (sheetMode === 'inv') { saveInvForm(); return; }
@@ -2402,7 +2406,8 @@ function sigTab(btn) {
 var ALERT_KEY = 'fuley.alerts.v1';
 var alerts = loadJSON(ALERT_KEY, []);
 if (!Array.isArray(alerts)) alerts = [];
-alerts = alerts.filter(function (a) { return a && typeof a === 'object' && (a.type === 'price' || a.type === 'vix'); });
+/* v1.8.4：个股价格提醒下线，历史价格提醒在读取时丢弃，只保留 VIX */
+alerts = alerts.filter(function (a) { return a && typeof a === 'object' && a.type === 'vix'; });
 alerts.forEach(function (a) {
   if (!a.id) a.id = genId();
   if (!a.code) a.code = '';
@@ -2419,30 +2424,60 @@ alerts.forEach(function (a) {
   a.was = a.was ? 1 : 0;
   if (!a.created) a.created = Date.now();
 });
-var alertKind = 'price';
+var alertKind = 'vix';
 var alertQuotes = {};
 var alertTimer = null;
 var alertLastCheck = 0;
 var alertForm = { id: null, op: 'lte', modes: ['notify', 'vibrate'], freq: 'once', tone: null, draft: null };
 /* 闹钟铃声：内置 4 段 + 跟随系统；每个音调一个独立通道（安卓通道声音创建后不可改） */
 var ALERT_TONE_KEY = 'fuley.alerttone.v1';
+/* 只保留经典旋律（公有领域作品 / 合成音效） */
 var ALERT_TONES = [
-  { id: 'alarm', name: '三短一长', file: 'alarm.wav' },
-  { id: 'beep', name: '滴滴', file: 'beep.wav' },
-  { id: 'deep', name: '低沉', file: 'deep.wav' },
-  { id: 'chime', name: '上行三音', file: 'chime.wav' },
-  { id: 'system', name: '跟随系统', file: null }
+  { id: 'alice', name: '致爱丽丝', en: 'Für Elise', file: 'alice.wav' },
+  { id: 'canon', name: '卡农', en: 'Canon in D', file: 'canon.wav' },
+  { id: 'turkish', name: '土耳其进行曲', en: 'Turkish March', file: 'turkish.wav' },
+  { id: 'ode', name: '欢乐颂', en: 'Ode to Joy', file: 'ode.wav' },
+  { id: 'bigben', name: '大本钟', en: 'Big Ben', file: 'bigben.wav' },
+  { id: 'phone', name: '老式电话铃', en: 'Old phone', file: 'phone.wav' }
 ];
+/* 已下线的提示音，用于把旧选择迁移到默认铃声并清理旧通道 */
+var ALERT_TONES_OLD = ['alarm', 'beep', 'deep', 'chime', 'siren', 'bell', 'system'];
 var alertTone = (function () {
-  var v = lsGet(ALERT_TONE_KEY) || 'alarm';
-  for (var i = 0; i < ALERT_TONES.length; i++) if (ALERT_TONES[i].id === v) return v;
-  return 'alarm';
+  var v = lsGet(ALERT_TONE_KEY) || 'alice';
+  if (ALERT_TONES_OLD.indexOf(v) >= 0) v = 'alice';   /* 旧提示音下线，迁移到默认铃声 */
+  for (var i = 0; i < ALERT_TONES.length; i++) if (ALERT_TONES[i].id === v) {
+    try { window.localStorage.setItem(ALERT_TONE_KEY, v); } catch (e) { /* ignore */ }
+    return v;
+  }
+  return 'alice';
 })();
 function alertToneById(id) {
   for (var i = 0; i < ALERT_TONES.length; i++) if (ALERT_TONES[i].id === id) return ALERT_TONES[i];
   return ALERT_TONES[0];
 }
-function alertChannelId() { return 'fuley_alarm_' + alertTone; }
+function alertToneName(t) { return L(t.name, t.en); }
+/* 通道 id 带 v2：旧通道的声音创建后改不了，只能换新 id 重建 */
+function alertChannelId() { return 'fuley_alarm2_' + alertTone; }
+function alertNotifyChannelId() { return 'fuley_alert2_' + alertTone; }
+/* 试听：优先走原生播放器（读 res/raw，按闹钟音量），网页预览则静默跳过 */
+var toneAudio = null;
+function playTonePreview(id) {
+  var t = alertToneById(id || alertTone);
+  if (!t) return;
+  var P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Watch;
+  if (P && P.playTone) {
+    P.playTone({ id: t.id }).catch(function () { /* ignore */ });
+    return;
+  }
+  if (!t.file) return;
+  try {
+    if (toneAudio) { toneAudio.pause(); toneAudio.currentTime = 0; }
+    toneAudio = new Audio('sounds/' + t.file);
+    toneAudio.volume = 1;
+    var pr = toneAudio.play();
+    if (pr && pr.catch) pr.catch(function () { /* 浏览器拦截自动播放，忽略 */ });
+  } catch (e) { /* ignore */ }
+}
 function alertSaveTone(id) {
   alertTone = alertToneById(id).id;
   try { window.localStorage.setItem(ALERT_TONE_KEY, alertTone); } catch (e) { /* ignore */ }
@@ -2492,18 +2527,11 @@ function alertCanFire(a) {
 }
 
 /* ---------- 列表 ---------- */
-function alertSegPick(btn, kind) {
-  alertKind = kind;
-  document.querySelectorAll('#alertSeg button').forEach(function (b) {
-    b.classList.toggle('on', b.getAttribute('data-kind') === kind);
-  });
-  renderAlerts();
-}
 function alertEmptyHtml() {
   return '<div class="al-empty">'
     + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15.5V10a6 6 0 1 0-12 0v5.5L4.5 18h15L18 15.5z"/><path d="M10 20.2c.5.8 1.2 1.2 2 1.2s1.5-.4 2-1.2"/></svg>'
     + '<div class="al-empty-t">' + L('还没有提醒', 'No alerts yet') + '</div>'
-    + '<div class="al-empty-s">' + L('添加一条价格或 VIX 提醒，到条件就通知你', 'Add a price or VIX alert and get notified when it hits') + '</div>'
+    + '<div class="al-empty-s">' + L('添加一条 VIX 提醒，到条件就通知你', 'Add a VIX alert and get notified when it hits') + '</div>'
     + '</div>';
 }
 function alertCardHtml(a) {
@@ -2534,18 +2562,7 @@ function alertCardHtml(a) {
 function renderAlerts() {
   var box = document.getElementById('alertList');
   if (!box) return;
-  var priceN = alerts.filter(function (a) { return a.type === 'price'; }).length;
-  var vixN = alerts.filter(function (a) { return a.type === 'vix'; }).length;
-  var seg = document.getElementById('alertSeg');
-  if (seg) {
-    var b1 = seg.querySelector('[data-kind="price"]'), b2 = seg.querySelector('[data-kind="vix"]');
-    if (b1) b1.textContent = L('个股价格', 'Stock price') + ' ' + priceN;
-    if (b2) b2.textContent = L('恐慌指数', 'VIX') + ' ' + vixN;
-    seg.querySelectorAll('button').forEach(function (b) {
-      b.classList.toggle('on', b.getAttribute('data-kind') === alertKind);
-    });
-  }
-  var list = alerts.filter(function (a) { return a.type === alertKind; })
+  var list = alerts.filter(function (a) { return a.type === 'vix'; })
     .sort(function (a, b) { return (b.on ? 1 : 0) - (a.on ? 1 : 0) || (b.created || 0) - (a.created || 0); });
   box.innerHTML = list.length ? list.map(alertCardHtml).join('') : alertEmptyHtml();
   var toneEl = document.getElementById('alertToneNow');
@@ -2567,6 +2584,7 @@ function alertToggle(id) {
   saveAlerts();
   renderAlerts();
   toast(a.on ? L('已开启提醒', 'Alert on') : L('已暂停提醒', 'Alert paused'));
+  watchSync();
   if (a.on) { ensureAlertChannels(); alertTick(); }
 }
 function alertDel(id) {
@@ -2576,6 +2594,7 @@ function alertDel(id) {
   alerts = alerts.filter(function (x) { return x.id !== id; });
   saveAlerts();
   renderAlerts();
+  watchSync();
   toast(L('已删除', 'Deleted'));
 }
 
@@ -2590,29 +2609,14 @@ function openAlertForm(id) {
   alertForm.freq = a ? a.freq : 'once';
   var draft = alertForm.draft || {};
   alertForm.draft = null;
-  var isP = alertKind === 'price';
+  alertKind = 'vix';
   sheetMode = 'alert';
   document.getElementById('sheetTitle').textContent = a ? L('编辑提醒', 'Edit alert') : L('新建提醒', 'New alert');
   document.getElementById('sheetSave').textContent = L('保存', 'Save');
 
-  var h = '<div class="al-types"><button class="' + (isP ? 'on' : '') + '" onclick="alertFormType(\'price\')">'
-    + L('个股价格', 'Stock price') + '</button>'
-    + '<button class="' + (!isP ? 'on' : '') + '" onclick="alertFormType(\'vix\')">'
-    + L('恐慌指数', 'VIX') + '</button></div>';
-
-  if (isP) {
-    h += '<div class="bk-row2">'
-      + '<div class="field"><label>' + L('代码', 'Code') + '</label>'
-      + '<input type="text" id="alCode" maxlength="12" autocomplete="off" placeholder="AAPL / 600519 / 00700">' 
-      + '</div>'
-      + '<div class="field"><label>' + L('名称（可选）', 'Name (optional)') + '</label>'
-      + '<input type="text" id="alName" maxlength="16" autocomplete="off" placeholder="' + L('苹果', 'Apple') + '"></div>'
-      + '</div>';
-  } else {
-    h += '<div class="al-vixnow">' + L('当前 VIX', 'Current VIX') + '：<b>'
-      + (vixNow() == null ? '—' : Number(vixNow()).toFixed(2)) + '</b>'
-      + (vixLive && vixLive.tm ? ' · ' + alEsc(String(vixLive.tm).slice(0, 10)) : '') + '</div>';
-  }
+  var h = '<div class="al-vixnow">' + L('当前 VIX', 'Current VIX') + '：<b>'
+    + (vixNow() == null ? '—' : Number(vixNow()).toFixed(2)) + '</b>'
+    + (vixLive && vixLive.tm ? ' · ' + alEsc(String(vixLive.tm).slice(0, 10)) : '') + '</div>';
 
   h += '<div class="field"><label>' + L('条件', 'Condition') + '</label>'
     + '<div class="seg al-seg" id="alOpSeg">'
@@ -2622,9 +2626,9 @@ function openAlertForm(id) {
     + L('大于 / 等于', 'At or above') + '</button>'
     + '</div></div>';
 
-  h += '<div class="field"><label>' + (isP ? L('价格', 'Price') : L('VIX 数值', 'VIX level')) + '</label>'
-    + '<input type="number" id="alVal" step="0.01" inputmode="decimal" placeholder="'
-    + (isP ? '200.00' : '28.00') + '" value="' + (draft.value != null ? alEsc(draft.value) : (a ? a.value : '')) + '"></div>';
+  h += '<div class="field"><label>' + L('VIX 数值', 'VIX level') + '</label>'
+    + '<input type="number" id="alVal" step="0.01" inputmode="decimal" placeholder="28.00" value="'
+    + (draft.value != null ? alEsc(draft.value) : (a ? a.value : '')) + '"></div>';
 
   h += '<div class="field"><label>' + L('提醒方式（可多选）', 'Delivery (multi-select)') + '</label>'
     + '<div class="al-modes" id="alModeBox">'
@@ -2639,11 +2643,11 @@ function openAlertForm(id) {
     + '<div class="al-tones" id="alToneBox">'
     + ALERT_TONES.map(function (t) {
       return '<button data-tone="' + t.id + '" class="' + (alertForm.tone === t.id ? 'on' : '') + '" onclick="alPickTone(this,\'' + t.id + '\')">'
-        + L(t.name, ({ alarm: 'Triple + long', beep: 'Beeps', deep: 'Deep', chime: 'Chime', system: 'System' })[t.id]) + '</button>';
+        + alertToneName(t) + '</button>';
     }).join('')
     + '</div>'
     + '<button class="al-sysbtn" onclick="openSystemNotifSettings()">' + L('系统里改铃声 ›', 'Change in system settings ›') + '</button>'
-    + '<div class="al-freqhint">' + L('先用「试一下」听效果；选「跟随系统」则用手机默认通知音', 'Use Test to preview; System follows the phone default') + '</div></div>';
+    + '<div class="al-freqhint">' + L('点铃声即可试听；「闹钟」通道走系统闹钟音量，静音模式仍可能被压掉', 'Tap to preview; the alarm channel uses alarm volume and may be muted by silent mode') + '</div></div>';
 
   h += '<div class="field"><label>' + L('提醒频率', 'Frequency') + '</label>'
     + '<div class="seg al-seg" id="alFreqSeg">'
@@ -2660,9 +2664,6 @@ function openAlertForm(id) {
   h += '<div class="al-testrow"><button class="al-test" onclick="alertTest()">' + L('试一下这个提醒', 'Test this alert') + '</button></div>';
 
   document.getElementById('sheetBody').innerHTML = h;
-  var ci = document.getElementById('alCode'), ni = document.getElementById('alName');
-  if (ci) ci.value = a ? a.code : (draft.code || '');
-  if (ni) ni.value = a ? a.name : (draft.name || '');
   showSheet();
   setTimeout(function () { var el = document.getElementById('alVal'); if (el && !el.value) el.focus(); }, 120);
 }
@@ -2693,7 +2694,116 @@ function alPickTone(btn, id) {
   document.querySelectorAll('#alToneBox button, #alToneBox2 button').forEach(function (b) {
     b.classList.toggle('on', b.getAttribute('data-tone') === id);
   });
+  playTonePreview(id);
 }
+/* ---------- 闹钟自检 ---------- */
+function openDiagnose() {
+  var P = watchPlug();
+  if (!P || !P.diagnose) { toast(L('自检需要装到手机上（APK）', 'Diagnostics works in the app only')); return; }
+  P.diagnose().then(function (d) { renderDiagnose(d || {}); })
+    .catch(function () { toast(L('自检失败', 'Diagnostics failed')); });
+}
+function diagRow(ok, label, detail, warn) {
+  var cls = ok ? 'ok' : (warn ? 'warn' : 'bad');
+  return '<div class="dg-row">'
+    + '<i class="dg-dot ' + cls + '"></i>'
+    + '<div class="dg-main"><div class="dg-l">' + label + '</div>'
+    + (detail ? '<div class="dg-d">' + detail + '</div>' : '') + '</div></div>';
+}
+function renderDiagnose(d) {
+  sheetMode = 'diag';
+  document.getElementById('sheetTitle').textContent = L('闹钟自检', 'Alarm diagnostics');
+  document.getElementById('sheetSave').textContent = L('关闭', 'Close');
+
+  var toneName = alertToneById(d.tone || alertTone).name;
+  var imp = Number(d.channelImportance);
+  var chOk = d.channelExists && imp > 2;
+  var sndOk = !!(d.channelSound && d.channelSound.length);
+  var ringMode = Number(d.ringerMode);
+  var dnd = Number(d.dndFilter) > 1;          /* 1 = INTERRUPTION_FILTER_ALL（不打扰）以外即受限制 */
+  var alarmVolOk = Number(d.alarmVolume) > 0;
+  var notifOk = d.notifEnabled !== false && d.postPermission !== false;
+
+  var h = '<div class="dg">';
+  h += diagRow(!notifOk ? false : true, L('通知总开关', 'Notifications'),
+    notifOk ? L('已允许', 'Allowed') : L('被关闭了：系统设置 → 应用 → 浮乐 → 通知', 'Blocked in system settings'), false);
+  var chDetail;
+  if (!d.channelExists) {
+    chDetail = L('通道还没建（打开一次提醒页会自动创建）', 'Channel not created yet');
+  } else if (imp === 0) {
+    chDetail = L('通道被关掉了（系统设置里打开）', 'Channel is turned off');
+  } else {
+    chDetail = L('重要度 ' + imp + ' · 声音' + (sndOk ? '已绑定' : '未绑定'),
+      'importance ' + imp + ' · sound ' + (sndOk ? 'set' : 'none'));
+  }
+  h += diagRow(chOk, L('闹钟通道「浮乐闹钟 · ' + toneName + '」', 'Alarm channel'), chDetail, imp === 0);
+  h += diagRow(sndOk, L('通道音频', 'Channel sound'),
+    sndOk ? L('已绑定内置铃声', 'Bound to built-in tone') : L('通道没有音频，只会有振动', 'No sound on channel'), !sndOk);
+  h += diagRow(!dnd, L('勿扰 / 静音', 'DND / silent'),
+    (ringMode === 0 ? L('手机处于静音模式', 'Phone is on silent')
+      : (ringMode === 1 ? L('手机处于振动模式', 'Phone is on vibrate') : L('正常模式', 'Normal')))
+    + (dnd ? L(' · 勿扰已开启，会压掉铃声', ' · DND on, mutes sound') : '')
+    + (d.dndAccess ? '' : L(' · 未授予勿扰例外权限', ' · no DND access')), dnd);
+  h += diagRow(alarmVolOk, L('闹钟音量', 'Alarm volume'),
+    Number(d.alarmVolume) + ' / ' + Number(d.alarmVolumeMax)
+    + (alarmVolOk ? '' : L('（为 0 时闹钟不响，按音量键调「闹钟」音量）', ' — raise the Alarm slider')), !alarmVolOk);
+  h += diagRow(d.exactAlarm !== false, L('精确闹钟权限', 'Exact alarms'),
+    d.exactAlarm !== false ? L('已允许', 'Allowed') : L('未允许（不影响即时提醒，只影响定时排期）', 'Not allowed (only affects scheduled alerts)'), d.exactAlarm === false);
+  h += diagRow(d.batteryOk !== false, L('省电白名单', 'Battery whitelist'),
+    d.batteryOk !== false ? L('已忽略电池优化', 'Ignoring battery optimization') : L('未加入白名单，后台可能被延后', 'Not whitelisted — background may be delayed'), d.batteryOk === false);
+  if (d.lastCheck) {
+    h += diagRow(true, L('上次后台检查', 'Last background check'),
+      alertTime(Number(d.lastCheck)) + (d.lastResult ? ' · ' + d.lastResult : ''), false);
+  }
+  if (alertNotifyErr) {
+    h += diagRow(false, L('上次通知发送', 'Last notification'),
+      alertNotifyErr === 'permission-denied' ? L('通知权限被拒绝', 'Permission denied') : alertNotifyErr, false);
+  }
+  h += '</div>';
+
+  h += '<div class="dg-act">'
+    + '<button onclick="diagTest()">' + L('响一次试试（8 秒）', 'Ring test (8s)') + '</button>'
+    + '<button onclick="diagOpen(\'notif\')">' + L('通知设置', 'Notification settings') + '</button>'
+    + '<button onclick="diagOpen(\'sound\')">' + L('声音设置', 'Sound settings') + '</button>'
+    + '<button onclick="diagOpen(\'dnd\')">' + L('勿扰授权', 'DND access') + '</button>'
+    + '</div>'
+    + '<div class="al-freqhint">' + L('「响一次试试」直接播放内置铃声，不经过通知通道；能听到说明铃声与音量没问题，剩下的就是系统通知设置。',
+      'Ring test plays the tone directly, bypassing notification channels.') + '</div>';
+
+  document.getElementById('sheetBody').innerHTML = h;
+  showSheet();
+}
+function diagTest() {
+  var P = watchPlug();
+  if (!P || !P.testAlarm) {
+    playTonePreview(alertTone);
+    toast(L('已试听一次', 'Played once'));
+    return;
+  }
+  toast(L('正在响铃 8 秒…', 'Ringing for 8s…'));
+  P.testAlarm().then(function () { openDiagnose(); }).catch(function () {
+    toast(L('响铃失败，检查闹钟音量', 'Ring failed — check alarm volume'));
+  });
+}
+function diagOpen(kind) {
+  var P = watchPlug();
+  if (!P) return;
+  if (kind === 'notif' && P.openNotificationSettings) { /* AppSettings 插件 */ }
+  var AS = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.AppSettings;
+  if (kind === 'notif') {
+    if (AS && AS.openNotificationSettings) AS.openNotificationSettings().catch(function () {});
+    else openSystemNotifSettings();
+    return;
+  }
+  if (kind === 'sound') {
+    if (P.openSoundSettings) P.openSoundSettings().catch(function () {});
+    return;
+  }
+  if (kind === 'dnd') {
+    if (P.openDndSettings) P.openDndSettings().catch(function () {});
+  }
+}
+
 function openToneSheet() {
   sheetMode = 'tone';
   alertForm.tone = alertTone;
@@ -2702,12 +2812,12 @@ function openToneSheet() {
   var h = '<div class="al-tones" id="alToneBox2">'
     + ALERT_TONES.map(function (t) {
       return '<button data-tone="' + t.id + '" class="' + (alertTone === t.id ? 'on' : '') + '" onclick="alPickTone(this,\'' + t.id + '\')">'
-        + L(t.name, ({ alarm: 'Triple + long', beep: 'Beeps', deep: 'Deep', chime: 'Chime', system: 'System' })[t.id]) + '</button>';
+        + alertToneName(t) + '</button>';
     }).join('')
     + '</div>'
     + '<button class="al-sysbtn" onclick="closeSheet();openSystemNotifSettings()">' + L('系统里改铃声 ›', 'Change in system settings ›') + '</button>'
-    + '<div class="al-freqhint">' + L('选「跟随系统」则用手机默认通知音；换铃声后新提醒立即生效（已排队的旧通知不受影响）',
-      'System uses the phone default; new alerts use the new tone right away') + '</div>'
+    + '<div class="al-freqhint">' + L('点一下就能试听；换铃声后新提醒立即生效（已排队的旧通知不受影响）',
+      'Tap a tone to preview; new alerts use it right away') + '</div>'
     + '<div class="al-testrow"><button class="al-test" onclick="alertToneTest()">' + L('试听这个铃声', 'Preview this tone') + '</button></div>';
   document.getElementById('sheetBody').innerHTML = h;
   showSheet();
@@ -2719,6 +2829,7 @@ function saveToneSheet() {
   }
   closeSheet();
   renderAlerts();
+  watchSync();
   toast(L('铃声已切换', 'Tone updated'));
 }
 function alertToneTest() {
@@ -2726,6 +2837,7 @@ function alertToneTest() {
     alertSaveTone(alertForm.tone);
     ensureAlertChannels();
   }
+  playTonePreview(alertForm.tone);
   var fake = {
     type: 'price', code: 'TEST', name: L('试听', 'Preview'), op: 'gte', value: 0,
     modes: ['alarm'], freq: 'once', on: true
@@ -2758,32 +2870,17 @@ function alertSysGuide() {
     + '</div>';
   showSheet();
 }
-function alertFormType(kind) {
-  if (kind === alertKind) return;
-  var c = document.getElementById('alCode'), n = document.getElementById('alName'), v = document.getElementById('alVal');
-  alertForm.draft = { code: c ? c.value : '', name: n ? n.value : '', value: v ? v.value : '' };
-  alertKind = kind;
-  openAlertForm(alertForm.id);
-}
 function saveAlertForm() {
   var valEl = document.getElementById('alVal');
   var val = Number(valEl && valEl.value);
   if (!isFinite(val) || val <= 0) { toast(L('请填写提醒数值', 'Enter a value')); return; }
   if (alertKind === 'vix' && (val < 5 || val > 150)) { toast(L('VIX 数值请填 5–150', 'VIX must be 5–150')); return; }
-  var code = '', name = '';
-  if (alertKind === 'price') {
-    var ci = document.getElementById('alCode'), ni = document.getElementById('alName');
-    code = String(ci && ci.value || '').trim().toUpperCase();
-    name = String(ni && ni.value || '').trim();
-    if (!code) { toast(L('请填写代码', 'Enter a code')); return; }
-    if (!quoteCodeFor(code)) { toast(L('代码格式不支持，示例：AAPL / 600519 / 00700', 'Unsupported code')); return; }
-  }
   if (!alertForm.modes.length) { toast(L('至少选一种提醒方式', 'Pick at least one delivery')); return; }
   var a = alertForm.id ? alertById(alertForm.id) : null;
   if (!a) { a = { id: genId(), created: Date.now(), was: 0, last: 0 }; alerts.push(a); }
-  a.type = alertKind;
-  a.code = code;
-  a.name = name;
+  a.type = 'vix';
+  a.code = '';
+  a.name = '';
   a.op = alertForm.op;
   a.value = val;
   a.modes = alertForm.modes.slice();
@@ -2797,6 +2894,7 @@ function saveAlertForm() {
   closeSheet();
   renderAlerts();
   ensureAlertChannels();
+  watchSync();
   toast(L('已保存 · ' + alertFreqName(a.freq), 'Saved · ' + alertFreqName(a.freq)));
   alertTick();
 }
@@ -2808,12 +2906,8 @@ function alertTest() {
     alertSaveTone(alertForm.tone);
     ensureAlertChannels();
   }
-  var nameEl = document.getElementById('alName');
-  var codeEl = document.getElementById('alCode');
   var fake = {
-    type: alertKind,
-    code: alertKind === 'price' ? String(codeEl && codeEl.value || 'TEST').toUpperCase() : '',
-    name: alertKind === 'price' ? String(nameEl && nameEl.value || '') : '',
+    type: 'vix', code: '', name: '',
     op: alertForm.op, value: val, modes: alertForm.modes.slice(), freq: alertForm.freq, on: true
   };
   fireAlert(fake, val);
@@ -2821,43 +2915,87 @@ function alertTest() {
 }
 
 /* ---------- 触发 ---------- */
+var ALERT_CHAN_KEY = 'fuley.chanver.v1';
 function ensureAlertChannels() {
   var LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
   if (!LN || !LN.createChannel) return;
-  try {
-    LN.createChannel({ id: 'fuley_alert', name: '浮乐提醒', description: '价格 / 指数到价提醒', importance: 4, visibility: 1, vibration: true }).catch(function () {});
-  } catch (e) { /* ignore */ }
   var tone = alertToneById(alertTone);
+  /* 消息通知：也要带音频，否则安卓默认建成静音通道 */
   try {
-    var ch = {
-      id: alertChannelId(),
-      name: '浮乐闹钟 · ' + L(tone.name, ({ alarm: 'Triple + long', beep: 'Beeps', deep: 'Deep', chime: 'Chime', system: 'System' })[tone.id]),
-      description: '闹钟式强提醒（响铃 + 振动）',
-      importance: 5, visibility: 1, vibration: true
-    };
-    if (tone.file) ch.sound = tone.file;
-    LN.createChannel(ch).catch(function () {});
+    LN.createChannel({
+      id: alertNotifyChannelId(),
+      name: '浮乐提醒 · ' + alertToneName(tone),
+      description: 'VIX 到价提醒',
+      importance: 4, visibility: 1, vibration: true,
+      sound: tone.file
+    }).catch(function () {});
   } catch (e) { /* ignore */ }
-  /* 切铃声后清掉旧音调通道，避免系统设置里堆一堆 */
-  ALERT_TONES.forEach(function (t) {
-    if (t.id === alertTone) return;
-    try { if (LN.deleteChannel) LN.deleteChannel({ id: 'fuley_alarm_' + t.id }).catch(function () {}); } catch (e2) { /* ignore */ }
-  });
+  try {
+    LN.createChannel({
+      id: alertChannelId(),
+      name: '浮乐闹钟 · ' + alertToneName(tone),
+      description: '闹钟式强提醒（响铃 + 振动）',
+      importance: 5, visibility: 1, vibration: true,
+      sound: tone.file
+    }).catch(function () {});
+  } catch (e) { /* ignore */ }
+  /* 换铃声后清一次别的通道（旧版无音频 id 一并处理），不必每次渲染都扫一遍 */
+  var sig = 'v3|' + alertTone;
+  if (lsGet(ALERT_CHAN_KEY) !== sig) {
+    var kill = ['fuley_alert', 'fuley_alarm'];
+    ALERT_TONES.forEach(function (t) {
+      kill.push('fuley_alarm_' + t.id);
+      if (t.id !== alertTone) kill.push('fuley_alarm2_' + t.id, 'fuley_alert2_' + t.id);
+    });
+    /* 已下线的提示音通道 */
+    ALERT_TONES_OLD.forEach(function (id) {
+      kill.push('fuley_alarm_' + id, 'fuley_alarm2_' + id, 'fuley_alert2_' + id);
+    });
+    kill.forEach(function (id) {
+      try { if (LN.deleteChannel) LN.deleteChannel({ id: id }).catch(function () {}); } catch (e2) { /* ignore */ }
+    });
+    lsSet(ALERT_CHAN_KEY, sig);
+  }
 }
+var alertNotifyErr = '';
 function pushAlertNotify(title, body, channelId) {
   if (!hasLN()) { toast(title + ' · ' + body); return; }
   var LN = window.Capacitor.Plugins.LocalNotifications;
   ensureNotifyPermission().then(function (p) {
-    if (p && p.display === 'denied') return;
+    if (p && p.display === 'denied') { alertNotifyErr = 'permission-denied'; return; }
+    /* 不带 schedule：直接 notify，不走 AlarmManager（避免精确闹钟权限/省电策略把消息吞掉） */
     var n = {
       id: Math.floor(Math.random() * 2000000000),
       title: title,
       body: body,
       channelId: channelId,
-      schedule: { at: new Date(Date.now() + 700), allowWhileIdle: true }
+      sound: alertToneById(alertTone).file
     };
-    LN.schedule({ notifications: [n] }).catch(function () {});
+    LN.schedule({ notifications: [n] }).then(function () {
+      alertNotifyErr = '';
+    }).catch(function (e) {
+      alertNotifyErr = String((e && (e.message || e.errorMessage)) || e || 'schedule-failed');
+    });
+  }).catch(function (e) {
+    alertNotifyErr = 'perm-error';
   });
+}
+/* 闹钟响铃：走原生 MediaPlayer（闹钟音量、循环），不依赖通知通道 */
+var alarmToneTimer = null;
+function playAlarmTone() {
+  var P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Watch;
+  if (P && P.playTone) {
+    P.playTone({ id: alertTone, loop: true }).catch(function () {});
+    clearTimeout(alarmToneTimer);
+    alarmToneTimer = setTimeout(stopAlarmTone, 60000);   /* 兜底：60 秒没点「我知道了」也自动停 */
+    return;
+  }
+  playTonePreview(alertTone);   /* 网页预览降级：播一次 */
+}
+function stopAlarmTone() {
+  clearTimeout(alarmToneTimer);
+  var P = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Watch;
+  if (P && P.stopTone) P.stopTone().catch(function () {});
 }
 function showAlarm(title, body) {
   var box = document.getElementById('alarmBox');
@@ -2868,6 +3006,7 @@ function showAlarm(title, body) {
   try { if (navigator.vibrate) navigator.vibrate([600, 300, 600, 300, 600]); } catch (e) { /* ignore */ }
 }
 function closeAlarm() {
+  stopAlarmTone();
   var box = document.getElementById('alarmBox');
   if (box) box.classList.remove('on');
   try { if (navigator.vibrate) navigator.vibrate(0); } catch (e) { /* ignore */ }
@@ -2893,9 +3032,10 @@ function fireAlert(a, cur) {
   var modes = a.modes || ['notify'];
   if (modes.indexOf('alarm') >= 0) {
     pushAlertNotify(title, body, alertChannelId());
+    playAlarmTone();
     showAlarm(title, body);
   } else if (modes.indexOf('notify') >= 0) {
-    pushAlertNotify(title, body, 'fuley_alert');
+    pushAlertNotify(title, body, alertNotifyChannelId());
   }
   if (modes.indexOf('vibrate') >= 0 && modes.indexOf('alarm') < 0) {
     try { if (navigator.vibrate) navigator.vibrate([420, 220, 420]); } catch (e) { /* ignore */ }
@@ -2916,20 +3056,8 @@ function evalAlertsOf(kind, getVal) {
   });
 }
 function alertTick(manual) {
-  var priceOn = alerts.filter(function (a) { return a.on && a.type === 'price'; });
   var vixOn = alerts.filter(function (a) { return a.on && a.type === 'vix'; });
   var jobs = [];
-  if (priceOn.length) {
-    var map = {};
-    priceOn.forEach(function (a) { var q = quoteCodeFor(a.code); if (q) map[q] = a.code; });
-    if (Object.keys(map).length) {
-      jobs.push(fetchQuoteBatch(map, alertQuotes).then(function () {
-        evalAlertsOf('price', function (a) {
-          return alertQuotes[a.code] ? Number(alertQuotes[a.code].price) : null;
-        });
-      }).catch(function () {}));
-    }
-  }
   if (vixOn.length) {
     var v = vixNow();
     if (v == null || !vixLive || Date.now() - (Number(vixLive.ts) || 0) > 60000) {
@@ -2957,6 +3085,197 @@ function startAlertEngine() {
   if (alertTimer) return;
   alertTimer = setInterval(function () { if (!document.hidden) alertTick(); }, 60000);
   setTimeout(function () { alertTick(); }, 2500);
+}
+
+/* ---------- 后台监测（原生定时任务，关掉 App 也会检查） ---------- */
+var WATCH_KEY = 'fuley.watch.v1';
+/* 安卓后台定时最短 15 分钟，最长按 12 小时封顶 */
+var WATCH_MIN_LO = 15;
+var WATCH_MIN_HI = 720;
+var watchCfg = loadJSON(WATCH_KEY, null);
+if (!watchCfg || typeof watchCfg !== 'object') watchCfg = { on: false, min: 15 };
+if (typeof watchCfg.on !== 'boolean') watchCfg.on = false;
+watchCfg.min = watchClampMin(watchCfg.min);
+var watchInfo = null;
+
+function watchClampMin(v) {
+  var n = Math.round(Number(v) || 0);
+  if (!isFinite(n) || n <= 0) return WATCH_MIN_LO;
+  if (n < WATCH_MIN_LO) return WATCH_MIN_LO;
+  if (n > WATCH_MIN_HI) return WATCH_MIN_HI;
+  return n;
+}
+function watchApplyMin(silent) {
+  var el = document.getElementById('watchMinIn');
+  if (!el) return;
+  var raw = Number(String(el.value).replace(/[^\d.]/g, ''));
+  var n = watchClampMin(raw);
+  if (!isFinite(raw) || raw <= 0) {
+    el.value = watchCfg.min;
+    toast(L('请输入检查间隔（分钟）', 'Enter an interval in minutes'));
+    return;
+  }
+  if (raw < WATCH_MIN_LO) toast(L('安卓最短 15 分钟，已设为 15', 'Android minimum is 15 min — set to 15'));
+  if (raw > WATCH_MIN_HI) toast(L('最长 720 分钟，已设为 720', 'Maximum is 720 min — set to 720'));
+  el.value = n;
+  if (n === watchCfg.min) { if (!silent) toast(L('已设为每 ' + n + ' 分钟', 'Every ' + n + ' min')); return; }
+  watchCfg.min = n;
+  watchSaveCfg();
+  renderWatch();
+  if (watchCfg.on) watchSync();
+  if (!silent) toast(L('已设为每 ' + n + ' 分钟', 'Every ' + n + ' min'));
+}
+function watchPlug() {
+  return (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Watch) || null;
+}
+function watchSaveCfg() { saveJSON(WATCH_KEY, watchCfg); }
+function watchPayload() {
+  return JSON.stringify(alerts.filter(function (a) { return a.type === 'vix'; }).map(function (a) {
+    return {
+      id: a.id, type: 'vix', code: '', name: '',
+      op: a.op, value: a.value, modes: a.modes, freq: a.freq,
+      on: !!a.on, was: a.was ? 1 : 0, done: a.done ? 1 : 0,
+      day: a.day || '', last: a.last || 0
+    };
+  }));
+}
+/* 把规则推给原生层，并按开关排程 */
+function watchSync() {
+  var P = watchPlug();
+  if (!P || !P.configure) { renderWatch(); return; }
+  P.configure({
+    alerts: watchPayload(),
+    tone: alertTone,
+    lang: IS_EN() ? 'en' : 'zh',
+    on: !!watchCfg.on,
+    min: watchCfg.min
+  }).then(function (r) {
+    if (r) watchInfo = r;
+    renderWatch();
+  }).catch(function () { renderWatch(); });
+}
+function watchRefresh(cb) {
+  var P = watchPlug();
+  if (!P || !P.status) { renderWatch(); if (cb) cb(null); return; }
+  P.status().then(function (r) {
+    watchInfo = r || null;
+    renderWatch();
+    if (cb) cb(r);
+  }).catch(function () { renderWatch(); if (cb) cb(null); });
+}
+/* 后台跑过之后，把运行状态（是否已触发、是否自动关闭）拉回列表 */
+function watchPullMerge() {
+  var P = watchPlug();
+  if (!P || !P.pull) return;
+  P.pull().then(function (r) {
+    if (!r) return;
+    if (r.lastCheck) alertLastCheck = Number(r.lastCheck) || alertLastCheck;
+    var arr = [];
+    try { arr = JSON.parse(r.alerts || '[]'); } catch (e) { arr = []; }
+    var map = {};
+    arr.forEach(function (x) { if (x && x.id) map[x.id] = x; });
+    var changed = false;
+    alerts.forEach(function (a) {
+      var n = map[a.id];
+      if (!n) return;
+      if ((Number(n.last) || 0) > (Number(a.last) || 0)) {
+        a.last = Number(n.last) || 0;
+        a.lastVal = Number(n.lastVal) || a.lastVal;
+        a.was = n.was ? 1 : 0;
+        a.done = n.done ? 1 : 0;
+        a.day = n.day || '';
+        if (n.on === false) a.on = false;
+        changed = true;
+      }
+    });
+    if (changed) saveAlerts();
+    renderAlerts();
+  }).catch(function () {});
+}
+/* 后台触发过的闹钟，回到 App 时补上全屏卡片 */
+function watchTakeAlarm() {
+  var P = watchPlug();
+  if (!P || !P.takeAlarm) return;
+  P.takeAlarm().then(function (r) {
+    if (r && r.title) showAlarm(r.title, r.body || '');
+  }).catch(function () {});
+}
+function renderWatch() {
+  var sw = document.getElementById('watchSw');
+  if (!sw) return;
+  var on = !!watchCfg.on;
+  var hasPlugin = !!watchPlug();
+  sw.classList.toggle('on', on);
+  var nm = document.getElementById('watchState');
+  if (nm) nm.textContent = on ? L('已开启', 'On') : L('已关闭', 'Off');
+  document.querySelectorAll('#watchSeg button').forEach(function (b) {
+    b.classList.toggle('on', Number(b.getAttribute('data-min')) === watchCfg.min);
+  });
+  var minIn = document.getElementById('watchMinIn');
+  if (minIn) {
+    if (document.activeElement !== minIn) minIn.value = watchCfg.min;
+    /* 不在预设里时，把输入框标成选中态 */
+    minIn.classList.toggle('active', [15, 30, 60, 120].indexOf(watchCfg.min) < 0);
+  }
+  var sub = document.getElementById('watchSub');
+  if (sub) {
+    if (!hasPlugin) {
+      sub.textContent = L('装到手机上才生效：网页预览没法后台运行', 'App only — a browser tab cannot run in background');
+    } else if (!on) {
+      sub.textContent = L('开启后关掉 App 也会定时检查 VIX', 'When on, VIX is checked even with the app closed');
+    } else if (watchInfo && watchInfo.canNotify === false) {
+      sub.textContent = L('系统通知被关了，请到手机设置里允许通知', 'Notifications are blocked — allow them in system settings');
+    } else {
+      sub.textContent = L('已开启：每 ' + watchCfg.min + ' 分钟检查一次，深度省电可能延后',
+        'On: checks every ' + watchCfg.min + ' min; deep power saving may delay it');
+    }
+  }
+  var foot = document.getElementById('watchFoot');
+  if (foot) {
+    var t = (watchInfo && watchInfo.lastCheck) ? alertTime(watchInfo.lastCheck) : '';
+    var res = watchInfo && watchInfo.lastResult;
+    var tail = '';
+    if (res === 'no-alert') tail = L(' · 无提醒', ' · no alert');
+    else if (res && String(res).indexOf('fired:') === 0) tail = L(' · 已推送 ' + String(res).slice(6) + ' 条', ' · ' + String(res).slice(6) + ' pushed');
+    else if (res === 'ok') tail = L(' · 未触发', ' · nothing hit');
+    foot.textContent = t ? (L('上次后台检查 ', 'Last background check ') + t + tail) : L('上次后台检查 —', 'No background check yet');
+  }
+  var bat = document.getElementById('watchBat');
+  if (bat) bat.style.display = (!watchInfo || watchInfo.batteryOk) ? 'none' : '';
+}
+function watchToggle() {
+  var P = watchPlug();
+  if (!P || !P.configure) {
+    toast(L('后台监测需要装到手机上（APK），网页预览不支持', 'Background monitoring works in the app, not in a browser'));
+    return;
+  }
+  watchCfg.on = !watchCfg.on;
+  watchSaveCfg();
+  renderWatch();
+  watchSync();
+  toast(watchCfg.on ? L('已开启后台监测', 'Background monitoring on') : L('已关闭后台监测', 'Background monitoring off'));
+  if (watchCfg.on) {
+    var P2 = watchPlug();
+    if (P2 && P2.checkNow) P2.checkNow().catch(function () {});
+    setTimeout(function () { watchRefresh(); }, 3000);
+  }
+}
+function watchPickMin(btn, min) {
+  watchCfg.min = min;
+  watchSaveCfg();
+  var el = document.getElementById('watchMinIn');
+  if (el) el.value = min;
+  renderWatch();
+  if (watchCfg.on) watchSync();
+}
+function watchBattery() {
+  var P = watchPlug();
+  if (!P || !P.openBatterySettings) { toast(L('仅在 App 内可用', 'App only')); return; }
+  P.openBatterySettings().then(function () {
+    setTimeout(function () { watchRefresh(); }, 1200);
+  }).catch(function () {
+    toast(L('打开失败，请到系统设置里允许后台运行', 'Open failed — allow background running in system settings'));
+  });
 }
 
 /* ---------- 恐慌级别：十级自评 + Kübler-Ross 五阶段 ---------- */
@@ -4490,7 +4809,7 @@ function meAuth() {
   showRegGate();
 }
 /* ---------- 语言切换（中文 / English） ---------- */
-var APP_VERSION = 'v1.8.3';
+var APP_VERSION = 'v1.8.6';
 function renderLangSeg() {
   var cur = (window.FuleyI18N && window.FuleyI18N.lang()) || 'zh';
   var html = '';
@@ -6041,6 +6360,19 @@ function toast(msg) {
   renderBooks();
   if (curTab === 'signals') { renderAlerts(); }
   startAlertEngine();
+  renderWatch();
+  watchSync();
+  watchRefresh();
+  watchPullMerge();
+  /* 原生桥可能晚于脚本注入，稍后补一次同步 */
+  setTimeout(function () { watchTakeAlarm(); watchSync(); watchRefresh(); }, 1500);
+  document.addEventListener('deviceready', function () { watchSync(); watchRefresh(); }, false);
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) return;
+    watchPullMerge();
+    watchTakeAlarm();
+    if (curTab === 'signals' && curSigPane === 'alert') watchRefresh();
+  });
 
   // 定投通知重排（重启 / 数据恢复后）
   if (hasLN()) {
